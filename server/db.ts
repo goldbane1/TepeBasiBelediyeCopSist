@@ -123,6 +123,35 @@ export async function createLocalManagedUser(input: { name: string; username: st
   return getUserByOpenId(openId);
 }
 
+export async function updateLocalManagedUser(input: {
+  openId: string;
+  name?: string;
+  username?: string;
+  passwordHash?: string;
+  role?: InsertUser["role"];
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [existing] = await db.select().from(users).where(eq(users.openId, input.openId)).limit(1);
+  if (!existing) throw new Error("Kullanıcı bulunamadı.");
+
+  const updates: Partial<InsertUser> = { updatedAt: new Date() };
+  if (input.name) updates.name = input.name;
+  if (input.role) updates.role = input.role;
+  if (input.passwordHash) updates.passwordHash = input.passwordHash;
+
+  if (input.username && input.username.toLowerCase() !== existing.username) {
+    const newUsername = input.username.toLowerCase();
+    const usernameTaken = await getLocalUserByUsername(newUsername);
+    if (usernameTaken) throw new Error("Bu kullanıcı adı başka bir kullanıcı tarafından kullanılıyor.");
+    updates.username = newUsername;
+  }
+
+  await db.update(users).set(updates).where(eq(users.openId, input.openId));
+  return getUserByOpenId(input.openId);
+}
+
 export async function listManagedUsers() {
   const db = await getDb();
   return db ? db.select().from(users) : [];
@@ -141,5 +170,3 @@ export async function deleteManagedUser(openId: string) {
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.delete(users).where(eq(users.openId, openId));
 }
-
-// TODO: add feature queries here as your schema grows.

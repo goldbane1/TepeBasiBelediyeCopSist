@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { storagePut } from "../storage";
 import * as db from "../operations-db";
-import { createLocalManagedUser, deleteManagedUser, listManagedUsers } from "../db";
+import { createLocalManagedUser, deleteManagedUser, listManagedUsers, updateLocalManagedUser } from "../db";
 import { hashPassword } from "../local-auth";
 import { protectedProcedure, router } from "../_core/trpc";
 
@@ -295,6 +295,27 @@ export const operationsRouter = router({
         role: input.role,
       });
       await audit(ctx.user.id, "PERSONEL_HESABI_OLUŞTURULDU", "kullanıcı", undefined, `${input.name} / ${input.role}`);
+      return { success: true };
+    }),
+    update: protectedProcedure.input(
+      z.object({
+        openId: z.string().min(4),
+        name: z.string().min(2).optional(),
+        username: z.string().trim().toLowerCase().min(2).optional(),
+        password: z.string().min(3).optional(),
+        role: staffRole.optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      const passwordHash = input.password && input.password.trim() ? await hashPassword(input.password) : undefined;
+      await updateLocalManagedUser({
+        openId: input.openId,
+        name: input.name,
+        username: input.username,
+        passwordHash,
+        role: input.role,
+      });
+      await audit(ctx.user.id, "PERSONEL_HESABI_GÜNCELLENDİ", "kullanıcı", undefined, `${input.openId} / ${input.role || "bilgi"}`);
       return { success: true };
     }),
     remove: protectedProcedure.input(z.object({ openId: z.string().min(4) })).mutation(async ({ ctx, input }) => {
