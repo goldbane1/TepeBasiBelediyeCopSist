@@ -8,7 +8,7 @@ let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: mysql.Pool | null = null;
 
 export function getDatabaseConnectionString(): string | undefined {
-  return (
+  const url = (
     process.env.DATABASE_URL ||
     process.env.MYSQL_URL ||
     process.env.MYSQLPUBLIC_URL ||
@@ -16,6 +16,7 @@ export function getDatabaseConnectionString(): string | undefined {
     process.env.MYSQL_PRIVATE_URL ||
     process.env.MYSQL_PUBLIC_URL
   );
+  return url;
 }
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
@@ -28,6 +29,7 @@ export async function getDb() {
 
   if (!_db) {
     try {
+      console.log("[Database] Initializing MySQL connection pool...");
       _pool = mysql.createPool({
         uri: connectionString,
         waitForConnections: true,
@@ -35,6 +37,7 @@ export async function getDb() {
         queueLimit: 0,
       });
       _db = drizzle({ client: _pool });
+      console.log("[Database] Drizzle instance ready.");
     } catch (error) {
       console.error("[Database] Failed to connect:", error);
       _db = null;
@@ -47,10 +50,11 @@ export async function ensureTablesExist() {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot ensure tables: no database connection.");
-    return;
+    return false;
   }
 
   try {
+    console.log("[Database] Ensuring SQL tables exist...");
     await db.execute(`
       CREATE TABLE IF NOT EXISTS \`users\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
@@ -184,8 +188,10 @@ export async function ensureTablesExist() {
     `);
 
     console.log("[Database] All tables initialized successfully.");
+    return true;
   } catch (err) {
     console.error("[Database] Error ensuring tables exist:", err);
+    return false;
   }
 }
 
