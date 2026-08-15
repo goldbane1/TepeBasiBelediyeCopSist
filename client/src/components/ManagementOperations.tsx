@@ -55,24 +55,31 @@ function Reports({ shifts, complaints, logs, users, refresh }: { shifts: any[]; 
     complaint => complaint.status === "açık" && new Date(complaint.dueAt).getTime() < Date.now()
   ).length;
 
-  // 1. LOG TARİH FİLTRELEME
-  const [logFilterPeriod, setLogFilterPeriod] = useState<"all" | "today" | "week" | "month">("all");
+  // 1. LOG DİREKT TARİH FİLTRELEME (xx.xx.xxxx TARİH SEÇİCİ)
+  const [logStartDate, setLogStartDate] = useState("");
+  const [logEndDate, setLogEndDate] = useState("");
 
   const filteredLogs = useMemo(() => {
-    if (logFilterPeriod === "all") return logs;
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
-    const thirtyDaysAgo = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+    if (!logStartDate && !logEndDate) return logs;
+
+    let startMs = 0;
+    let endMs = Infinity;
+
+    if (logStartDate) {
+      const [y, m, d] = logStartDate.split("-").map(Number);
+      startMs = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+    }
+
+    if (logEndDate) {
+      const [y, m, d] = logEndDate.split("-").map(Number);
+      endMs = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+    }
 
     return logs.filter(log => {
       const logTime = new Date(log.createdAt).getTime();
-      if (logFilterPeriod === "today") return logTime >= startOfToday;
-      if (logFilterPeriod === "week") return logTime >= sevenDaysAgo;
-      if (logFilterPeriod === "month") return logTime >= thirtyDaysAgo;
-      return true;
+      return logTime >= startMs && logTime <= endMs;
     });
-  }, [logs, logFilterPeriod]);
+  }, [logs, logStartDate, logEndDate]);
 
   // 2. MAHALLE BAZLI TONAJ ANALİZİ & FİLTRELEME
   const [tonnagePeriod, setTonnagePeriod] = useState<"all" | "today" | "week" | "month">("all");
@@ -296,41 +303,61 @@ function Reports({ shifts, complaints, logs, users, refresh }: { shifts: any[]; 
           </CardContent>
         </Card>
 
-        {/* Denetim Kaydı (Audit Logs & Tarih Filtreleme) */}
+        {/* Denetim Kaydı (Audit Logs & xx.xx.xxxx Tarih Seçici Filtresi) */}
         <Card className="border-0 bg-white shadow-sm">
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+          <CardHeader className="space-y-2">
+            <div className="flex items-center justify-between">
               <CardTitle className="font-display">Denetim Kaydı (Tüm Loglar)</CardTitle>
-              <p className="text-sm text-slate-500">İşlemi yapan personel ve işlem detayları.</p>
+              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800 font-bold text-xs">
+                {filteredLogs.length} Kayıt
+              </Badge>
             </div>
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-[11px] font-semibold text-slate-600">
-              <button
-                onClick={() => setLogFilterPeriod("all")}
-                className={`rounded-lg px-2 py-0.5 transition ${logFilterPeriod === "all" ? "bg-emerald-700 text-white" : "hover:text-slate-900"}`}
-              >
-                Tümü
-              </button>
-              <button
-                onClick={() => setLogFilterPeriod("today")}
-                className={`rounded-lg px-2 py-0.5 transition ${logFilterPeriod === "today" ? "bg-emerald-700 text-white" : "hover:text-slate-900"}`}
-              >
-                Bugün
-              </button>
-              <button
-                onClick={() => setLogFilterPeriod("week")}
-                className={`rounded-lg px-2 py-0.5 transition ${logFilterPeriod === "week" ? "bg-emerald-700 text-white" : "hover:text-slate-900"}`}
-              >
-                7 Gün
-              </button>
-              <button
-                onClick={() => setLogFilterPeriod("month")}
-                className={`rounded-lg px-2 py-0.5 transition ${logFilterPeriod === "month" ? "bg-emerald-700 text-white" : "hover:text-slate-900"}`}
-              >
-                30 Gün
-              </button>
+            <p className="text-sm text-slate-500">İşlemi yapan personel ve işlem detayları.</p>
+
+            {/* Tarih Aralığı Filtreleme Araç Çubuğu (xx.xx.xxxx Tarih Seçici) */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-2.5 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-4 w-4 text-emerald-700" />
+                  Tarih Bazlı Log Filtreleme (gün.ay.yıl)
+                </span>
+                {(logStartDate || logEndDate) && (
+                  <button
+                    onClick={() => {
+                      setLogStartDate("");
+                      setLogEndDate("");
+                    }}
+                    className="text-red-600 hover:underline text-[11px] font-bold"
+                  >
+                    Filtreyi Temizle
+                  </button>
+                )}
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Başlangıç Tarihi</label>
+                  <Input
+                    type="date"
+                    value={logStartDate}
+                    onChange={e => setLogStartDate(e.target.value)}
+                    className="h-8 text-xs bg-white cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Bitiş Tarihi</label>
+                  <Input
+                    type="date"
+                    value={logEndDate}
+                    onChange={e => setLogEndDate(e.target.value)}
+                    className="h-8 text-xs bg-white cursor-pointer"
+                  />
+                </div>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="max-h-[520px] space-y-3.5 overflow-auto">
+
+          <CardContent className="max-h-[480px] space-y-3.5 overflow-auto">
             {filteredLogs.length === 0 ? (
               <NoData text="Seçilen tarih aralığında log kaydı bulunmuyor." />
             ) : (
