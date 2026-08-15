@@ -5,17 +5,175 @@ import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+export function getDatabaseConnectionString(): string | undefined {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.MYSQL_URL ||
+    process.env.MYSQLPRIVATE_URL ||
+    process.env.MYSQLPUBLIC_URL ||
+    process.env.MYSQL_PRIVATE_URL ||
+    process.env.MYSQL_PUBLIC_URL
+  );
+}
+
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  const connectionString = getDatabaseConnectionString();
+  if (!_db && connectionString) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzle(connectionString);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
     }
   }
   return _db;
+}
+
+export async function ensureTablesExist() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot ensure tables: no database connection.");
+    return;
+  }
+
+  try {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`users\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`openId\` varchar(64) NOT NULL UNIQUE,
+        \`name\` text,
+        \`email\` varchar(320),
+        \`loginMethod\` varchar(64),
+        \`username\` varchar(64) UNIQUE,
+        \`passwordHash\` varchar(255),
+        \`isLocalAccount\` boolean NOT NULL DEFAULT false,
+        \`role\` enum('şoför','kademe personeli','kaynak personeli','yönetim') NOT NULL DEFAULT 'şoför',
+        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`updatedAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        \`lastSignedIn\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`vehicles\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`type\` enum('çöp kamyonu','damperli kamyon') NOT NULL,
+        \`capacityTon\` varchar(24) NOT NULL,
+        \`brand\` varchar(100) NOT NULL,
+        \`plate\` varchar(16) NOT NULL UNIQUE,
+        \`status\` enum('aktif','arızalı','bakımda') NOT NULL DEFAULT 'aktif',
+        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`shifts\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`driverId\` int NOT NULL,
+        \`vehicleId\` int NOT NULL,
+        \`region\` varchar(100) NOT NULL,
+        \`neighborhood\` varchar(100) NOT NULL,
+        \`vehicleType\` enum('çöp kamyonu','damperli kamyon') NOT NULL,
+        \`startKm\` int NOT NULL,
+        \`startFullness\` enum('boş','dolu') NOT NULL,
+        \`endKm\` int,
+        \`endFullness\` enum('boş','dolu'),
+        \`tonnage\` varchar(24),
+        \`tonnageReceiptUrl\` text,
+        \`faultReported\` boolean NOT NULL DEFAULT false,
+        \`status\` enum('açık','tamamlandı') NOT NULL DEFAULT 'açık',
+        \`startedAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`endedAt\` timestamp
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`vehicleFaults\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`vehicleId\` int NOT NULL,
+        \`reportedBy\` int NOT NULL,
+        \`description\` text NOT NULL,
+        \`severity\` enum('düşük','orta','yüksek') NOT NULL DEFAULT 'orta',
+        \`status\` enum('kademe_onayı_bekliyor','bakımda','onaylandı') NOT NULL DEFAULT 'kademe_onayı_bekliyor',
+        \`approvedBy\` int,
+        \`approvalNote\` text,
+        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`approvedAt\` timestamp
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`bulkWasteReports\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`reportedBy\` int NOT NULL,
+        \`region\` varchar(100) NOT NULL,
+        \`neighborhood\` varchar(100) NOT NULL,
+        \`wasteType\` varchar(100) NOT NULL,
+        \`description\` text NOT NULL,
+        \`latitude\` varchar(32) NOT NULL,
+        \`longitude\` varchar(32) NOT NULL,
+        \`dueAt\` timestamp NOT NULL,
+        \`status\` enum('bekliyor','toplandı') NOT NULL DEFAULT 'bekliyor',
+        \`collectedVehicleId\` int,
+        \`collectedDriverId\` int,
+        \`collectedAt\` timestamp,
+        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`containerFaults\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`reportedBy\` int NOT NULL,
+        \`region\` varchar(100) NOT NULL,
+        \`neighborhood\` varchar(100) NOT NULL,
+        \`faultType\` enum('kol','ayak','gövde','kapak','diğer') NOT NULL,
+        \`description\` text NOT NULL,
+        \`latitude\` varchar(32) NOT NULL,
+        \`longitude\` varchar(32) NOT NULL,
+        \`status\` enum('bekliyor','onarım_tamamlandı') NOT NULL DEFAULT 'bekliyor',
+        \`repairedBy\` int,
+        \`repairNote\` text,
+        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`repairedAt\` timestamp
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`citizenComplaints\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`reportedBy\` int NOT NULL,
+        \`region\` varchar(100) NOT NULL,
+        \`neighborhood\` varchar(100) NOT NULL,
+        \`description\` text NOT NULL,
+        \`latitude\` varchar(32) NOT NULL,
+        \`longitude\` varchar(32) NOT NULL,
+        \`photoUrl\` text,
+        \`dueAt\` timestamp NOT NULL,
+        \`status\` enum('açık','onaylandı') NOT NULL DEFAULT 'açık',
+        \`acknowledgedBy\` int,
+        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        \`acknowledgedAt\` timestamp
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS \`auditLogs\` (
+        \`id\` int AUTO_INCREMENT PRIMARY KEY,
+        \`actorId\` int NOT NULL,
+        \`action\` varchar(120) NOT NULL,
+        \`entityType\` varchar(100) NOT NULL,
+        \`entityId\` int,
+        \`details\` text,
+        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    console.log("[Database] All tables initialized successfully.");
+  } catch (err) {
+    console.error("[Database] Error ensuring tables exist:", err);
+  }
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -99,13 +257,21 @@ export async function getLocalUserByUsername(username: string) {
 export async function hasLocalManagementAccount() {
   const db = await getDb();
   if (!db) return false;
-  const result = await db.select().from(users).where(eq(users.role, "yönetim"));
-  return result.some(user => user.isLocalAccount && Boolean(user.passwordHash));
+  try {
+    await ensureTablesExist();
+    const result = await db.select().from(users).where(eq(users.role, "yönetim"));
+    return result.some(user => user.isLocalAccount && Boolean(user.passwordHash));
+  } catch (e) {
+    console.warn("[Database] Error checking management account, ensuring tables:", e);
+    return false;
+  }
 }
 
 export async function createLocalManagedUser(input: { name: string; username: string; passwordHash: string; role: InsertUser["role"] }) {
   const db = await getDb();
-  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı. Lütfen DATABASE_URL değişkenini kontrol edin.");
+  await ensureTablesExist();
+
   const username = input.username.toLowerCase();
   const existing = await getLocalUserByUsername(username);
   if (existing) throw new Error("Bu kullanıcı adı zaten kullanımda.");
@@ -131,7 +297,8 @@ export async function updateLocalManagedUser(input: {
   role?: InsertUser["role"];
 }) {
   const db = await getDb();
-  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı. Lütfen DATABASE_URL değişkenini kontrol edin.");
+  await ensureTablesExist();
 
   const [existing] = await db.select().from(users).where(eq(users.openId, input.openId)).limit(1);
   if (!existing) throw new Error("Kullanıcı bulunamadı.");
@@ -159,7 +326,8 @@ export async function listManagedUsers() {
 
 export async function createManagedUser(user: InsertUser) {
   const db = await getDb();
-  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı. Lütfen DATABASE_URL değişkenini kontrol edin.");
+  await ensureTablesExist();
   await db.insert(users).values(user).onDuplicateKeyUpdate({
     set: { name: user.name ?? null, email: user.email ?? null, role: user.role, updatedAt: new Date() },
   });
@@ -167,6 +335,6 @@ export async function createManagedUser(user: InsertUser) {
 
 export async function deleteManagedUser(openId: string) {
   const db = await getDb();
-  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı. Lütfen DATABASE_URL değişkenini kontrol edin.");
   await db.delete(users).where(eq(users.openId, openId));
 }
