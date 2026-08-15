@@ -37,6 +37,20 @@ async function audit(userId: number, action: string, entityType: string, entityI
   await db.addAuditLog({ actorId: userId, action, entityType, entityId, details });
 }
 
+async function uploadImages(dataUrlOrArray: string | string[] | undefined, prefix: string) {
+  if (!dataUrlOrArray) return undefined;
+  if (Array.isArray(dataUrlOrArray)) {
+    if (dataUrlOrArray.length === 0) return undefined;
+    const uploadedList: string[] = [];
+    for (let i = 0; i < dataUrlOrArray.length; i++) {
+      const uploaded = await uploadImage(dataUrlOrArray[i], `${prefix}_${i + 1}`);
+      if (uploaded) uploadedList.push(uploaded);
+    }
+    return JSON.stringify(uploadedList);
+  }
+  return uploadImage(dataUrlOrArray, prefix);
+}
+
 export const operationsRouter = router({
   summary: protectedProcedure.query(() => db.getOperationalSummary()),
   vehicles: router({
@@ -108,11 +122,11 @@ export const operationsRouter = router({
         endFullness: fullness,
         tonnage: z.string().optional(),
         faultReported: z.boolean(),
-        tonnageReceipt: z.string().optional(),
+        tonnageReceipt: z.union([z.string(), z.array(z.string())]).optional(),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
-      const receiptUrl = await uploadImage(input.tonnageReceipt, `shifts/${ctx.user.id}`);
+      const receiptUrl = await uploadImages(input.tonnageReceipt, `shifts/${ctx.user.id}`);
       await db.finishShift(input.shiftId, {
         endKm: input.endKm,
         endFullness: input.endFullness,

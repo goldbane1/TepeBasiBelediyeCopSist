@@ -287,9 +287,34 @@ function Reports({ shifts, complaints, logs, users, refresh }: { shifts: any[]; 
                         <td className="px-5 py-4 font-semibold text-slate-800">{shift.tonnage ?? "—"}</td>
                         <td className="px-5 py-4">
                           {shift.tonnageReceiptUrl ? (
-                            <a href={shift.tonnageReceiptUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-emerald-700 underline">
-                              Fişi aç
-                            </a>
+                            (() => {
+                              let urls: string[] = [];
+                              try {
+                                if (String(shift.tonnageReceiptUrl).startsWith("[")) {
+                                  urls = JSON.parse(shift.tonnageReceiptUrl);
+                                } else {
+                                  urls = [shift.tonnageReceiptUrl];
+                                }
+                              } catch {
+                                urls = [shift.tonnageReceiptUrl];
+                              }
+
+                              return (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {urls.map((url, i) => (
+                                    <a
+                                      key={i}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-xs font-semibold text-emerald-700 underline hover:text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100"
+                                    >
+                                      Fiş {urls.length > 1 ? `#${i + 1}` : "aç"}
+                                    </a>
+                                  ))}
+                                </div>
+                              );
+                            })()
                           ) : (
                             <span className="text-slate-400">—</span>
                           )}

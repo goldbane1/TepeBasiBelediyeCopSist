@@ -351,7 +351,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
     endFullness: "boş" as "boş" | "dolu",
     tonnage: "",
     faultReported: false,
-    tonnageReceipt: undefined as string | undefined,
+    tonnageReceipts: [] as string[],
   });
 
   const [adminEndKmValues, setAdminEndKmValues] = useState<Record<number, string>>({});
@@ -373,7 +373,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
       toast.success("Mesai sonlandırıldı.");
       refresh();
       if (current.refetch) void current.refetch();
-      setEndForm({ endKm: "", endFullness: "boş", tonnage: "", faultReported: false, tonnageReceipt: undefined });
+      setEndForm({ endKm: "", endFullness: "boş", tonnage: "", faultReported: false, tonnageReceipts: [] });
     },
     onError: error => toast.error(error.message),
   });
@@ -419,12 +419,33 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
     });
   };
 
-  const readReceipt = (file: File | null) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("Yalnızca görsel dosyası yükleyebilirsiniz.");
-    const reader = new FileReader();
-    reader.onload = () => setEndForm(currentForm => ({ ...currentForm, tonnageReceipt: String(reader.result) }));
-    reader.readAsDataURL(file);
+  const readReceipts = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter(f => f.type.startsWith("image/"));
+    if (validFiles.length === 0) return toast.error("Yalnızca görsel dosyası yükleyebilirsiniz.");
+
+    const promises = validFiles.map(file => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(promises).then(results => {
+      setEndForm(currentForm => ({
+        ...currentForm,
+        tonnageReceipts: [...(currentForm.tonnageReceipts || []), ...results],
+      }));
+    });
+  };
+
+  const removeReceipt = (index: number) => {
+    setEndForm(currentForm => ({
+      ...currentForm,
+      tonnageReceipts: (currentForm.tonnageReceipts || []).filter((_, i) => i !== index),
+    }));
   };
 
   const submitFinish = (event: FormEvent) => {
@@ -436,7 +457,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
       endFullness: endForm.endFullness,
       tonnage: endForm.tonnage || undefined,
       faultReported: endForm.faultReported,
-      tonnageReceipt: endForm.tonnageReceipt,
+      tonnageReceipt: endForm.tonnageReceipts.length > 0 ? endForm.tonnageReceipts : undefined,
     });
   };
 
@@ -736,15 +757,42 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
               <Field label="Tonaj">
                 <Input value={endForm.tonnage} onChange={e => setEndForm({ ...endForm, tonnage: e.target.value })} placeholder="Örn. 4,25" />
               </Field>
-              <Field label="Tonaj Fişi Fotoğrafı">
-                <Input required type="file" accept="image/*" onChange={e => readReceipt(e.target.files?.[0] ?? null)} />
+              <Field label="Tonaj Fişi Fotoğrafları (Kamera / Galeri)">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  onChange={e => readReceipts(e.target.files)}
+                />
               </Field>
+
+              {endForm.tonnageReceipts.length > 0 && (
+                <div className="lg:col-span-4 space-y-2">
+                  <p className="text-xs font-bold text-slate-700">Yüklenen Fiş Fotoğrafları ({endForm.tonnageReceipts.length}):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {endForm.tonnageReceipts.map((src, index) => (
+                      <div key={index} className="relative h-16 w-16 overflow-hidden rounded-xl border border-slate-200 shadow-xs">
+                        <img src={src} alt={`Fiş ${index + 1}`} className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeReceipt(index)}
+                          className="absolute top-0.5 right-0.5 grid h-4 w-4 place-items-center rounded-full bg-red-600 text-white text-[10px]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 lg:col-span-2">
                 <input type="checkbox" checked={endForm.faultReported} onChange={e => setEndForm({ ...endForm, faultReported: e.target.checked })} />
                 Mesai sırasında araç arızası oluştu
               </label>
               <div className="lg:col-span-2">
-                <Button disabled={finish.isPending || !endForm.tonnageReceipt} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                <Button disabled={finish.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
                   {finish.isPending ? "Kaydediliyor..." : "Mesaiyi sonlandır"}
                 </Button>
               </div>
