@@ -5,6 +5,7 @@ import {
   citizenComplaints,
   containerFaults,
   shifts,
+  users,
   vehicleFaults,
   vehicles,
 } from "../drizzle/schema";
@@ -16,6 +17,16 @@ export type ShiftEligibility = {
 };
 
 type ActiveShiftContext = { vehicleId: number; vehicleType: "çöp kamyonu" | "damperli kamyon" } | null | undefined;
+
+export function getShiftEligibility(vehicleStatus: string, openFaultCount: number): ShiftEligibility {
+  if (vehicleStatus !== "aktif") {
+    return { allowed: false, reason: "Arızalı veya bakımda olan araçlar ile mesai başlatılamaz." };
+  }
+  if (openFaultCount > 0) {
+    return { allowed: false, reason: "Bu araç için henüz onaylanmamış kademe arıza kaydı bulunmaktadır." };
+  }
+  return { allowed: true };
+}
 
 export function getWasteFlowEligibility(
   activeShift: ActiveShiftContext,
@@ -31,21 +42,8 @@ export function getWasteFlowEligibility(
   return { allowed: true };
 }
 
-export function getShiftEligibility(
-  vehicleStatus: "aktif" | "arızalı" | "bakımda",
-  pendingFaultCount: number,
-): ShiftEligibility {
-  if (vehicleStatus !== "aktif" || pendingFaultCount > 0) {
-    return {
-      allowed: false,
-      reason: "Araçta kademe onayı bekleyen arıza kaydı bulunduğu için mesai başlatılamaz.",
-    };
-  }
-  return { allowed: true };
-}
-
-export function firstOrNull<T>(items: T[]): T | null {
-  return items[0] ?? null;
+export function firstOrNull<T>(rows: T[]): T | null {
+  return rows.length > 0 ? rows[0] : null;
 }
 
 export async function listVehicles() {
@@ -68,28 +66,42 @@ export async function updateVehicleStatus(id: number, status: "aktif" | "arızal
 export async function deleteVehicle(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
-  const activeShift = await db.select({ id: shifts.id }).from(shifts).where(and(eq(shifts.vehicleId, id), eq(shifts.status, "açık"))).limit(1);
-  if (activeShift[0]) throw new Error("Açık mesaisi bulunan araç silinemez.");
   await db.delete(vehicles).where(eq(vehicles.id, id));
 }
 
-export async function getVehicleShiftEligibility(vehicleId: number) {
+export async function getVehicleShiftEligibility(vehicleId: number): Promise<ShiftEligibility> {
   const db = await getDb();
-  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  if (!db) return { allowed: false, reason: "Veritabanı bağlantısı kurulamadı." };
   const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.id, vehicleId)).limit(1);
-  if (!vehicle) throw new Error("Araç bulunamadı.");
-  const pending = await db
+  if (!vehicle) return { allowed: false, reason: "Seçilen araç sistemde bulunamadı." };
+
+  const [openFault] = await db
     .select({ count: sql<number>`count(*)` })
     .from(vehicleFaults)
     .where(and(eq(vehicleFaults.vehicleId, vehicleId), eq(vehicleFaults.status, "kademe_onayı_bekliyor")));
-  return getShiftEligibility(vehicle.status, Number(pending[0]?.count ?? 0));
+
+  return getShiftEligibility(vehicle.status, Number(openFault?.count ?? 0));
 }
 
 export async function startShift(data: typeof shifts.$inferInsert) {
-  const eligibility = await getVehicleShiftEligibility(data.vehicleId);
-  if (!eligibility.allowed) throw new Error(eligibility.reason);
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [activeShift] = await db
+    .select()
+    .from(shifts)
+    .where(and(eq(shifts.driverId, data.driverId), eq(shifts.status, "açık")))
+    .limit(1);
+
+  if (activeShift) {
+    throw new Error("Aktif bir mesainiz zaten bulunmaktadır. Yeni mesai başlatmadan önce mevcudu sonlandırın.");
+  }
+
+  const eligibility = await getVehicleShiftEligibility(data.vehicleId);
+  if (!eligibility.allowed) {
+    throw new Error(eligibility.reason);
+  }
+
   await db.insert(shifts).values(data);
 }
 
@@ -101,7 +113,35 @@ export async function finishShift(id: number, data: Partial<typeof shifts.$infer
 
 export async function listShifts() {
   const db = await getDb();
-  return db ? db.select().from(shifts).orderBy(desc(shifts.startedAt)) : [];
+  if (!db) return [];
+  return db
+    .select({
+      id: shifts.id,
+      driverId: shifts.driverId,
+      driverName: users.name,
+      driverUsername: users.username,
+      driverRole: users.role,
+      vehicleId: shifts.vehicleId,
+      vehiclePlate: vehicles.plate,
+      vehicleBrand: vehicles.brand,
+      region: shifts.region,
+      neighborhood: shifts.neighborhood,
+      vehicleType: shifts.vehicleType,
+      startKm: shifts.startKm,
+      startFullness: shifts.startFullness,
+      endKm: shifts.endKm,
+      endFullness: shifts.endFullness,
+      tonnage: shifts.tonnage,
+      tonnageReceiptUrl: shifts.tonnageReceiptUrl,
+      faultReported: shifts.faultReported,
+      status: shifts.status,
+      startedAt: shifts.startedAt,
+      endedAt: shifts.endedAt,
+    })
+    .from(shifts)
+    .leftJoin(users, eq(shifts.driverId, users.id))
+    .leftJoin(vehicles, eq(shifts.vehicleId, vehicles.id))
+    .orderBy(desc(shifts.startedAt));
 }
 
 export async function getCurrentShiftForDriver(driverId: number) {
@@ -203,7 +243,24 @@ export async function addAuditLog(data: typeof auditLogs.$inferInsert) {
 
 export async function listAuditLogs() {
   const db = await getDb();
-  return db ? db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(100) : [];
+  if (!db) return [];
+  return db
+    .select({
+      id: auditLogs.id,
+      actorId: auditLogs.actorId,
+      actorName: users.name,
+      actorUsername: users.username,
+      actorRole: users.role,
+      action: auditLogs.action,
+      entityType: auditLogs.entityType,
+      entityId: auditLogs.entityId,
+      details: auditLogs.details,
+      createdAt: auditLogs.createdAt,
+    })
+    .from(auditLogs)
+    .leftJoin(users, eq(auditLogs.actorId, users.id))
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(100);
 }
 
 export async function getOperationalSummary() {
