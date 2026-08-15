@@ -254,35 +254,57 @@ function ComplaintPanel({ role, records, refresh }: { role: Role; records: any[]
   };
 
   const searchLocationByAddress = async () => {
-    const textToSearch = searchAddressText || form.neighborhood || form.region;
-    if (!textToSearch.trim()) {
-      return toast.error("Lütfen konum aramak için bir mahalle veya sokak adı yazın.");
+    const textToSearch = (searchAddressText || form.neighborhood || form.region).trim();
+    if (!textToSearch) {
+      return toast.error("Lütfen konum aramak için bir mahalle, cadde veya sokak adı yazın.");
     }
 
     setIsSearchingAddress(true);
+
+    // Temizleme: mah., mahallesi, cad., caddesi, sok. gibi gürültü kelimeleri kaldırarak aramayı güçlendir
+    const cleanSearchText = textToSearch
+      .replace(/mah(\.|allesi)?/gi, "")
+      .replace(/cad(\.|desi)?/gi, "")
+      .replace(/sok(\.|ağı)?/gi, "")
+      .trim();
+
+    // Arama başarısını maksimuma çıkarmak için sırayla denenecek arama sorguları
+    const queryCandidates = [
+      `${cleanSearchText}, Tepebaşı, Eskişehir, Türkiye`,
+      `${cleanSearchText}, Eskişehir, Türkiye`,
+      `${cleanSearchText}, Tepebaşı`,
+      cleanSearchText,
+      `Tepebaşı, Eskişehir`,
+    ];
+
     try {
-      const fullQuery = textToSearch.toLocaleLowerCase("tr").includes("tepebaşı")
-        ? textToSearch
-        : `${textToSearch}, Tepebaşı, Eskişehir`;
+      let foundResult: any = null;
 
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(fullQuery)}`,
-        { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
-      );
-
-      if (!response.ok) {
-        toast.error("Adres arama servisi yanıt vermedi.");
-        return;
+      for (const queryStr of queryCandidates) {
+        if (!queryStr.trim()) continue;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=tr&limit=3&q=${encodeURIComponent(queryStr)}`,
+            { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              foundResult = data[0];
+              break;
+            }
+          }
+        } catch {
+          // Bir sonraki alternatife geç
+        }
       }
 
-      const results = await response.json();
-      if (results && results.length > 0) {
-        const topResult = results[0];
-        const lat = Number(topResult.lat).toFixed(6);
-        const lon = Number(topResult.lon).toFixed(6);
-        const addr = topResult.address || {};
+      if (foundResult) {
+        const lat = Number(foundResult.lat).toFixed(6);
+        const lon = Number(foundResult.lon).toFixed(6);
+        const addr = foundResult.address || {};
         const region = addr.city || addr.town || addr.district || addr.county || addr.state_district || addr.province || "Tepebaşı";
-        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || addr.road || form.neighborhood;
+        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || addr.road || form.neighborhood || cleanSearchText;
 
         setForm(current => ({
           ...current,
@@ -291,13 +313,28 @@ function ComplaintPanel({ role, records, refresh }: { role: Role; records: any[]
           region: region || current.region,
           neighborhood: neighborhood || current.neighborhood,
         }));
-        setResolvedAddress(topResult.display_name || `${lat}, ${lon}`);
-        toast.success(`Konum bulundu! Enlem: ${lat}, Boylam: ${lon}`);
+        setResolvedAddress(foundResult.display_name || `${lat}, ${lon}`);
+        toast.success(`Konum bulundu! (${neighborhood})`);
       } else {
-        toast.error("Yazılan adres için konum bulunamadı. Lütfen mahalle veya caddesini kontrol edin.");
+        // Hata vermek yerine esnek varsayılan koordinat ataması
+        setForm(current => ({
+          ...current,
+          latitude: "39.7767",
+          longitude: "30.5206",
+          region: "Tepebaşı",
+          neighborhood: current.neighborhood || cleanSearchText,
+        }));
+        setResolvedAddress("Tepebaşı Bölge Koordinatı (Varsayılan)");
+        toast.info("Yazılan adres doğrudan haritada eşleşmedi. Tepebaşı bölge koordinatları tanımlandı.");
       }
     } catch {
-      toast.error("Adres sorgulanırken hata oluştu.");
+      setForm(current => ({
+        ...current,
+        latitude: "39.7767",
+        longitude: "30.5206",
+        region: "Tepebaşı",
+      }));
+      toast.info("Arama servisi yanıt vermedi, varsayılan Tepebaşı koordinatları tanımlandı.");
     } finally {
       setIsSearchingAddress(false);
     }
