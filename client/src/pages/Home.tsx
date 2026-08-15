@@ -61,15 +61,15 @@ export default function Home() {
             menuOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          {/* Logo Alanı (Metinsiz, Sadece Resmi Logo Emblemi) */}
+          {/* Logo ve Beledi̇ye Başlığı (Büyük başlık + Birleştirilmiş Temizlik İşleri Müdürlüğü) */}
           <div className="flex items-center justify-between px-1 py-1">
             <div className="flex items-center gap-3">
               <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white p-1.5 shadow-lg shadow-emerald-950/40 ring-2 ring-white/20">
                 <img src={tepebasiLogo} alt="Tepebaşı Belediyesi" className="h-full w-full object-contain" />
               </div>
               <div className="min-w-0">
-                <p className="font-display text-sm font-bold tracking-wide text-white">Temizlik İşleri</p>
-                <p className="text-[11px] font-medium text-emerald-300/90">Müdürlüğü Platformu</p>
+                <h2 className="font-display text-base font-extrabold tracking-wide text-white leading-tight">TEPEBAŞI BELEDİYESİ</h2>
+                <p className="mt-0.5 text-xs font-semibold text-emerald-300/95 leading-tight">Temizlik İşleri Müdürlüğü</p>
               </div>
             </div>
             <button
@@ -157,8 +157,8 @@ export default function Home() {
               </Button>
               <div className="space-y-0.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100">
-                    Temizlik İşleri Müdürlüğü
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100">
+                    TEPEBAŞI BELEDİYESİ · Temizlik İşleri Müdürlüğü
                   </span>
                 </div>
                 <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
@@ -191,12 +191,12 @@ function LoginLanding() {
       <div className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[.07] shadow-2xl backdrop-blur-md md:grid-cols-[1.1fr_.9fr]">
         <section className="p-8 md:p-12">
           <div className="flex items-center gap-4">
-            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-white p-2 shadow-xl shadow-emerald-950/40">
-              <img src={tepebasiLogo} alt="Logo" className="h-full w-full object-contain" />
+            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-white p-2.5 shadow-xl shadow-emerald-950/40">
+              <img src={tepebasiLogo} alt="Tepebaşı Belediyesi" className="h-full w-full object-contain" />
             </div>
             <div>
-              <p className="font-display text-xl font-extrabold tracking-wide text-white">Temizlik İşleri Müdürlüğü</p>
-              <p className="text-sm font-medium text-emerald-200/90 mt-0.5">Kapalı Operasyon Platformu</p>
+              <h1 className="font-display text-2xl font-black tracking-wide text-white">TEPEBAŞI BELEDİYESİ</h1>
+              <p className="text-base font-bold text-emerald-200/90 mt-0.5">Temizlik İşleri Müdürlüğü</p>
             </div>
           </div>
           <div className="mt-14">
