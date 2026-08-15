@@ -1,16 +1,18 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: mysql.Pool | null = null;
 
 export function getDatabaseConnectionString(): string | undefined {
   return (
     process.env.DATABASE_URL ||
     process.env.MYSQL_URL ||
-    process.env.MYSQLPRIVATE_URL ||
     process.env.MYSQLPUBLIC_URL ||
+    process.env.MYSQLPRIVATE_URL ||
     process.env.MYSQL_PRIVATE_URL ||
     process.env.MYSQL_PUBLIC_URL
   );
@@ -19,11 +21,22 @@ export function getDatabaseConnectionString(): string | undefined {
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   const connectionString = getDatabaseConnectionString();
-  if (!_db && connectionString) {
+  if (!connectionString) {
+    console.warn("[Database] No connection string found in environment variables.");
+    return null;
+  }
+
+  if (!_db) {
     try {
-      _db = drizzle(connectionString);
+      _pool = mysql.createPool({
+        uri: connectionString,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+      });
+      _db = drizzle({ client: _pool });
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
     }
   }
@@ -268,8 +281,14 @@ export async function hasLocalManagementAccount() {
 }
 
 export async function createLocalManagedUser(input: { name: string; username: string; passwordHash: string; role: InsertUser["role"] }) {
+  const connectionString = getDatabaseConnectionString();
+  if (!connectionString) {
+    throw new Error("DATABASE_URL veya MYSQL_URL değişkeni bulunamadı. Lütfen Railway paneline değişkeni ekleyip servisi 'Redeploy' yapın.");
+  }
   const db = await getDb();
-  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı. Lütfen DATABASE_URL değişkenini kontrol edin.");
+  if (!db) {
+    throw new Error("Veritabanı bağlantı havuzu oluşturulamadı. Lütfen DATABASE_URL adresini kontrol edin.");
+  }
   await ensureTablesExist();
 
   const username = input.username.toLowerCase();
