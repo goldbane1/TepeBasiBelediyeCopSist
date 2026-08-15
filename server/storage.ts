@@ -1,7 +1,10 @@
 // Preconfigured storage helpers for Manus WebDev templates
 // Uploads via Forge Server presigned URL to S3 (PUT direct).
 // Downloads return /manus-storage/{key} paths served via 307 redirect.
+// Local disk storage fallback is used when Forge API key is missing in local environment.
 
+import fs from "fs";
+import path from "path";
 import { ENV } from "./_core/env";
 
 function getForgeConfig() {
@@ -9,9 +12,7 @@ function getForgeConfig() {
   const forgeKey = ENV.forgeApiKey;
 
   if (!forgeUrl || !forgeKey) {
-    throw new Error(
-      "Storage config missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY",
-    );
+    return null;
   }
 
   return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
@@ -33,8 +34,28 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
+  const config = getForgeConfig();
   const key = appendHashSuffix(normalizeKey(relKey));
+
+  if (!config) {
+    // Local fallback storage when BUILT_IN_FORGE_API_KEY is not set
+    try {
+      const uploadsDir = path.join(process.cwd(), "uploads");
+      const filePath = path.join(uploadsDir, key);
+      const fileDir = path.dirname(filePath);
+      if (!fs.existsSync(fileDir)) {
+        fs.mkdirSync(fileDir, { recursive: true });
+      }
+      const bufferData = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
+      fs.writeFileSync(filePath, bufferData);
+      return { key, url: `/uploads/${key}` };
+    } catch (err) {
+      console.warn("Local disk storage failed, fallback to key:", err);
+      return { key, url: typeof data === "string" && data.startsWith("data:") ? data : `/uploads/${key}` };
+    }
+  }
+
+  const { forgeUrl, forgeKey } = config;
 
   // 1. Get presigned PUT URL from Forge
   const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
@@ -73,12 +94,22 @@ export async function storagePut(
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
+  const config = getForgeConfig();
+  if (!config) {
+    return { key, url: `/uploads/${key}` };
+  }
   return { key, url: `/manus-storage/${key}` };
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
+  const config = getForgeConfig();
   const key = normalizeKey(relKey);
+
+  if (!config) {
+    return `/uploads/${key}`;
+  }
+
+  const { forgeUrl, forgeKey } = config;
 
   const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
   getUrl.searchParams.set("path", key);
