@@ -86,6 +86,7 @@ export const operationsRouter = router({
     }),
     start: protectedProcedure.input(
       z.object({
+        driverId: z.number().int().positive().optional(),
         vehicleId: z.number().int().positive(),
         region: z.string().min(2),
         neighborhood: z.string().min(2),
@@ -95,8 +96,9 @@ export const operationsRouter = router({
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
-      await db.startShift({ driverId: ctx.user.id, ...input, status: "açık" });
-      await audit(ctx.user.id, "MESAİ_BAŞLATILDI", "mesai", undefined, `${input.neighborhood} / ${input.startKm} km`);
+      const targetDriverId = (ctx.user.role === "yönetim" && input.driverId) ? input.driverId : ctx.user.id;
+      await db.startShift({ ...input, driverId: targetDriverId, status: "açık" });
+      await audit(ctx.user.id, "MESAİ_BAŞLATILDI", "mesai", undefined, `Şoför #${targetDriverId} · ${input.neighborhood} / ${input.startKm} km`);
       return { success: true };
     }),
     finish: protectedProcedure.input(

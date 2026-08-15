@@ -38,28 +38,6 @@ function Reports({ shifts, complaints, logs, users, refresh }: { shifts: any[]; 
     complaint => complaint.status === "açık" && new Date(complaint.dueAt).getTime() < Date.now()
   ).length;
 
-  const activeShifts = shifts.filter(shift => shift.status === "açık");
-
-  const [endKmValues, setEndKmValues] = useState<Record<number, string>>({});
-
-  const finishShift = trpc.operations.shifts.finish.useMutation({
-    onSuccess: () => {
-      toast.success("Mesai yönetici tarafından başarıyla sonlandırıldı.");
-      refresh();
-    },
-    onError: e => toast.error(e.message),
-  });
-
-  const handleAdminFinish = (shift: any) => {
-    const endKm = Number(endKmValues[shift.id] || shift.startKm);
-    finishShift.mutate({
-      shiftId: shift.id,
-      endKm,
-      endFullness: "boş",
-      faultReported: false,
-    });
-  };
-
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-3">
@@ -67,62 +45,6 @@ function Reports({ shifts, complaints, logs, users, refresh }: { shifts: any[]; 
         <ReportCard label="Tonaj bildirimi" value={`${totalTonnage.toLocaleString("tr-TR")} ton`} />
         <ReportCard label="İşlem geçmişi" value={logs.length} />
       </section>
-
-      {/* Yönetici Mesai Kontrol Paneli */}
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-display flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-emerald-700" />
-              Yönetici Mesai Kontrol Paneli
-            </CardTitle>
-            <p className="text-sm text-slate-500">Açık mesaileri anlık izleyin, şoförler adına mesaiyi sonlandırın veya başlatın.</p>
-          </div>
-          <Badge className="bg-sky-50 text-sky-700 hover:bg-sky-50">{activeShifts.length} Açık Mesai</Badge>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {activeShifts.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-4 text-center text-sm text-slate-500">Şu anda sahada devam eden açık mesai bulunmuyor.</p>
-          ) : (
-            activeShifts.map(shift => (
-              <div key={shift.id} className="rounded-xl border border-sky-100 bg-sky-50/30 p-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">{shift.driverName || `Şoför #${shift.driverId}`}</span>
-                    <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
-                      @{shift.driverUsername || "yerel_hesap"} · {shift.driverRole || "şoför"}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Bölge: <strong>{shift.region} / {shift.neighborhood}</strong> · Araç: <strong>{shift.vehiclePlate || `#${shift.vehicleId}`} ({shift.vehicleType})</strong>
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    Başlangıç Km: {shift.startKm} · Başlangıç Zamanı: {new Date(shift.startedAt).toLocaleString("tr-TR")}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder={`Bitiş km (${shift.startKm})`}
-                    value={endKmValues[shift.id] || ""}
-                    onChange={e => setEndKmValues({ ...endKmValues, [shift.id]: e.target.value })}
-                    className="bg-white text-xs h-9 w-36"
-                  />
-                  <Button
-                    size="sm"
-                    disabled={finishShift.isPending}
-                    onClick={() => handleAdminFinish(shift)}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs"
-                  >
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                    Mesaiyi Sonlandır
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
 
       <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
         {/* Mesai ve Tonaj Raporu Tablosu */}

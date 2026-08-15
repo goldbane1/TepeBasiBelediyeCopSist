@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
-import { Archive, AlertTriangle, CheckCircle2, Clock, ClipboardCheck, FileBarChart, Gauge, LocateFixed, Map, MapPin, MessageSquareWarning, Plus, Truck, Wrench, Recycle } from "lucide-react";
+import { Archive, AlertTriangle, CheckCircle2, Clock, ClipboardCheck, FileBarChart, Gauge, LocateFixed, Map, MapPin, MessageSquareWarning, Plus, Truck, Wrench, Recycle, User, ShieldCheck } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
@@ -41,7 +41,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
   const containers = trpc.operations.containerFaults.list.useQuery(undefined, { enabled: isDriver || role === "kaynak personeli" || isManager });
   const complaints = trpc.operations.complaints.list.useQuery(undefined, { enabled: isDriver || isManager });
   const currentShift = trpc.operations.shifts.current.useQuery(undefined, { enabled: isDriver });
-  const shifts = trpc.operations.shifts.list.useQuery(undefined, { enabled: isManager });
+  const shifts = trpc.operations.shifts.list.useQuery(undefined, { enabled: isDriver || isManager });
   const logs = trpc.operations.reports.auditLogs.useQuery(undefined, { enabled: isManager });
   const users = trpc.operations.users.list.useQuery(undefined, { enabled: isManager });
 
@@ -120,7 +120,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
       />
     );
 
-  if (view === "mesai") return <ShiftPanel role={role} vehicles={vehicles.data ?? []} refresh={refresh} />;
+  if (view === "mesai") return <ShiftPanel role={role} vehicles={vehicles.data ?? []} shifts={shifts.data ?? []} users={users.data ?? []} refresh={refresh} />;
 
   if (view === "harita")
     return <MapPanel role={role} operations={mapOperations} vehicles={vehicles.data ?? []} refresh={refresh} filterCategory="tümü" />;
@@ -334,45 +334,359 @@ function Quick({ icon: Icon, label, onClick, disabled }: { icon: typeof Map; lab
   );
 }
 
-function ShiftPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[]; refresh: () => void }) {
-  const [form, setForm] = useState({ vehicleId: "", region: "", neighborhood: "", vehicleType: "çöp kamyonu" as "çöp kamyonu" | "damperli kamyon", startKm: "", startFullness: "boş" as "boş" | "dolu" });
-  const [endForm, setEndForm] = useState({ endKm: "", endFullness: "boş" as "boş" | "dolu", tonnage: "", faultReported: false, tonnageReceipt: undefined as string | undefined });
+function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; vehicles: any[]; shifts: any[]; users: any[]; refresh: () => void }) {
+  const isManager = role === "yönetim";
+  const [form, setForm] = useState({
+    driverId: "",
+    vehicleId: "",
+    region: "Tepebaşı",
+    neighborhood: "",
+    vehicleType: "çöp kamyonu" as "çöp kamyonu" | "damperli kamyon",
+    startKm: "",
+    startFullness: "boş" as "boş" | "dolu",
+  });
+
+  const [endForm, setEndForm] = useState({
+    endKm: "",
+    endFullness: "boş" as "boş" | "dolu",
+    tonnage: "",
+    faultReported: false,
+    tonnageReceipt: undefined as string | undefined,
+  });
+
+  const [adminEndKmValues, setAdminEndKmValues] = useState<Record<number, string>>({});
+
   const current = trpc.operations.shifts.current.useQuery(undefined, { enabled: role === "şoför" });
-  const start = trpc.operations.shifts.start.useMutation({ onSuccess: () => { toast.success("Mesai başarıyla başlatıldı."); refresh(); void current.refetch(); }, onError: error => toast.error(error.message) });
-  const finish = trpc.operations.shifts.finish.useMutation({ onSuccess: () => { toast.success("Mesai sonlandırıldı."); refresh(); void current.refetch(); setEndForm({ endKm: "", endFullness: "boş", tonnage: "", faultReported: false, tonnageReceipt: undefined }); }, onError: error => toast.error(error.message) });
-  if (role !== "şoför") return <AccessNotice title="Mesai detayları sadece yönetim tarafından görüntülenebilir." />;
-  const available = vehicles.filter(vehicle => vehicle.type === form.vehicleType);
-  const submit = (event: FormEvent) => { event.preventDefault(); if (!form.vehicleId) return toast.error("Lütfen araç plakası seçin."); start.mutate({ vehicleId: Number(form.vehicleId), region: form.region, neighborhood: form.neighborhood, vehicleType: form.vehicleType, startKm: Number(form.startKm), startFullness: form.startFullness }); };
-  const readReceipt = (file: File | null) => { if (!file) return; if (!file.type.startsWith("image/")) return toast.error("Yalnızca görsel dosyası yükleyebilirsiniz."); const reader = new FileReader(); reader.onload = () => setEndForm(currentForm => ({ ...currentForm, tonnageReceipt: String(reader.result) })); reader.readAsDataURL(file); };
-  const submitFinish = (event: FormEvent) => { event.preventDefault(); if (!current.data) return; finish.mutate({ shiftId: current.data.id, endKm: Number(endForm.endKm), endFullness: endForm.endFullness, tonnage: endForm.tonnage || undefined, faultReported: endForm.faultReported, tonnageReceipt: endForm.tonnageReceipt }); };
+
+  const start = trpc.operations.shifts.start.useMutation({
+    onSuccess: () => {
+      toast.success("Mesai başarıyla başlatıldı.");
+      refresh();
+      if (current.refetch) void current.refetch();
+      setForm({ driverId: "", vehicleId: "", region: "Tepebaşı", neighborhood: "", vehicleType: "çöp kamyonu", startKm: "", startFullness: "boş" });
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const finish = trpc.operations.shifts.finish.useMutation({
+    onSuccess: () => {
+      toast.success("Mesai sonlandırıldı.");
+      refresh();
+      if (current.refetch) void current.refetch();
+      setEndForm({ endKm: "", endFullness: "boş", tonnage: "", faultReported: false, tonnageReceipt: undefined });
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const availableVehicles = vehicles.filter(vehicle => vehicle.type === form.vehicleType);
+  const activeShifts = useMemo(() => shifts.filter(shift => shift.status === "açık"), [shifts]);
+
+  const submitDriverStart = (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.vehicleId) return toast.error("Lütfen araç plakası seçin.");
+    start.mutate({
+      vehicleId: Number(form.vehicleId),
+      region: form.region,
+      neighborhood: form.neighborhood,
+      vehicleType: form.vehicleType,
+      startKm: Number(form.startKm),
+      startFullness: form.startFullness,
+    });
+  };
+
+  const submitAdminStart = (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.driverId) return toast.error("Lütfen mesai başlatılacak şoförü seçin.");
+    if (!form.vehicleId) return toast.error("Lütfen araç seçin.");
+    start.mutate({
+      driverId: Number(form.driverId),
+      vehicleId: Number(form.vehicleId),
+      region: form.region,
+      neighborhood: form.neighborhood,
+      vehicleType: form.vehicleType,
+      startKm: Number(form.startKm),
+      startFullness: form.startFullness,
+    });
+  };
+
+  const handleAdminFinish = (shift: any) => {
+    const endKm = Number(adminEndKmValues[shift.id] || shift.startKm);
+    finish.mutate({
+      shiftId: shift.id,
+      endKm,
+      endFullness: "boş",
+      faultReported: false,
+    });
+  };
+
+  const readReceipt = (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Yalnızca görsel dosyası yükleyebilirsiniz.");
+    const reader = new FileReader();
+    reader.onload = () => setEndForm(currentForm => ({ ...currentForm, tonnageReceipt: String(reader.result) }));
+    reader.readAsDataURL(file);
+  };
+
+  const submitFinish = (event: FormEvent) => {
+    event.preventDefault();
+    if (!current.data) return;
+    finish.mutate({
+      shiftId: current.data.id,
+      endKm: Number(endForm.endKm),
+      endFullness: endForm.endFullness,
+      tonnage: endForm.tonnage || undefined,
+      faultReported: endForm.faultReported,
+      tonnageReceipt: endForm.tonnageReceipt,
+    });
+  };
+
+  // YÖNETİCİ MESAİ YÖNETİMİ VE KONTROL EKRANI
+  if (isManager) {
+    return (
+      <div className="space-y-6">
+        {/* Başlık Kartı */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+          <div>
+            <h2 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-emerald-700" />
+              Yönetici Mesai Yönetimi & Kontrol Merkezi
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Sahadaki tüm açık mesaileri anlık takip edin, sonlandırın veya şoförler adına mesai başlatın.
+            </p>
+          </div>
+          <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs px-3 py-1.5 self-start sm:self-auto">
+            {activeShifts.length} Aktif Saha Mesaisi
+          </Badge>
+        </div>
+
+        {/* 1. Devam Eden Açık Mesailer Kontrol Paneli */}
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="font-display flex items-center gap-2 text-slate-900">
+                <ClipboardCheck className="h-5 w-5 text-emerald-700" />
+                Devam Eden Açık Saha Mesaileri
+              </CardTitle>
+              <p className="text-sm text-slate-500">Şoförlerin aktif mesailerini görün ve gerektiğinde bitiş km girerek sonlandırın.</p>
+            </div>
+            <Badge className="bg-sky-50 text-sky-700 hover:bg-sky-50 font-bold">{activeShifts.length} Mesai</Badge>
+          </CardHeader>
+          <CardContent className="space-y-3.5">
+            {activeShifts.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
+                Şu anda sahada aktif açık mesai bulunmuyor. Aşağıdaki formdan yeni mesai başlatabilirsiniz.
+              </p>
+            ) : (
+              activeShifts.map(shift => (
+                <div key={shift.id} className="rounded-2xl border border-sky-150 bg-sky-50/40 p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition hover:border-sky-300">
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-slate-900 text-base">{shift.driverName || `Şoför #${shift.driverId}`}</span>
+                      <Badge variant="outline" className="border-sky-200 bg-sky-100/70 text-sky-800 text-xs">
+                        @{shift.driverUsername || "yerel_hesap"} · {shift.driverRole || "şoför"}
+                      </Badge>
+                      <Badge className="bg-emerald-600 text-white text-[10px]">Açık Mesai #{shift.id}</Badge>
+                    </div>
+                    <p className="text-xs text-slate-700">
+                      📍 Görev Bölgesi: <strong>{shift.region} / {shift.neighborhood}</strong> · Araç: <strong>{shift.vehiclePlate || `#${shift.vehicleId}`} ({shift.vehicleType})</strong>
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      🚀 Başlangıç Km: <strong>{shift.startKm} km</strong> · Başlangıç Zamanı: <strong>{new Date(shift.startedAt).toLocaleString("tr-TR")}</strong>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-sky-200/60">
+                    <Input
+                      type="number"
+                      placeholder={`Bitiş km (${shift.startKm})`}
+                      value={adminEndKmValues[shift.id] || ""}
+                      onChange={e => setAdminEndKmValues({ ...adminEndKmValues, [shift.id]: e.target.value })}
+                      className="bg-white text-xs h-9 w-36"
+                    />
+                    <Button
+                      size="sm"
+                      disabled={finish.isPending}
+                      onClick={() => handleAdminFinish(shift)}
+                      className="bg-red-600 hover:bg-red-700 text-white text-xs h-9 font-semibold shadow-sm"
+                    >
+                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      Mesaiyi Sonlandır
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 2. Yönetici Şoför Adına Mesai Başlatma Formu */}
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="font-display flex items-center gap-2">
+              <Plus className="h-5 w-5 text-emerald-700" />
+              Şoför Adına Yeni Mesai Başlat
+            </CardTitle>
+            <p className="text-sm text-slate-500">Sahadaki şoförler için araç, bölge ve başlangıç km seçerek mesai başlatın.</p>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitAdminStart}>
+              <Field label="Şoför Seçin">
+                <select
+                  required
+                  value={form.driverId}
+                  onChange={e => setForm({ ...form, driverId: e.target.value })}
+                  className="input-native"
+                >
+                  <option value="">Şoför seçin</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name || u.username} (@{u.username || u.openId})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Bölge">
+                <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} placeholder="Örn. Tepebaşı" />
+              </Field>
+              <Field label="Mahalle">
+                <Input required value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} placeholder="Örn. Hoşnudiye" />
+              </Field>
+              <Field label="Araç Tipi">
+                <select
+                  value={form.vehicleType}
+                  onChange={e => setForm({ ...form, vehicleType: e.target.value as typeof form.vehicleType, vehicleId: "" })}
+                  className="input-native"
+                >
+                  <option value="çöp kamyonu">çöp kamyonu</option>
+                  <option value="damperli kamyon">damperli kamyon</option>
+                </select>
+              </Field>
+              <Field label="Araç Plakası">
+                <select required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} className="input-native">
+                  <option value="">Araç seçin</option>
+                  {availableVehicles.map(vehicle => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.plate} · {vehicle.brand} ({vehicle.status})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Başlangıç Km">
+                <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
+              </Field>
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Button disabled={start.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  {start.isPending ? "Kaydediliyor..." : "Seçili Şoför Adına Mesai Başlat"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* 3. Tüm Mesai Geçmişi Tablosu */}
+        <Card className="overflow-hidden border-0 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="font-display">Tüm Mesai Kayıtları</CardTitle>
+            <p className="text-sm text-slate-500">Tamamlanan ve devam eden tüm mesailer.</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            {shifts.length === 0 ? (
+              <p className="p-6 text-center text-sm text-slate-500">Henüz mesai kaydı bulunmuyor.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[750px] text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-5 py-3">Şoför & Rol</th>
+                      <th className="px-5 py-3">Bölge / Mahalle</th>
+                      <th className="px-5 py-3">Araç</th>
+                      <th className="px-5 py-3">Km</th>
+                      <th className="px-5 py-3">Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shifts.map(shift => (
+                      <tr key={shift.id} className="border-t border-slate-100">
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-slate-800">{shift.driverName || `Şoför #${shift.driverId}`}</p>
+                          <p className="text-xs text-slate-400">@{shift.driverUsername || "bilgi_yok"}</p>
+                        </td>
+                        <td className="px-5 py-4 font-medium text-slate-700">
+                          {shift.region} / {shift.neighborhood}
+                        </td>
+                        <td className="px-5 py-4 text-slate-600">
+                          {shift.vehiclePlate ? `${shift.vehiclePlate} (${shift.vehicleBrand})` : `#${shift.vehicleId}`}
+                        </td>
+                        <td className="px-5 py-4 text-slate-600">
+                          {shift.startKm} → {shift.endKm ?? "—"}
+                        </td>
+                        <td className="px-5 py-4">
+                          <Badge
+                            variant="outline"
+                            className={
+                              shift.status === "açık"
+                                ? "border-sky-200 bg-sky-50 text-sky-700"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            }
+                          >
+                            {shift.status === "açık" ? "Açık Mesai" : "Tamamlandı"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ŞOFÖR KULLANICI MESAİ EKRANI
   return (
     <div className="space-y-6">
       <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
         <Card className="border-0 bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="font-display">Mesai başlat</CardTitle>
+            <CardTitle className="font-display">Mesai Başlat</CardTitle>
             <p className="text-sm text-slate-500">Bölge, araç ve kilometre bilgilerini kaydederek mesaiye başlayın.</p>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-              <Field label="Bölge"><Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} placeholder="Örn. Tepebaşı" /></Field>
-              <Field label="Mahalle"><Input required value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} placeholder="Örn. Hoşnudiye" /></Field>
-              <Field label="Araç tipi">
-                <select value={form.vehicleType} onChange={e => setForm({ ...form, vehicleType: e.target.value as typeof form.vehicleType, vehicleId: "" })} className="input-native">
+            <form className="grid gap-4 sm:grid-cols-2" onSubmit={submitDriverStart}>
+              <Field label="Bölge">
+                <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} placeholder="Örn. Tepebaşı" />
+              </Field>
+              <Field label="Mahalle">
+                <Input required value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} placeholder="Örn. Hoşnudiye" />
+              </Field>
+              <Field label="Araç Tipi">
+                <select
+                  value={form.vehicleType}
+                  onChange={e => setForm({ ...form, vehicleType: e.target.value as typeof form.vehicleType, vehicleId: "" })}
+                  className="input-native"
+                >
                   <option value="çöp kamyonu">çöp kamyonu</option>
                   <option value="damperli kamyon">damperli kamyon</option>
                 </select>
               </Field>
-              <Field label="Araç plakası">
+              <Field label="Araç Plakası">
                 <select required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} className="input-native">
                   <option value="">Araç seçin</option>
-                  {available.map(vehicle => (
-                    <option key={vehicle.id} value={vehicle.id}>{vehicle.plate} · {vehicle.brand} ({vehicle.status})</option>
+                  {availableVehicles.map(vehicle => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.plate} · {vehicle.brand} ({vehicle.status})
+                    </option>
                   ))}
                 </select>
               </Field>
-              <Field label="Başlangıç km"><Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} /></Field>
-              <Field label="Araç doluluk durumu">
+              <Field label="Başlangıç Km">
+                <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
+              </Field>
+              <Field label="Araç Doluluk Durumu">
                 <select value={form.startFullness} onChange={e => setForm({ ...form, startFullness: e.target.value as "boş" | "dolu" })} className="input-native">
                   <option value="boş">boş</option>
                   <option value="dolu">dolu</option>
@@ -380,7 +694,7 @@ function ShiftPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[]; 
               </Field>
               <div className="sm:col-span-2">
                 <Button disabled={start.isPending || Boolean(current.data)} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                  {current.data ? "Açık mesai bulundu" : start.isPending ? "Kaydedildiği..." : "Mesaiyi başlat"}
+                  {current.data ? "Açık mesai bulundu" : start.isPending ? "Kaydediliyor..." : "Mesaiyi başlat"}
                 </Button>
               </div>
             </form>
@@ -389,9 +703,13 @@ function ShiftPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[]; 
         <Card className="border-0 bg-emerald-950 text-white shadow-xl">
           <CardContent className="p-6">
             <ClipboardCheck className="h-7 w-7 text-emerald-300" />
-            <h3 className="mt-5 font-display text-xl font-bold">Mesai güvenlik kuralı</h3>
-            <p className="mt-3 text-sm leading-6 text-emerald-100">Arızalı veya kademe onayı bekleyen arıza kaydı bulunan araçlar mesaiye başlatılamaz.</p>
-            <div className="mt-6 rounded-xl border border-white/10 bg-white/10 p-4 text-sm text-emerald-100">Mesai bitişinde tonaj fişi fotoğrafı, doluluk ve arıza durumu kayıt altına alınır.</div>
+            <h3 className="mt-5 font-display text-xl font-bold">Mesai Güvenlik Kuralı</h3>
+            <p className="mt-3 text-sm leading-6 text-emerald-100">
+              Arızalı veya kademe onayı bekleyen arıza kaydı bulunan araçlar mesaiye başlatılamaz.
+            </p>
+            <div className="mt-6 rounded-xl border border-white/10 bg-white/10 p-4 text-sm text-emerald-100">
+              Mesai bitişinde tonaj fişi fotoğrafı, doluluk ve arıza durumu kayıt altına alınır.
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -399,20 +717,28 @@ function ShiftPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[]; 
       {current.data && (
         <Card className="border-0 bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="font-display">Açık mesaiyi sonlandır</CardTitle>
-            <p className="text-sm text-slate-500">Mesai #{current.data.id} · {current.data.neighborhood} · başlangıç {current.data.startKm} km</p>
+            <CardTitle className="font-display">Açık Mesaiyi Sonlandır</CardTitle>
+            <p className="text-sm text-slate-500">
+              Mesai #{current.data.id} · {current.data.neighborhood} · başlangıç {current.data.startKm} km
+            </p>
           </CardHeader>
           <CardContent>
             <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitFinish}>
-              <Field label="Bitiş km"><Input required type="number" min={current.data.startKm} value={endForm.endKm} onChange={e => setEndForm({ ...endForm, endKm: e.target.value })} /></Field>
-              <Field label="Bitiş doluluk">
+              <Field label="Bitiş Km">
+                <Input required type="number" min={current.data.startKm} value={endForm.endKm} onChange={e => setEndForm({ ...endForm, endKm: e.target.value })} />
+              </Field>
+              <Field label="Bitiş Doluluk">
                 <select className="input-native" value={endForm.endFullness} onChange={e => setEndForm({ ...endForm, endFullness: e.target.value as "boş" | "dolu" })}>
                   <option value="boş">boş</option>
                   <option value="dolu">dolu</option>
                 </select>
               </Field>
-              <Field label="Tonaj"><Input value={endForm.tonnage} onChange={e => setEndForm({ ...endForm, tonnage: e.target.value })} placeholder="Örn. 4,25" /></Field>
-              <Field label="Tonaj fişi fotoğrafı"><Input required type="file" accept="image/*" onChange={e => readReceipt(e.target.files?.[0] ?? null)} /></Field>
+              <Field label="Tonaj">
+                <Input value={endForm.tonnage} onChange={e => setEndForm({ ...endForm, tonnage: e.target.value })} placeholder="Örn. 4,25" />
+              </Field>
+              <Field label="Tonaj Fişi Fotoğrafı">
+                <Input required type="file" accept="image/*" onChange={e => readReceipt(e.target.files?.[0] ?? null)} />
+              </Field>
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 lg:col-span-2">
                 <input type="checkbox" checked={endForm.faultReported} onChange={e => setEndForm({ ...endForm, faultReported: e.target.checked })} />
                 Mesai sırasında araç arızası oluştu
