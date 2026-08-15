@@ -13,7 +13,7 @@ export type Role = "şoför" | "kademe personeli" | "kaynak personeli" | "yönet
 
 const navItems: { id: AppView; label: string; icon: typeof LayoutDashboard; roles: Role[] }[] = [
   { id: "dashboard", label: "Operasyon Özeti", icon: LayoutDashboard, roles: ["şoför", "kademe personeli", "kaynak personeli", "yönetim"] },
-  { id: "harita", label: "Operasyon Haritası & Bildirimler", icon: Map, roles: ["şoför", "kaynak personeli", "yönetim"] },
+  { id: "harita", label: "Operasyon Haritası & Bildirimler", icon: Map, roles: ["şoför", "kademe personeli", "kaynak personeli", "yönetim"] },
   { id: "damperlik-çözüm", label: "Damperlik Atık Çözümü", icon: Archive, roles: ["şoför", "yönetim"] },
   { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["şoför", "kaynak personeli", "yönetim"] },
   { id: "şikayetler", label: "Vatandaş Şikayetleri", icon: AlertTriangle, roles: ["şoför", "yönetim"] },
