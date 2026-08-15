@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
-import { Archive, AlertTriangle, CheckCircle2, ClipboardCheck, FileBarChart, Gauge, LocateFixed, Map, MapPin, Plus, Truck, Wrench, Recycle } from "lucide-react";
+import { Archive, AlertTriangle, CheckCircle2, Clock, ClipboardCheck, FileBarChart, Gauge, LocateFixed, Map, MapPin, Plus, Truck, Wrench, Recycle } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
@@ -40,6 +40,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
   const waste = trpc.operations.bulkWaste.list.useQuery(undefined, { enabled: isDriver || isManager });
   const containers = trpc.operations.containerFaults.list.useQuery(undefined, { enabled: isDriver || role === "kaynak personeli" || isManager });
   const complaints = trpc.operations.complaints.list.useQuery(undefined, { enabled: isDriver || isManager });
+  const currentShift = trpc.operations.shifts.current.useQuery(undefined, { enabled: isDriver });
   const shifts = trpc.operations.shifts.list.useQuery(undefined, { enabled: isManager });
   const logs = trpc.operations.reports.auditLogs.useQuery(undefined, { enabled: isManager });
   const users = trpc.operations.users.list.useQuery(undefined, { enabled: isManager });
@@ -54,6 +55,19 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
     void utils.operations.shifts.list.invalidate();
     void utils.operations.reports.auditLogs.invalidate();
   };
+
+  const driverActiveComplaints = useMemo(() => {
+    if (!isDriver || !currentShift.data) return [];
+    const shiftNeigh = (currentShift.data.neighborhood || "").toLocaleLowerCase("tr").trim();
+    const shiftReg = (currentShift.data.region || "").toLocaleLowerCase("tr").trim();
+
+    return (complaints.data ?? []).filter(c => {
+      if (c.status !== "açık") return false;
+      const cNeigh = (c.neighborhood || "").toLocaleLowerCase("tr").trim();
+      const cReg = (c.region || "").toLocaleLowerCase("tr").trim();
+      return cNeigh === shiftNeigh || (shiftNeigh === "" && cReg === shiftReg);
+    });
+  }, [isDriver, currentShift.data, complaints.data]);
 
   const mapOperations = useMemo<MapOperation[]>(() => [
     ...(waste.data ?? [])
@@ -99,6 +113,8 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
         role={role}
         summary={summary.data ?? EMPTY_SUMMARY}
         openFaults={(faults.data ?? []).filter(fault => fault.status === "kademe_onayı_bekliyor").length}
+        activeShift={currentShift.data}
+        driverActiveComplaints={driverActiveComplaints}
         onNavigate={onNavigate}
       />
     );
@@ -130,15 +146,79 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
   );
 }
 
-function Dashboard({ role, summary, openFaults, onNavigate }: { role: Role; summary: typeof EMPTY_SUMMARY; openFaults: number; onNavigate: Props["onNavigate"] }) {
+function Dashboard({
+  role,
+  summary,
+  openFaults,
+  activeShift,
+  driverActiveComplaints,
+  onNavigate,
+}: {
+  role: Role;
+  summary: typeof EMPTY_SUMMARY;
+  openFaults: number;
+  activeShift?: any;
+  driverActiveComplaints: any[];
+  onNavigate: Props["onNavigate"];
+}) {
   const cards = [
     { label: "Kayıtlı araç", value: summary.vehicleCount, icon: Truck, tone: "text-emerald-700 bg-emerald-50" },
     { label: "Açık mesai", value: summary.activeShiftCount, icon: Gauge, tone: "text-sky-700 bg-sky-50" },
     { label: "Bekleyen damperlik atık", value: summary.pendingWasteCount, icon: Archive, tone: "text-amber-700 bg-amber-50" },
     { label: "Günü geçen şikayet", value: summary.overdueComplaintCount, icon: AlertTriangle, tone: "text-red-700 bg-red-50" },
   ];
+
   return (
     <div className="space-y-6">
+      {/* Şoför Aktif Bölge Şikayet Uyarısı Banner */}
+      {role === "şoför" && activeShift && driverActiveComplaints.length > 0 && (
+        <div className="rounded-2xl border-2 border-red-300 bg-red-50/95 p-5 shadow-lg shadow-red-950/10">
+          <div className="flex flex-col md:flex-row items-start gap-4">
+            <div className="rounded-2xl bg-red-600 p-3 text-white shrink-0 shadow-md">
+              <AlertTriangle className="h-7 w-7 animate-bounce" />
+            </div>
+            <div className="flex-1 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-display font-bold text-red-950 text-lg leading-snug">
+                  🚨 GÖREV BÖLGENİZDE ({activeShift.neighborhood.toUpperCase()}) {driverActiveComplaints.length} AÇIK VATANDAŞ ŞİKAYETİ BULUNUYOR!
+                </h3>
+                <Badge className="bg-red-600 text-white font-bold hover:bg-red-700 px-3 py-1 text-xs">
+                  ACİL ŞİKAYET UYARISI
+                </Badge>
+              </div>
+              <p className="text-sm text-red-800 leading-relaxed font-medium">
+                Şu an aktif mesai yaptığınız <strong>{activeShift.neighborhood} ({activeShift.region})</strong> bölgesine ait bildirilmiş vatandaş şikayetleri bulunmaktadır. Lütfen bölgedeki temizlik ve müdahaleyi tamamlayarak şikayeti kapatın.
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 pt-1">
+                {driverActiveComplaints.map(complaint => (
+                  <div key={complaint.id} className="rounded-xl border border-red-200 bg-white p-3.5 shadow-sm flex flex-col justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 text-sm">{complaint.neighborhood} Şikayeti</span>
+                        <span className="text-[11px] font-semibold text-red-600 flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                          <Clock className="h-3 w-3" />
+                          {new Date(complaint.dueAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">{complaint.description}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => onNavigate("şikayetler")}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white text-xs h-8 font-semibold shadow-sm"
+                    >
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                      Şikayeti İncele & Gider
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-emerald-800 via-emerald-700 to-[#0d5e43] p-6 text-white shadow-xl shadow-emerald-950/10 md:p-8">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
