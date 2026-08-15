@@ -77,23 +77,30 @@ export async function ensureTablesExist() {
         \`username\` varchar(64) UNIQUE,
         \`passwordHash\` varchar(255),
         \`isLocalAccount\` boolean NOT NULL DEFAULT false,
-        \`role\` enum('şoför','kademe personeli','kaynak personeli','yönetim') NOT NULL DEFAULT 'şoför',
+        \`role\` varchar(64) NOT NULL DEFAULT 'şoför',
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         \`updatedAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         \`lastSignedIn\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    // Ensure role column is varchar(64) if table existed prior
+    try {
+      await _pool.query(`ALTER TABLE \`users\` MODIFY COLUMN \`role\` varchar(64) NOT NULL DEFAULT 'şoför';`);
+    } catch (e) {
+      // Ignore if alter fails or already modified
+    }
 
     await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`vehicles\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`type\` enum('çöp kamyonu','damperli kamyon') NOT NULL,
+        \`type\` varchar(64) NOT NULL,
         \`capacityTon\` varchar(24) NOT NULL,
         \`brand\` varchar(100) NOT NULL,
         \`plate\` varchar(16) NOT NULL UNIQUE,
-        \`status\` enum('aktif','arızalı','bakımda') NOT NULL DEFAULT 'aktif',
+        \`status\` varchar(64) NOT NULL DEFAULT 'aktif',
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     await _pool.query(`
@@ -103,18 +110,18 @@ export async function ensureTablesExist() {
         \`vehicleId\` int NOT NULL,
         \`region\` varchar(100) NOT NULL,
         \`neighborhood\` varchar(100) NOT NULL,
-        \`vehicleType\` enum('çöp kamyonu','damperli kamyon') NOT NULL,
+        \`vehicleType\` varchar(64) NOT NULL,
         \`startKm\` int NOT NULL,
-        \`startFullness\` enum('boş','dolu') NOT NULL,
+        \`startFullness\` varchar(64) NOT NULL,
         \`endKm\` int,
-        \`endFullness\` enum('boş','dolu'),
+        \`endFullness\` varchar(64),
         \`tonnage\` varchar(24),
         \`tonnageReceiptUrl\` text,
         \`faultReported\` boolean NOT NULL DEFAULT false,
-        \`status\` enum('açık','tamamlandı') NOT NULL DEFAULT 'açık',
+        \`status\` varchar(64) NOT NULL DEFAULT 'açık',
         \`startedAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         \`endedAt\` timestamp
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     await _pool.query(`
@@ -123,13 +130,13 @@ export async function ensureTablesExist() {
         \`vehicleId\` int NOT NULL,
         \`reportedBy\` int NOT NULL,
         \`description\` text NOT NULL,
-        \`severity\` enum('düşük','orta','yüksek') NOT NULL DEFAULT 'orta',
-        \`status\` enum('kademe_onayı_bekliyor','bakımda','onaylandı') NOT NULL DEFAULT 'kademe_onayı_bekliyor',
+        \`severity\` varchar(64) NOT NULL DEFAULT 'orta',
+        \`status\` varchar(64) NOT NULL DEFAULT 'kademe_onayı_bekliyor',
         \`approvedBy\` int,
         \`approvalNote\` text,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         \`approvedAt\` timestamp
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     await _pool.query(`
@@ -143,12 +150,12 @@ export async function ensureTablesExist() {
         \`latitude\` varchar(32) NOT NULL,
         \`longitude\` varchar(32) NOT NULL,
         \`dueAt\` timestamp NOT NULL,
-        \`status\` enum('bekliyor','toplandı') NOT NULL DEFAULT 'bekliyor',
+        \`status\` varchar(64) NOT NULL DEFAULT 'bekliyor',
         \`collectedVehicleId\` int,
         \`collectedDriverId\` int,
         \`collectedAt\` timestamp,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     await _pool.query(`
@@ -157,16 +164,16 @@ export async function ensureTablesExist() {
         \`reportedBy\` int NOT NULL,
         \`region\` varchar(100) NOT NULL,
         \`neighborhood\` varchar(100) NOT NULL,
-        \`faultType\` enum('kol','ayak','gövde','kapak','diğer') NOT NULL,
+        \`faultType\` varchar(64) NOT NULL,
         \`description\` text NOT NULL,
         \`latitude\` varchar(32) NOT NULL,
         \`longitude\` varchar(32) NOT NULL,
-        \`status\` enum('bekliyor','onarım_tamamlandı') NOT NULL DEFAULT 'bekliyor',
+        \`status\` varchar(64) NOT NULL DEFAULT 'bekliyor',
         \`repairedBy\` int,
         \`repairNote\` text,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         \`repairedAt\` timestamp
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     await _pool.query(`
@@ -180,11 +187,11 @@ export async function ensureTablesExist() {
         \`longitude\` varchar(32) NOT NULL,
         \`photoUrl\` text,
         \`dueAt\` timestamp NOT NULL,
-        \`status\` enum('açık','onaylandı') NOT NULL DEFAULT 'açık',
+        \`status\` varchar(64) NOT NULL DEFAULT 'açık',
         \`acknowledgedBy\` int,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
         \`acknowledgedAt\` timestamp
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     await _pool.query(`
@@ -196,10 +203,10 @@ export async function ensureTablesExist() {
         \`entityId\` int,
         \`details\` text,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
-    console.log("[Database] All tables initialized successfully via pool.");
+    console.log("[Database] All tables initialized successfully via pool with utf8mb4_unicode_ci.");
     return true;
   } catch (err) {
     console.error("[Database] Error ensuring tables exist:", err);
