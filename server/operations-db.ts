@@ -61,6 +61,23 @@ export async function updateVehicleStatus(id: number, status: "aktif" | "arızal
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.update(vehicles).set({ status }).where(eq(vehicles.id, id));
+
+  if (status === "aktif") {
+    await db
+      .update(vehicleFaults)
+      .set({ status: "onaylandı", approvedAt: new Date() })
+      .where(and(eq(vehicleFaults.vehicleId, id), sql`${vehicleFaults.status} IN ('kademe_onayı_bekliyor', 'bakımda')`));
+  } else if (status === "arızalı" || status === "bakımda") {
+    const [existingFault] = await db
+      .select()
+      .from(vehicleFaults)
+      .where(and(eq(vehicleFaults.vehicleId, id), sql`${vehicleFaults.status} IN ('kademe_onayı_bekliyor', 'bakımda')`))
+      .limit(1);
+
+    if (existingFault) {
+      await db.update(vehicleFaults).set({ status: status === "bakımda" ? "bakımda" : "kademe_onayı_bekliyor" }).where(eq(vehicleFaults.id, existingFault.id));
+    }
+  }
 }
 
 export async function deleteVehicle(id: number) {
@@ -181,7 +198,11 @@ export async function reviewVehicleFault(id: number, approvedBy: number, approve
   if (!fault) throw new Error("Arıza kaydı bulunamadı.");
   const status = approved ? "onaylandı" : "bakımda";
   await db.update(vehicleFaults).set({ status, approvedBy, approvalNote: note ?? null, approvedAt: new Date() }).where(eq(vehicleFaults.id, id));
-  if (approved) await db.update(vehicles).set({ status: "aktif" }).where(eq(vehicles.id, fault.vehicleId));
+
+  // If approved (repaired / taken out of maintenance), set vehicle back to "aktif".
+  // If set to maintenance ("bakımda"), set vehicle status to "bakımda".
+  const vehicleStatus = approved ? "aktif" : "bakımda";
+  await db.update(vehicles).set({ status: vehicleStatus }).where(eq(vehicles.id, fault.vehicleId));
 }
 
 export async function listBulkWasteReports() {

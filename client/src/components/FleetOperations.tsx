@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, Plus, Trash2, Truck, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, Trash2, Truck, Wrench, RefreshCw } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
@@ -181,7 +181,7 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
                             }
                             className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-500"
                           >
-                            <option value="aktif">aktif</option>
+                            <option value="aktif">aktif (onarımı tamamlandı)</option>
                             <option value="arızalı">arızalı</option>
                             <option value="bakımda">bakımda</option>
                           </select>
@@ -239,7 +239,7 @@ function FaultsPanel({
 
   const create = trpc.operations.vehicleFaults.create.useMutation({
     onSuccess: () => {
-      toast.success("Araç arızası bildarimi kaydedildi.");
+      toast.success("Araç arızası bildirimi kaydedildi.");
       setForm({ vehicleId: "", description: "", severity: "orta" });
       refresh();
     },
@@ -248,7 +248,7 @@ function FaultsPanel({
 
   const review = trpc.operations.vehicleFaults.review.useMutation({
     onSuccess: () => {
-      toast.success("Arıza kaydı güncellendi.");
+      toast.success("Arıza kaydı ve araç durumu güncellendi.");
       refresh();
     },
     onError: e => toast.error(e.message),
@@ -269,7 +269,7 @@ function FaultsPanel({
       <Card className="border-0 bg-white shadow-sm">
         <CardHeader>
           <CardTitle className="font-display">Araç arızası bildir</CardTitle>
-          <p className="text-sm text-slate-500">Bildirilen araç, kademe onayı alınana kadar mesaiye çıkamaz.</p>
+          <p className="text-sm text-slate-500">Bildirilen araç, kademe onayı alıp bakımdan çıkarılana kadar mesaiye çıkamaz.</p>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4" onSubmit={submit}>
@@ -317,46 +317,77 @@ function FaultsPanel({
 
       <Card className="border-0 bg-white shadow-sm">
         <CardHeader>
-          <CardTitle className="font-display">Araç arıza kayıtları</CardTitle>
+          <CardTitle className="font-display">Araç arıza ve bakım kayıtları</CardTitle>
+          <p className="text-sm text-slate-500">Arızalı veya bakımda olan araçları bakımdan çıkarıp onaylayabilirsiniz.</p>
         </CardHeader>
         <CardContent className="space-y-3">
           {faults.length === 0 ? (
             <EmptyFault />
           ) : (
-            faults.map(fault => (
-              <div key={fault.id} className="rounded-xl border border-slate-100 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-800">
-                      Araç #{fault.vehicleId} · {fault.severity} öncelik
-                    </p>
-                    <p className="mt-1 text-sm leading-5 text-slate-500">{fault.description}</p>
+            faults.map(fault => {
+              const matchingVehicle = vehicles.find(v => v.id === fault.vehicleId);
+              const isPending = fault.status === "kademe_onayı_bekliyor";
+              const isMaintenance = fault.status === "bakımda";
+
+              return (
+                <div key={fault.id} className="rounded-xl border border-slate-100 p-4 space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-800">
+                        {matchingVehicle ? `${matchingVehicle.plate} (${matchingVehicle.brand})` : `Araç #${fault.vehicleId}`} · {fault.severity} öncelik
+                      </p>
+                      <p className="mt-1 text-sm leading-5 text-slate-500">{fault.description}</p>
+                      {fault.approvalNote && (
+                        <p className="mt-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg inline-block border border-emerald-100">
+                          Kademe Notu: {fault.approvalNote}
+                        </p>
+                      )}
+                    </div>
+                    <StatusBadge value={fault.status} />
                   </div>
-                  <StatusBadge value={fault.status} />
+
+                  {canReview && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+                      {isPending && (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={review.isPending}
+                            onClick={() => review.mutate({ id: fault.id, approved: true, note: "Kademe onayı verildi, araç aktif edildi." })}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold"
+                          >
+                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                            Onayla & Aktif Et
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={review.isPending}
+                            onClick={() => review.mutate({ id: fault.id, approved: false, note: "Araç bakıma alındı." })}
+                            variant="outline"
+                            className="text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-semibold"
+                          >
+                            <Wrench className="mr-1.5 h-3.5 w-3.5" />
+                            Bakıma Al
+                          </Button>
+                        </>
+                      )}
+
+                      {isMaintenance && (
+                        <Button
+                          size="sm"
+                          disabled={review.isPending}
+                          onClick={() => review.mutate({ id: fault.id, approved: true, note: "Bakımdan çıkarıldı, onarımı tamamlandı ve aktif duruma getirildi." })}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold shadow-sm"
+                        >
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                          Bakımdan Çıkar & Onayla (Aktif Et)
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {canReview && fault.status === "kademe_onayı_bekliyor" && (
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      size="sm"
-                      disabled={review.isPending}
-                      onClick={() => review.mutate({ id: fault.id, approved: true, note: "Kademe onayı verildi." })}
-                      className="bg-emerald-700 hover:bg-emerald-800"
-                    >
-                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                      Onayla
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={review.isPending}
-                      onClick={() => review.mutate({ id: fault.id, approved: false, note: "Araç bakımda." })}
-                      variant="outline"
-                    >
-                      Bakımda tut
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>
@@ -367,18 +398,20 @@ function FaultsPanel({
 function StatusBadge({ value }: { value: string }) {
   const danger = ["arızalı", "kademe_onayı_bekliyor", "yüksek"].includes(value);
   const success = ["aktif", "onaylandı", "toplandı"].includes(value);
+  const warning = ["bakımda", "orta", "düşük"].includes(value);
+
   return (
     <Badge
       variant="outline"
       className={
         danger
-          ? "border-red-100 bg-red-50 text-red-700"
+          ? "border-red-100 bg-red-50 text-red-700 font-semibold"
           : success
-            ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-            : "border-amber-100 bg-amber-50 text-amber-700"
+            ? "border-emerald-100 bg-emerald-50 text-emerald-700 font-semibold"
+            : "border-amber-100 bg-amber-50 text-amber-700 font-semibold"
       }
     >
-      {value.replaceAll("_", " ")}
+      {value === "kademe_onayı_bekliyor" ? "Kademe Onayı Bekliyor" : value === "bakımda" ? "Bakımda" : value === "onaylandı" ? "Onaylandı / Aktif" : value.replaceAll("_", " ")}
     </Badge>
   );
 }
