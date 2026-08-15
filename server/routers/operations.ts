@@ -18,14 +18,19 @@ function requireRole(role: z.infer<typeof staffRole>, allowed: z.infer<typeof st
 
 async function uploadImage(dataUrl: string | undefined, prefix: string) {
   if (!dataUrl) return undefined;
-  const [metadata, encoded] = dataUrl.split(",");
-  if (!encoded || !metadata?.startsWith("data:image/")) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Yalnızca görsel dosyası yüklenebilir." });
+  try {
+    const [metadata, encoded] = dataUrl.split(",");
+    if (!encoded || !metadata?.startsWith("data:image/")) {
+      return dataUrl;
+    }
+    const mime = metadata.match(/data:(.*?);base64/)?.[1] ?? "image/jpeg";
+    const extension = mime.split("/")[1] ?? "jpg";
+    const uploaded = await storagePut(`${prefix}/${Date.now()}.${extension}`, Buffer.from(encoded, "base64"), mime);
+    return uploaded.url;
+  } catch (err) {
+    console.warn("Image upload storage error, fallback to data URL:", err);
+    return dataUrl;
   }
-  const mime = metadata.match(/data:(.*?);base64/)?.[1] ?? "image/jpeg";
-  const extension = mime.split("/")[1] ?? "jpg";
-  const uploaded = await storagePut(`${prefix}/${Date.now()}.${extension}`, Buffer.from(encoded, "base64"), mime);
-  return uploaded.url;
 }
 
 async function audit(userId: number, action: string, entityType: string, entityId?: number, details?: string) {
