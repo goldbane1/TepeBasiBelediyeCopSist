@@ -144,30 +144,30 @@ export default function Home() {
         )}
 
         {/* Sağ Ana İçerik Alanı */}
-        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">
-          <header className="mb-6 flex flex-wrap items-center justify-between gap-4 bg-white/70 p-4 rounded-2xl border border-slate-200/60 shadow-sm backdrop-blur-md">
-            <div className="flex items-center gap-3.5">
+        <main className="min-w-0 flex-1 p-3.5 sm:p-6 lg:p-8">
+          <header className="sticky top-3 z-30 mb-5 flex flex-wrap items-center justify-between gap-3.5 bg-white/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200/70 shadow-sm backdrop-blur-md">
+            <div className="flex items-center gap-3">
               <Button
                 variant="outline"
                 size="icon"
-                className="bg-white lg:hidden border-slate-200 text-slate-700"
+                className="bg-white lg:hidden border-slate-200 text-slate-700 h-10 w-10 shrink-0 shadow-2xs"
                 onClick={() => setMenuOpen(true)}
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100">
+                  <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 truncate max-w-[240px] sm:max-w-none">
                     TEPEBAŞI BELEDİYESİ · Temizlik İşleri Müdürlüğü
                   </span>
                 </div>
-                <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
                   {current.label}
                 </h1>
               </div>
             </div>
 
-            <div className="hidden items-center gap-3.5 sm:flex">
+            <div className="hidden items-center gap-3 sm:flex">
               <span className="text-xs font-medium text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/70">
                 📅 {new Intl.DateTimeFormat("tr-TR", { dateStyle: "full" }).format(new Date())}
               </span>

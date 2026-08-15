@@ -156,8 +156,8 @@ function Reports({ shifts, complaints, logs, users, refresh }: { shifts: any[]; 
             <p className="text-sm text-slate-500">Günlük, haftalık, aylık zaman dilimlerine göre mahallelerin atık toplama ve tonaj analizi.</p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold text-slate-600">
+          <div className="flex flex-wrap items-center gap-2 max-w-full">
+            <div className="inline-flex max-w-full overflow-x-auto rounded-xl bg-slate-100 p-1 text-xs font-semibold text-slate-600 whitespace-nowrap">
               <button
                 onClick={() => setTonnagePeriod("today")}
                 className={`rounded-lg px-2.5 py-1 transition ${tonnagePeriod === "today" ? "bg-emerald-700 text-white shadow-xs" : "hover:text-slate-900"}`}
