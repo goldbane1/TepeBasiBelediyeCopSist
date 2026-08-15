@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { InsertUser, users } from "../drizzle/schema";
@@ -322,8 +322,8 @@ export async function createLocalManagedUser(input: { name: string; username: st
   if (!connectionString) {
     throw new Error("DATABASE_URL veya MYSQL_URL değişkeni bulunamadı. Lütfen Render paneline değişkeni ekleyip servisi 'Manual Deploy' yapın.");
   }
-  const db = await getDb();
-  if (!db) {
+  await getDb();
+  if (!_pool) {
     throw new Error("Veritabanı bağlantı havuzu oluşturulamadı. Lütfen DATABASE_URL adresini kontrol edin.");
   }
   await ensureTablesExist();
@@ -332,16 +332,13 @@ export async function createLocalManagedUser(input: { name: string; username: st
   const existing = await getLocalUserByUsername(username);
   if (existing) throw new Error("Bu kullanıcı adı zaten kullanımda.");
   const openId = `local:${username}`;
-  await db.insert(users).values({
-    openId,
-    name: input.name,
-    username,
-    passwordHash: input.passwordHash,
-    isLocalAccount: true,
-    loginMethod: "local",
-    role: input.role ?? "şoför",
-    lastSignedIn: new Date(),
-  });
+  const now = new Date();
+
+  await _pool.query(
+    `INSERT INTO \`users\` (\`openId\`, \`name\`, \`username\`, \`passwordHash\`, \`isLocalAccount\`, \`loginMethod\`, \`role\`, \`createdAt\`, \`updatedAt\`, \`lastSignedIn\`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [openId, input.name, username, input.passwordHash, true, "local", input.role ?? "yönetim", now, now, now]
+  );
+
   return getUserByOpenId(openId);
 }
 
@@ -388,12 +385,19 @@ export async function listManagedUsers() {
 }
 
 export async function createManagedUser(user: InsertUser) {
-  const db = await getDb();
-  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı. Lütfen DATABASE_URL değişkenini kontrol edin.");
+  const connectionString = getDatabaseConnectionString();
+  if (!connectionString) {
+    throw new Error("DATABASE_URL değişkeni bulunamadı.");
+  }
+  await getDb();
+  if (!_pool) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await ensureTablesExist();
-  await db.insert(users).values(user).onDuplicateKeyUpdate({
-    set: { name: user.name ?? null, email: user.email ?? null, role: user.role, updatedAt: new Date() },
-  });
+
+  const now = new Date();
+  await _pool.query(
+    `INSERT INTO \`users\` (\`openId\`, \`name\`, \`email\`, \`loginMethod\`, \`username\`, \`passwordHash\`, \`isLocalAccount\`, \`role\`, \`createdAt\`, \`updatedAt\`, \`lastSignedIn\`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE \`name\`=VALUES(\`name\`), \`email\`=VALUES(\`email\`), \`role\`=VALUES(\`role\`), \`updatedAt\`=?`,
+    [user.openId, user.name ?? null, user.email ?? null, user.loginMethod ?? null, user.username ?? null, user.passwordHash ?? null, user.isLocalAccount ?? false, user.role ?? "şoför", now, now, now, now]
+  );
 }
 
 export async function deleteManagedUser(openId: string) {
