@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { InsertUser, users } from "../drizzle/schema";
@@ -10,11 +10,11 @@ let _pool: mysql.Pool | null = null;
 export function getDatabaseConnectionString(): string | undefined {
   const url = (
     process.env.DATABASE_URL ||
-    process.env.MYSQL_URL ||
     process.env.MYSQLPUBLIC_URL ||
+    process.env.MYSQL_PUBLIC_URL ||
+    process.env.MYSQL_URL ||
     process.env.MYSQLPRIVATE_URL ||
-    process.env.MYSQL_PRIVATE_URL ||
-    process.env.MYSQL_PUBLIC_URL
+    process.env.MYSQL_PRIVATE_URL
   );
   return url;
 }
@@ -35,27 +35,39 @@ export async function getDb() {
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
+        connectTimeout: 10000,
+        ssl: connectionString.includes("rlwy.net") || connectionString.includes("railway") || connectionString.includes("tidbcloud") ? { rejectUnauthorized: false } : undefined,
       });
       _db = drizzle({ client: _pool });
       console.log("[Database] Drizzle instance ready.");
     } catch (error) {
-      console.error("[Database] Failed to connect:", error);
-      _db = null;
+      console.error("[Database] Failed to connect with SSL options, trying default pool...", error);
+      try {
+        _pool = mysql.createPool({
+          uri: connectionString,
+          waitForConnections: true,
+          connectionLimit: 10,
+        });
+        _db = drizzle({ client: _pool });
+      } catch (err2) {
+        console.error("[Database] Connection pool failed completely:", err2);
+        _db = null;
+      }
     }
   }
   return _db;
 }
 
 export async function ensureTablesExist() {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot ensure tables: no database connection.");
+  await getDb();
+  if (!_pool) {
+    console.warn("[Database] Cannot ensure tables: no database connection pool.");
     return false;
   }
 
   try {
-    console.log("[Database] Ensuring SQL tables exist...");
-    await db.execute(`
+    console.log("[Database] Ensuring SQL tables exist via pool...");
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`users\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`openId\` varchar(64) NOT NULL UNIQUE,
@@ -72,7 +84,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    await db.execute(`
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`vehicles\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`type\` enum('çöp kamyonu','damperli kamyon') NOT NULL,
@@ -84,7 +96,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    await db.execute(`
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`shifts\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`driverId\` int NOT NULL,
@@ -105,7 +117,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    await db.execute(`
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`vehicleFaults\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`vehicleId\` int NOT NULL,
@@ -120,7 +132,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    await db.execute(`
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`bulkWasteReports\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`reportedBy\` int NOT NULL,
@@ -139,7 +151,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    await db.execute(`
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`containerFaults\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`reportedBy\` int NOT NULL,
@@ -157,7 +169,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    await db.execute(`
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`citizenComplaints\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`reportedBy\` int NOT NULL,
@@ -175,7 +187,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    await db.execute(`
+    await _pool.query(`
       CREATE TABLE IF NOT EXISTS \`auditLogs\` (
         \`id\` int AUTO_INCREMENT PRIMARY KEY,
         \`actorId\` int NOT NULL,
@@ -187,7 +199,7 @@ export async function ensureTablesExist() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    console.log("[Database] All tables initialized successfully.");
+    console.log("[Database] All tables initialized successfully via pool.");
     return true;
   } catch (err) {
     console.error("[Database] Error ensuring tables exist:", err);
@@ -207,6 +219,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
+    await ensureTablesExist();
     const values: InsertUser = {
       openId: user.openId,
     };
@@ -261,16 +274,27 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
+  try {
+    await ensureTablesExist();
+    const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+    return result.length > 0 ? result[0] : undefined;
+  } catch (e) {
+    console.warn("[Database] Error in getUserByOpenId:", e);
+    return undefined;
+  }
 }
 
 export async function getLocalUserByUsername(username: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.username, username.toLowerCase())).limit(1);
-  return result[0];
+  try {
+    await ensureTablesExist();
+    const result = await db.select().from(users).where(eq(users.username, username.toLowerCase())).limit(1);
+    return result[0];
+  } catch (e) {
+    console.warn("[Database] Error in getLocalUserByUsername:", e);
+    return undefined;
+  }
 }
 
 export async function hasLocalManagementAccount() {
@@ -289,7 +313,7 @@ export async function hasLocalManagementAccount() {
 export async function createLocalManagedUser(input: { name: string; username: string; passwordHash: string; role: InsertUser["role"] }) {
   const connectionString = getDatabaseConnectionString();
   if (!connectionString) {
-    throw new Error("DATABASE_URL veya MYSQL_URL değişkeni bulunamadı. Lütfen Railway paneline değişkeni ekleyip servisi 'Redeploy' yapın.");
+    throw new Error("DATABASE_URL veya MYSQL_URL değişkeni bulunamadı. Lütfen Render paneline değişkeni ekleyip servisi 'Manual Deploy' yapın.");
   }
   const db = await getDb();
   if (!db) {
@@ -346,7 +370,14 @@ export async function updateLocalManagedUser(input: {
 
 export async function listManagedUsers() {
   const db = await getDb();
-  return db ? db.select().from(users) : [];
+  if (!db) return [];
+  try {
+    await ensureTablesExist();
+    return await db.select().from(users);
+  } catch (e) {
+    console.warn("[Database] Error listing managed users:", e);
+    return [];
+  }
 }
 
 export async function createManagedUser(user: InsertUser) {
