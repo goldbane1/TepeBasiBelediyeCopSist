@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+
+@theme inline {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --color-background: oklch(0.985 0.004 155);
+  --color-foreground: oklch(0.22 0.02 155);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.22 0.02 155);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.22 0.02 155);
+  --color-primary: oklch(0.48 0.12 155);
+  --color-primary-foreground: oklch(0.98 0.01 155);
+  --color-secondary: oklch(0.94 0.025 155);
+  --color-secondary-foreground: oklch(0.28 0.04 155);
+  --color-muted: oklch(0.96 0.012 155);
+  --color-muted-foreground: oklch(0.52 0.03 155);
+  --color-accent: oklch(0.93 0.04 155);
+  --color-accent-foreground: oklch(0.26 0.06 155);
+  --color-destructive: oklch(0.57 0.21 25);
+  --color-border: oklch(0.90 0.02 155);
+  --color-input: oklch(0.90 0.02 155);
+  --color-ring: oklch(0.52 0.12 155);
+  --radius: 0.9rem;
+}
+
+@layer base { * { @apply border-border; } body { @apply bg-background text-foreground antialiased; } button, input, select, textarea { font: inherit; } }
+@keyframes statusPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.16);opacity:.6} }
+@media (prefers-reduced-motion:no-preference) { .operations-map-pin { animation:statusPulse 1.35s ease-in-out infinite; } }
+.operations-map-pin{display:grid;place-items:center;width:34px;height:34px;border:3px solid white;border-radius:999px;color:white;box-shadow:0 4px 14px rgba(15,23,42,.28);font-size:12px;font-weight:800;cursor:pointer}.operations-map-pin--active{background:#14965a}.operations-map-pin--overdue{background:#dc2626}.operations-map-pin--damper{background:#ea580c}.operations-map-pin--konteyner{background:#059669}.operations-map-pin--ariza{background:#d97706}.operations-map-pin--sikayet{background:#0284c7}.legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px;animation:statusPulse 1.35s ease-in-out infinite}.legend-dot--green{background:#14965a}.legend-dot--red{background:#dc2626}.app-grid{background-image:linear-gradient(rgba(20,150,90,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(20,150,90,.04) 1px,transparent 1px);background-size:34px 34px}
+.custom-leaflet-marker{background:transparent!important;border:none!important}
+.input-native{height:2.5rem;width:100%;border:1px solid oklch(0.90 0.02 155);border-radius:.65rem;background:#fff;padding:0 .75rem;color:oklch(0.24 0.02 155);outline:none}.input-native:focus{border-color:#14965a;box-shadow:0 0 0 3px rgba(20,150,90,.13)}
+

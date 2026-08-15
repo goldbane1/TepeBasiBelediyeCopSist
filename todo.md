@@ -1,0 +1,42 @@
+# Project TODO
+
+- [x] Tepebaşı Belediyesi kurumsal kimliğiyle mobil uyumlu operasyon paneli oluşturmak
+- [x] Dört rolü tam adlarıyla tanımlamak: şoför, kademe personeli, kaynak personeli, yönetim
+- [x] Yönetim yetkisiyle kullanıcı oluşturma ve silme akışını kurmak
+- [x] Araç kartları için cins, kapasite, marka, plaka ve arıza durumu kayıtlarını oluşturmak
+- [x] Şoförlerin bölge, mahalle, araç, km ve doluluk bilgisiyle mesai başlatmasını sağlamak
+- [x] Şoförlerin bitiş km, doluluk, tonaj fişi, arıza durumu ile mesai sonlandırmasını sağlamak
+- [x] Mesai ayrıntılarını yalnızca yönetim rolüne sınırlamak
+- [x] Araç arızası bildirimi ve kademe onay akışını kurmak
+- [x] Kademe onayı olmadan arızalı araçların mesaiye başlamasını engellemek
+- [x] Çöp kamyonu şoförlerinin damperlik atık bildirimi oluşturmasını sağlamak
+- [x] Damperli kamyon şoförleri için konum, ayrıntı ve rota yönlendirmeli atık haritası oluşturmak
+- [x] Günü geçmiş atık ve şikayetleri kırmızı; geçmemişleri yeşil yanıp sönen işaretlerle göstermek
+- [x] Arızalı konteyner bildirimi ile kaynak onarım kaydı akışını kurmak
+- [x] Vatandaş şikayeti için konumlu fotoğraflı bildirim ve şoför onay akışını kurmak
+- [x] Tonaj, şikayet ve operasyon geçmişi raporlarını yalnızca yönetime sunmak
+- [x] Tonaj fişi ve şikayet fotoğraflarını S3 üzerinde saklamak
+- [x] İşlemler için denetlenebilir kayıt geçmişi tutmak
+- [x] Uygulamayı birim testleri, tip kontrolü ve görsel denetimle doğrulamak
+- [x] Damperlik atık bildirimini aktif çöp kamyonu mesaisi ile sınırlandırmak
+- [x] Damperlik atık toplama işlemini aktif damperli kamyon mesaisi ile sınırlandırmak
+- [x] Yönetim ekranına ayrı şikayet raporu görünümü eklemek
+- [x] Rol bazlı operasyon ekranlarını uygulama içinden görsel olarak doğrulamak
+- [x] Kimlik doğrulanmış şoför ve yönetim oturumlarıyla operasyon panellerini görsel olarak doğrulamak
+- [x] Şoför, kademe personeli, kaynak personeli ve yönetim için demo kullanıcı profillerini tanımlamak
+- [x] Dört rol için demo kullanıcı profilleri oluşturmak
+- [x] Demo görünümü için araç, atık, konteyner ve şikayet örneklerini oluşturmak
+- [x] Şoför, kademe personeli, kaynak personeli ve yönetim için rol atanmış demo kullanıcı hesaplarını veritabanında oluşturmak
+- [x] Demo seçiciyi, demo profillerini ve demo hesaplarını kaldırmak
+- [x] Gerçek bir kullanıcı için şoför hesabı oluşturmak ve şoför rolü atamak
+- [x] Harici OAuth girişini kapalı kullanıcı adı ve şifre giriş sistemiyle değiştirmek
+- [x] Yönetimin kullanıcı adı, şifre ve rol atayabildiği hesap yönetimi akışını kurmak
+- [x] İlk yönetim hesabını mevcut yerel yönetim hesabı üzerinden güvenli biçimde sınırlamak
+- [x] Anonim ilk yönetim hesabı oluşturma uç noktasını kapatmak
+- [ ] İlk yerel yönetim hesabını uygulama dışı güvenli provisioning ile açıkça ayırmak
+- [ ] Anonim hesap oluşturma akışının kapalı olduğunu backend testleriyle doğrulamak
+- [x] Hesap oluşturmanın yalnızca yönetim oturumuna açık olduğunu backend testleriyle doğrulamak
+- [x] Araç ekleme ve silme işlemlerini yalnızca yönetim rolüne sınırlandırmak
+- [x] Şoförün cihaz anlık konumuyla damperlik malzeme bildirimi oluşturmasını sağlamak
+- [x] Konum güncellenince bölge ve mahalle adresini otomatik doldurmak
+- [x] Açık mesaisi olmayan şoförlerde mesai sorgusunun boş değer hatasını gidermek

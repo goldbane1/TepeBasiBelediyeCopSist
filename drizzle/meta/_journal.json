@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1786580779220,
+      "tag": "0000_flawless_sunset_bain",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1786581073866,
+      "tag": "0001_puzzling_colonel_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786581095655,
+      "tag": "0002_cool_the_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1786583081234,
+      "tag": "0003_young_ultragirl",
+      "breakpoints": true
+    }
+  ]
+}
