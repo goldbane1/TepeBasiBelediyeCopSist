@@ -57,11 +57,12 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
   };
 
   const driverActiveComplaints = useMemo(() => {
-    if (!isDriver || !currentShift.data) return [];
-    const shiftNeigh = (currentShift.data.neighborhood || "").toLocaleLowerCase("tr").trim();
-    const shiftReg = (currentShift.data.region || "").toLocaleLowerCase("tr").trim();
+    const shiftData = currentShift.data as any;
+    if (!isDriver || !shiftData) return [];
+    const shiftNeigh = (shiftData.neighborhood || "").toLocaleLowerCase("tr").trim();
+    const shiftReg = (shiftData.region || "").toLocaleLowerCase("tr").trim();
 
-    return (complaints.data ?? []).filter(c => {
+    return ((complaints.data as any[]) ?? []).filter((c: any) => {
       if (c.status !== "açık") return false;
       const cNeigh = (c.neighborhood || "").toLocaleLowerCase("tr").trim();
       const cReg = (c.region || "").toLocaleLowerCase("tr").trim();
@@ -70,9 +71,9 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
   }, [isDriver, currentShift.data, complaints.data]);
 
   const mapOperations = useMemo<MapOperation[]>(() => [
-    ...(waste.data ?? [])
-      .filter(item => item.status === "bekliyor")
-      .map(item => ({
+    ...((waste.data as any[]) ?? [])
+      .filter((item: any) => item.status === "bekliyor")
+      .map((item: any) => ({
         id: item.id,
         category: "Damperlik atık" as const,
         title: `${item.wasteType} · ${item.neighborhood}`,
@@ -82,9 +83,9 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
         dueAt: item.dueAt,
         status: item.status,
       })),
-    ...(containers.data ?? [])
-      .filter(item => item.status === "bekliyor")
-      .map(item => ({
+    ...((containers.data as any[]) ?? [])
+      .filter((item: any) => item.status === "bekliyor")
+      .map((item: any) => ({
         id: item.id,
         category: "Konteyner arızası" as const,
         title: `${item.faultType} arızası · ${item.neighborhood}`,
@@ -93,9 +94,9 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
         longitude: item.longitude,
         status: item.status,
       })),
-    ...(complaints.data ?? [])
-      .filter(item => item.status === "açık")
-      .map(item => ({
+    ...((complaints.data as any[]) ?? [])
+      .filter((item: any) => item.status === "açık")
+      .map((item: any) => ({
         id: item.id,
         category: "Vatandaş şikayeti" as const,
         title: `Şikayet · ${item.neighborhood}`,
@@ -112,10 +113,10 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
       <Dashboard
         role={role}
         summary={summary.data ?? EMPTY_SUMMARY}
-        openFaults={(faults.data ?? []).filter(fault => fault.status === "kademe_onayı_bekliyor").length}
-        activeShift={currentShift.data}
+        openFaults={((faults.data as any[]) ?? []).filter((fault: any) => fault.status === "kademe_onayı_bekliyor").length}
+        activeShift={currentShift.data as any}
         driverActiveComplaints={driverActiveComplaints}
-        complaintsList={complaints.data ?? []}
+        complaintsList={(complaints.data as any[]) ?? []}
         onNavigate={onNavigate}
       />
     );
@@ -450,9 +451,10 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
 
   const submitFinish = (event: FormEvent) => {
     event.preventDefault();
-    if (!current.data) return;
+    const currentData = current.data as any;
+    if (!currentData) return;
     finish.mutate({
-      shiftId: current.data.id,
+      shiftId: currentData.id,
       endKm: Number(endForm.endKm),
       endFullness: endForm.endFullness,
       tonnage: endForm.tonnage || undefined,
@@ -735,18 +737,18 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
         </Card>
       </div>
 
-      {current.data && (
+      {Boolean(current.data) && (
         <Card className="border-0 bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="font-display">Açık Mesaiyi Sonlandır</CardTitle>
             <p className="text-sm text-slate-500">
-              Mesai #{current.data.id} · {current.data.neighborhood} · başlangıç {current.data.startKm} km
+              Mesai #{(current.data as any).id} · {(current.data as any).neighborhood} · başlangıç {(current.data as any).startKm} km
             </p>
           </CardHeader>
           <CardContent>
             <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitFinish}>
               <Field label="Bitiş Km">
-                <Input required type="number" min={current.data.startKm} value={endForm.endKm} onChange={e => setEndForm({ ...endForm, endKm: e.target.value })} />
+                <Input required type="number" min={(current.data as any).startKm} value={endForm.endKm} onChange={e => setEndForm({ ...endForm, endKm: e.target.value })} />
               </Field>
               <Field label="Bitiş Doluluk">
                 <select className="input-native" value={endForm.endFullness} onChange={e => setEndForm({ ...endForm, endFullness: e.target.value as "boş" | "dolu" })}>
@@ -834,7 +836,7 @@ function MapPanel({
     onError: e => toast.error(e.message),
   });
 
-  const canReport = (role === "şoför" && currentShift.data?.vehicleType === "çöp kamyonu") || role === "yönetim" || role === "kaynak personeli" || role === "kademe personeli";
+  const canReport = (role === "şoför" && (currentShift.data as any)?.vehicleType === "çöp kamyonu") || role === "yönetim" || role === "kaynak personeli" || role === "kademe personeli";
 
   const submitWaste = (event: FormEvent) => {
     event.preventDefault();
@@ -1026,8 +1028,8 @@ function BulkWasteSolutionPanel({
     onError: e => toast.error(e.message),
   });
 
-  const canCollectWaste = (role === "şoför" && currentShift.data?.vehicleType === "damperli kamyon") || role === "yönetim" || role === "kademe personeli";
-  const activeDamper = vehicles.find(vehicle => vehicle.id === currentShift.data?.vehicleId && vehicle.type === "damperli kamyon");
+  const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim" || role === "kademe personeli";
+  const activeDamper = vehicles.find(vehicle => vehicle.id === (currentShift.data as any)?.vehicleId && vehicle.type === "damperli kamyon");
   const pendingWaste = useMemo(() => wasteList.filter(item => item.status === "bekliyor"), [wasteList]);
 
   const mapOperations = useMemo<MapOperation[]>(

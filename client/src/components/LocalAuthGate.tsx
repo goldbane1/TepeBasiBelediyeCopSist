@@ -6,9 +6,6 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 export default function LocalAuthGate() {
-  const status = trpc.auth.setupStatus.useQuery(undefined, { retry: false });
-  if (status.isLoading) return <div className="mt-8 h-11 animate-pulse rounded-xl bg-slate-100" />;
-  if (!status.data?.ready) return <InitialAdminForm />;
   return <LoginForm />;
 }
 

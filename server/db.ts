@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
+import * as schema from "../drizzle/schema";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
-let _db: ReturnType<typeof drizzle> | null = null;
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _pool: mysql.Pool | null = null;
 
 export function getDatabaseConnectionString(): string | undefined {
@@ -38,7 +39,7 @@ export async function getDb() {
         connectTimeout: 10000,
         ssl: connectionString.includes("rlwy.net") || connectionString.includes("railway") || connectionString.includes("tidbcloud") ? { rejectUnauthorized: false } : undefined,
       });
-      _db = drizzle({ client: _pool });
+      _db = drizzle({ client: _pool as any, schema, mode: "default" }) as any;
       console.log("[Database] Drizzle instance ready.");
     } catch (error) {
       console.error("[Database] Failed to connect with SSL options, trying default pool...", error);
@@ -48,7 +49,7 @@ export async function getDb() {
           waitForConnections: true,
           connectionLimit: 10,
         });
-        _db = drizzle({ client: _pool });
+        _db = drizzle({ client: _pool as any, schema, mode: "default" }) as any;
       } catch (err2) {
         console.error("[Database] Connection pool failed completely:", err2);
         _db = null;
@@ -120,7 +121,7 @@ export async function ensureTablesExist() {
         \`faultReported\` boolean NOT NULL DEFAULT false,
         \`status\` varchar(64) NOT NULL DEFAULT 'açık',
         \`startedAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`endedAt\` timestamp
+        \`endedAt\` timestamp NULL DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
@@ -135,7 +136,7 @@ export async function ensureTablesExist() {
         \`approvedBy\` int,
         \`approvalNote\` text,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`approvedAt\` timestamp
+        \`approvedAt\` timestamp NULL DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
@@ -153,7 +154,7 @@ export async function ensureTablesExist() {
         \`status\` varchar(64) NOT NULL DEFAULT 'bekliyor',
         \`collectedVehicleId\` int,
         \`collectedDriverId\` int,
-        \`collectedAt\` timestamp,
+        \`collectedAt\` timestamp NULL DEFAULT NULL,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
@@ -172,7 +173,7 @@ export async function ensureTablesExist() {
         \`repairedBy\` int,
         \`repairNote\` text,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`repairedAt\` timestamp
+        \`repairedAt\` timestamp NULL DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
@@ -190,7 +191,7 @@ export async function ensureTablesExist() {
         \`status\` varchar(64) NOT NULL DEFAULT 'açık',
         \`acknowledgedBy\` int,
         \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`acknowledgedAt\` timestamp
+        \`acknowledgedAt\` timestamp NULL DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
@@ -310,7 +311,7 @@ export async function hasLocalManagementAccount() {
   try {
     await ensureTablesExist();
     const result = await db.select().from(users).where(eq(users.role, "yönetim"));
-    return result.some(user => user.isLocalAccount && Boolean(user.passwordHash));
+    return result.some((user: any) => user.isLocalAccount && Boolean(user.passwordHash));
   } catch (e) {
     console.warn("[Database] Error checking management account, ensuring tables:", e);
     return false;
