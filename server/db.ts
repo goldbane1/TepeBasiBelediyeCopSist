@@ -60,159 +60,7 @@ export async function getDb() {
 }
 
 export async function ensureTablesExist() {
-  await getDb();
-  if (!_pool) {
-    console.warn("[Database] Cannot ensure tables: no database connection pool.");
-    return false;
-  }
-
-  try {
-    console.log("[Database] Ensuring SQL tables exist via pool...");
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`users\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`openId\` varchar(64) NOT NULL UNIQUE,
-        \`name\` text,
-        \`email\` varchar(320),
-        \`loginMethod\` varchar(64),
-        \`username\` varchar(64) UNIQUE,
-        \`passwordHash\` varchar(255),
-        \`isLocalAccount\` boolean NOT NULL DEFAULT false,
-        \`role\` varchar(64) NOT NULL DEFAULT 'şoför',
-        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`updatedAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        \`lastSignedIn\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    // Ensure role column is varchar(64) if table existed prior
-    try {
-      await _pool.query(`ALTER TABLE \`users\` MODIFY COLUMN \`role\` varchar(64) NOT NULL DEFAULT 'şoför';`);
-    } catch (e) {
-      // Ignore if alter fails or already modified
-    }
-
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`vehicles\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`type\` varchar(64) NOT NULL,
-        \`capacityTon\` varchar(24) NOT NULL,
-        \`brand\` varchar(100) NOT NULL,
-        \`plate\` varchar(16) NOT NULL UNIQUE,
-        \`status\` varchar(64) NOT NULL DEFAULT 'aktif',
-        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`shifts\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`driverId\` int NOT NULL,
-        \`vehicleId\` int NOT NULL,
-        \`region\` varchar(100) NOT NULL,
-        \`neighborhood\` varchar(100) NOT NULL,
-        \`vehicleType\` varchar(64) NOT NULL,
-        \`startKm\` int NOT NULL,
-        \`startFullness\` varchar(64) NOT NULL,
-        \`endKm\` int,
-        \`endFullness\` varchar(64),
-        \`tonnage\` varchar(24),
-        \`tonnageReceiptUrl\` text,
-        \`faultReported\` boolean NOT NULL DEFAULT false,
-        \`status\` varchar(64) NOT NULL DEFAULT 'açık',
-        \`startedAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`endedAt\` timestamp NULL DEFAULT NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`vehicleFaults\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`vehicleId\` int NOT NULL,
-        \`reportedBy\` int NOT NULL,
-        \`description\` text NOT NULL,
-        \`severity\` varchar(64) NOT NULL DEFAULT 'orta',
-        \`status\` varchar(64) NOT NULL DEFAULT 'kademe_onayı_bekliyor',
-        \`approvedBy\` int,
-        \`approvalNote\` text,
-        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`approvedAt\` timestamp NULL DEFAULT NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`bulkWasteReports\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`reportedBy\` int NOT NULL,
-        \`region\` varchar(100) NOT NULL,
-        \`neighborhood\` varchar(100) NOT NULL,
-        \`wasteType\` varchar(100) NOT NULL,
-        \`description\` text NOT NULL,
-        \`latitude\` varchar(32) NOT NULL,
-        \`longitude\` varchar(32) NOT NULL,
-        \`dueAt\` timestamp NOT NULL,
-        \`status\` varchar(64) NOT NULL DEFAULT 'bekliyor',
-        \`collectedVehicleId\` int,
-        \`collectedDriverId\` int,
-        \`collectedAt\` timestamp NULL DEFAULT NULL,
-        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`containerFaults\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`reportedBy\` int NOT NULL,
-        \`region\` varchar(100) NOT NULL,
-        \`neighborhood\` varchar(100) NOT NULL,
-        \`faultType\` varchar(64) NOT NULL,
-        \`description\` text NOT NULL,
-        \`latitude\` varchar(32) NOT NULL,
-        \`longitude\` varchar(32) NOT NULL,
-        \`status\` varchar(64) NOT NULL DEFAULT 'bekliyor',
-        \`repairedBy\` int,
-        \`repairNote\` text,
-        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`repairedAt\` timestamp NULL DEFAULT NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`citizenComplaints\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`reportedBy\` int NOT NULL,
-        \`region\` varchar(100) NOT NULL,
-        \`neighborhood\` varchar(100) NOT NULL,
-        \`description\` text NOT NULL,
-        \`latitude\` varchar(32) NOT NULL,
-        \`longitude\` varchar(32) NOT NULL,
-        \`photoUrl\` text,
-        \`dueAt\` timestamp NOT NULL,
-        \`status\` varchar(64) NOT NULL DEFAULT 'açık',
-        \`acknowledgedBy\` int,
-        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`acknowledgedAt\` timestamp NULL DEFAULT NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    await _pool.query(`
-      CREATE TABLE IF NOT EXISTS \`auditLogs\` (
-        \`id\` int AUTO_INCREMENT PRIMARY KEY,
-        \`actorId\` int NOT NULL,
-        \`action\` varchar(120) NOT NULL,
-        \`entityType\` varchar(100) NOT NULL,
-        \`entityId\` int,
-        \`details\` text,
-        \`createdAt\` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    console.log("[Database] All tables initialized successfully via pool with utf8mb4_unicode_ci.");
-    return true;
-  } catch (err) {
-    console.error("[Database] Error ensuring tables exist:", err);
-    return false;
-  }
+  return true;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -227,7 +75,6 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    await ensureTablesExist();
     const values: InsertUser = {
       openId: user.openId,
     };
@@ -283,7 +130,6 @@ export async function getUserByOpenId(openId: string) {
   }
 
   try {
-    await ensureTablesExist();
     const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
     return result.length > 0 ? result[0] : undefined;
   } catch (e) {
@@ -296,7 +142,6 @@ export async function getLocalUserByUsername(username: string) {
   const db = await getDb();
   if (!db) return undefined;
   try {
-    await ensureTablesExist();
     const result = await db.select().from(users).where(eq(users.username, username.toLowerCase())).limit(1);
     return result[0];
   } catch (e) {
@@ -309,7 +154,6 @@ export async function hasLocalManagementAccount() {
   const db = await getDb();
   if (!db) return false;
   try {
-    await ensureTablesExist();
     const result = await db.select().from(users).where(eq(users.role, "yönetim"));
     return result.some((user: any) => user.isLocalAccount && Boolean(user.passwordHash));
   } catch (e) {
@@ -327,7 +171,6 @@ export async function createLocalManagedUser(input: { name: string; username: st
   if (!_pool) {
     throw new Error("Veritabanı bağlantı havuzu oluşturulamadı. Lütfen DATABASE_URL adresini kontrol edin.");
   }
-  await ensureTablesExist();
 
   const username = input.username.toLowerCase();
   const existing = await getLocalUserByUsername(username);
@@ -352,7 +195,6 @@ export async function updateLocalManagedUser(input: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı. Lütfen DATABASE_URL değişkenini kontrol edin.");
-  await ensureTablesExist();
 
   const [existing] = await db.select().from(users).where(eq(users.openId, input.openId)).limit(1);
   if (!existing) throw new Error("Kullanıcı bulunamadı.");
@@ -377,7 +219,6 @@ export async function listManagedUsers() {
   const db = await getDb();
   if (!db) return [];
   try {
-    await ensureTablesExist();
     return await db.select().from(users);
   } catch (e) {
     console.warn("[Database] Error listing managed users:", e);
@@ -392,7 +233,6 @@ export async function createManagedUser(user: InsertUser) {
   }
   await getDb();
   if (!_pool) throw new Error("Veritabanı bağlantısı kurulamadı.");
-  await ensureTablesExist();
 
   const now = new Date();
   await _pool.query(
