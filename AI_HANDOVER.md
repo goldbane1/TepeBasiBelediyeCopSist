@@ -1,0 +1,423 @@
+# TEPEBAŞI BELEDİYESİ TEMİZLİK İŞLERİ MÜDÜRLÜĞÜ
+## Saha Operasyonları ve Atık Yönetim Sistemi — Yapay Zeka Devir ve Teknik Mimari Dokümanı (AI Handover & Technical Specification)
+
+> **Bu Dokümanın Amacı:**  
+> Projeyi devralacak veya üzerinde çalışacak herhangi bir Yapay Zeka modelinin (LLM/Agent) ya da yazılım mühendisinin, sistemin tüm mimarisini, iş mantığını, veritabanı kurallarını, rol yetkilendirmelerini, tRPC uç noktalarını ve bileşen hiyerarşisini eksiksiz anlayarak doğrudan hatasız kod geliştirmesini sağlamaktır.
+
+---
+
+## 1. Proje Genel Özeti (Executive Summary)
+
+Tepebaşı Belediyesi Temizlik İşleri Müdürlüğü için geliştirilmiş; saha temizlik araçlarının vardiya/mesai takibini, çöp kamyonu ve damperli araç operasyonlarını, damperlik hafriyat/moloz atık bildirim ve toplama süreçlerini, arızalı çöp konteynerlerinin kaynak/onarım yönetimini, vatandaş şikayetlerinin coğrafi koordinat bazlı takibini ve yönetimsel raporlamaları tek merkezden yöneten **full-stack operasyonel yönetim yazılımıdır**.
+
+---
+
+## 2. Teknoloji Yığını (Tech Stack)
+
+| Katman | Teknoloji / Kütüphane | Açıklama |
+| :--- | :--- | :--- |
+| **Frontend Framework** | React 18 + Vite | SPA (Single Page Application) yapısı |
+| **Tip Güvenliği** | TypeScript | Uçtan uca tip güvenliği (0 error politikası) |
+| **Stil & Tasarım** | Tailwind CSS + Vanilla CSS | Modern, responsive, mobil uyumlu kart/grid arayüzü |
+| **Bileşen Kütüphanesi** | Radix UI / shadcn/ui | Dialog, Card, Badge, Input, Textarea, Tooltip |
+| **Harita & Coğrafi Bilgi** | Leaflet + React-Leaflet + OpenStreetMap Nominatim | Özel SVG pinler, canlı mesafe/konum, ters ve düz geocoding |
+| **İstemci-Sunucu İletişimi**| tRPC (v10+) + TanStack React Query | Tip güvenli RPC API çağrıları |
+| **Backend Runtime** | Node.js + Express | REST & tRPC sunucusu |
+| **Veritabanı & ORM** | MySQL 8.0+ / MariaDB + Drizzle ORM | İlişkisel veritabanı ve sorgu katmanı |
+| **Kimlik Doğrulama** | JWT (JSON Web Token) + bcryptjs | Rol bazlı oturum ve şifreleme |
+| **İkon Seti** | Lucide React | Modern ikonlar |
+| **Bildirimler** | Sonner | Toast bildirimleri |
+
+---
+
+## 3. Veritabanı Mimarisi ve Katı Kurallar (Database Architecture)
+
+### ⚠️ KRİTİK VERİTABANI KURALI (Single Source of Truth):
+1. **Otomatik DDL Yasaktır:** Sunucu başlangıcında (`server/db.ts` veya `server/_core/index.ts`) otomatik tablo oluşturan/güncelleyen (`CREATE TABLE IF NOT EXISTS` döngüleri) kodlar **çalıştırılmaz**. Terminal çıktısını kirletmemek ve canlı veriyi korumak için DDL işlemleri kullanıcı tarafından manuel uygulanır.
+2. **Kılavuz Dosya:** `schema.sql` dosyası projenin tek ve kesin **veritabanı referansıdır**. Yapılan her şema değişikliği hem `drizzle/schema.ts` dosyasına hem de `schema.sql` dosyasına yazılmalıdır.
+
+### Tablo Yapıları ve İlişkileri (9 Tablo):
+
+```
++-----------------------------------------------------------------------------------+
+|                                  VERİTABANI ŞEMASI                                |
++-----------------------------------------------------------------------------------+
+
+1. [users] (Kullanıcılar / Personel)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── openId (VARCHAR(64), UNIQUE)
+   ├── name (TEXT)
+   ├── email (VARCHAR(320))
+   ├── username (VARCHAR(64), UNIQUE)
+   ├── passwordHash (VARCHAR(255))
+   ├── isLocalAccount (BOOLEAN, DEFAULT false)
+   ├── role (ENUM/VARCHAR: 'yönetim', 'şoför', 'kaynak personeli', 'kademe personeli')
+   └── createdAt, updatedAt, lastSignedIn (TIMESTAMP)
+
+2. [neighborhoods] (Dinamik Tepebaşı Mahalleleri)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── region (VARCHAR(100)) -> 'Batı Bölgesi', 'Merkez Bölgesi', 'Kuzey Bölgesi', 'Kırsal'
+   ├── name (VARCHAR(100), UNIQUE) -> 'Batıkent Mahallesi', 'Şirintepe Mahallesi' vb.
+   └── createdAt (TIMESTAMP)
+
+3. [vehicles] (Araç Envanteri)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── type (VARCHAR(64)) -> 'çöp kamyonu', 'damperli kamyon'
+   ├── capacityTon (VARCHAR(24))
+   ├── brand (VARCHAR(100))
+   ├── plate (VARCHAR(16), UNIQUE) -> Örn: '26 ABC 001'
+   ├── status (VARCHAR(64), DEFAULT 'aktif') -> 'aktif', 'arızalı', 'bakımda'
+   └── createdAt (TIMESTAMP)
+
+4. [shifts] (Saha Mesaileri / Vardiyalar)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── driverId (INT, FK -> users.id)
+   ├── vehicleId (INT, FK -> vehicles.id)
+   ├── region (VARCHAR(100))
+   ├── neighborhood (VARCHAR(100))
+   ├── vehicleType (ENUM: 'çöp kamyonu', 'damperli kamyon')
+   ├── shiftHours (VARCHAR(32)) -> '08:00 - 16:00', '16:00 - 00:00', '00:00 - 08:00'
+   ├── startKm (INT)
+   ├── startFullness (ENUM: 'boş', 'dolu')
+   ├── endKm (INT, NULLABLE)
+   ├── endFullness (ENUM: 'boş', 'dolu', NULLABLE)
+   ├── tonnage (VARCHAR(24), NULLABLE)
+   ├── tonnageReceiptUrl (TEXT, NULLABLE - JSON string / Base64 fotoğraflar)
+   ├── faultReported (BOOLEAN, DEFAULT false)
+   ├── status (ENUM: 'açık', 'tamamlandı')
+   ├── startedAt (TIMESTAMP)
+   └── endedAt (TIMESTAMP, NULLABLE)
+
+5. [vehicleFaults] (Araç Arıza ve Bakım Kayıtları)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── vehicleId (INT, FK -> vehicles.id)
+   ├── reportedBy (INT, FK -> users.id)
+   ├── description (TEXT)
+   ├── severity (ENUM: 'düşük', 'orta', 'yüksek')
+   ├── status (ENUM: 'kademe_onayı_bekliyor', 'bakımda', 'onarım_tamamlandı')
+   ├── approvalNote (TEXT, NULLABLE)
+   ├── createdAt, updatedAt (TIMESTAMP)
+   └── resolvedAt (TIMESTAMP, NULLABLE)
+
+6. [bulkWasteReports] (Damperlik Hafriyat / Moloz / Kaba Atık Bildirimleri)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── reportedBy (INT, FK -> users.id)
+   ├── region (VARCHAR(100))
+   ├── neighborhood (VARCHAR(100))
+   ├── wasteType (VARCHAR(100)) -> 'Hafriyat / Moloz', 'Budama / Dal Atığı', 'Mobilya / Kaba Eşya', 'Diğer'
+   ├── description (TEXT)
+   ├── latitude (VARCHAR(32))
+   ├── longitude (VARCHAR(32))
+   ├── photoUrl (TEXT, NULLABLE - Base64/URL fotoğraf)
+   ├── dueAt (TIMESTAMP, DEFAULT NOW + 2 GÜN) -> Toplama süresi sınırı
+   ├── status (ENUM: 'bekliyor', 'toplandı')
+   ├── collectedVehicleId (INT, NULLABLE)
+   ├── collectedDriverId (INT, NULLABLE)
+   ├── collectedAt (TIMESTAMP, NULLABLE)
+   └── createdAt (TIMESTAMP)
+
+7. [containerFaults] (Konteyner Arıza & Kaynak Kayıtları)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── reportedBy (INT, FK -> users.id)
+   ├── region (VARCHAR(100))
+   ├── neighborhood (VARCHAR(100))
+   ├── faultType (ENUM: 'kol', 'ayak', 'gövde', 'kapak', 'diğer')
+   ├── description (TEXT)
+   ├── latitude (VARCHAR(32))
+   ├── longitude (VARCHAR(32))
+   ├── photoUrl (TEXT, NULLABLE)
+   ├── status (ENUM: 'bekliyor', 'onarım_tamamlandı')
+   ├── repairedBy (INT, NULLABLE)
+   ├── repairNote (TEXT, NULLABLE)
+   ├── createdAt (TIMESTAMP)
+   └── repairedAt (TIMESTAMP, NULLABLE)
+
+8. [citizenComplaints] (Vatandaş Şikayetleri)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── reportedBy (INT, NULLABLE)
+   ├── region (VARCHAR(100))
+   ├── neighborhood (VARCHAR(100))
+   ├── description (TEXT)
+   ├── latitude (VARCHAR(32))
+   ├── longitude (VARCHAR(32))
+   ├── photoUrl (TEXT, NULLABLE)
+   ├── dueAt (TIMESTAMP, DEFAULT NOW + 24 SAAT) -> Aciliyet süresi
+   ├── status (ENUM: 'açık', 'çözüldü')
+   ├── resolvedBy (INT, NULLABLE)
+   ├── resolvedAt (TIMESTAMP, NULLABLE)
+   └── createdAt (TIMESTAMP)
+
+9. [auditLogs] (Sistem Denetim ve Güvenlik Logları)
+   ├── id (PK, INT AUTO_INCREMENT)
+   ├── userId (INT, FK -> users.id)
+   ├── action (VARCHAR(100))
+   ├── details (TEXT)
+   └── createdAt (TIMESTAMP)
+```
+
+---
+
+## 4. Kullanıcı Rolleri ve Yetki Matrisi (Role-Based Access Control)
+
+Sistemde 4 temel rol tanımlıdır (`users.role`):
+
+| Yetenek / Ekran | `yönetim` | `şoför` | `kaynak personeli` | `kademe personeli` |
+| :--- | :---: | :---: | :---: | :---: |
+| **Genel Dashboard & İstatistikler** | ✅ | ✅ | ✅ | ✅ |
+| **Tüm Operasyonlar Haritası** | ✅ | ✅ | ✅ | ✅ |
+| **Mesai Başlatma / Bitirme (Kendi Adına)** | ❌ | ✅ | ❌ | ❌ |
+| **Şoför Adına Mesai Başlatma & Bitirme** | ✅ | ❌ | ❌ | ❌ |
+| **Şoför Geçmiş 10 Mesai Tablosu** | ❌ | ✅ (Kendi mesaileri) | ❌ | ❌ |
+| **Damperlik Atık Bildirme (Saha Kaydı)** | ✅ | ✅ (Çöp kamyonu şoförü) | ❌ | ❌ |
+| **Damperlik Atığı Toplayıp Kapatma** | ✅ | ✅ (Damperli kamyon şoförü) | ❌ | ✅ |
+| **Konteyner Arızası Bildirme** | ✅ | ✅ | ✅ | ✅ |
+| **Konteyner Onarımını Tamamlama/Kapatma** | ✅ | ✅ | ✅ (Esas sorumlu) | ✅ |
+| **Vatandaş Şikayeti Kaydetme** | ✅ | ✅ | ✅ | ✅ |
+| **Vatandaş Şikayetini Çözüp Kapatma** | ✅ | ✅ (Bölgedeki şoför) | ❌ | ❌ |
+| **Araç Envanteri Ekle/Düzenle/Sil** | ✅ | ❌ | ❌ | ✅ |
+| **Araç Arıza Bildirme** | ✅ | ✅ | ✅ | ✅ |
+| **Araç Kademe Onayı & Bakımdan Çıkarma** | ✅ | ❌ | ❌ | ✅ |
+| **Mahalle Yönetimi (Ekle/Düzenle/Sil)** | ✅ | ❌ | ❌ | ❌ |
+| **Yönetim Raporları, CRUD ve Veri Sıfırlama**| ✅ | ❌ | ❌ | ❌ |
+| **Personel / Kullanıcı Yönetimi** | ✅ | ❌ | ❌ | ❌ |
+
+---
+
+## 5. Kritik İş Mantığı ve İş Akışları (Business Logic & Workflows)
+
+### 5.1. Mesai ve Vardiya Yönetimi (`shifts`)
+- **3 Sabit Vardiya Saati:** `08:00 - 16:00`, `16:00 - 00:00`, `00:00 - 08:00`.
+- **Dinamik Mahalle:** Şoför veya yönetici mesai başlatırken veritabanındaki `neighborhoods` listesinden seçim yapar. Seçilen mahalleye bağlı `region` (bölge) otomatik set edilir.
+- **Tek Aktif Mesai Kuralı:** Bir şoförün aynı anda yalnızca 1 açık mesaisi olabilir.
+- **Mesai Bitirme:** Bitiş kilometresi girilir (`endKm >= startKm`). İsteğe bağlı kantar fişi fotoğrafları (`tonnageReceipts` Base64 dizisi) ve tonaj bilgisi kaydedilir.
+
+### 5.2. Şoför Görev Bölgesi Şikayet Alarmı
+- Şoför aktif bir mesaideyken (`activeShift`), mesai yaptığı mahallede (`activeShift.neighborhood`) açık bir vatandaş şikayeti (`citizenComplaints.status = 'açık'`) varsa:
+  - Dashboard'un en tepesinde yanıp sönen kırmızı acil durum uyarı banner'ı belirir (`🚨 GÖREV BÖLGENİZDE X AÇIK ŞİKAYET VAR`).
+  - Şoför tek tıkla şikayeti inceleyip sahada temizliği tamamlayarak şikayeti kapatabilir.
+
+### 5.3. Damperlik Atık Çözümü (`bulkWasteReports`)
+- Çöp kamyonu şoförleri konteyner dışı büyük moloz/dal/eşya gördüklerinde bildirim oluşturur.
+- Bildirime otomatik olarak `NOW() + 2 GÜN` termin tarihi atanır.
+- **Harita İkazı:** 2 günü geçmemiş atıklar haritada yeşil pin, 2 günü geçmiş atıklar kırmızı pin (acil) olarak görünür.
+- Damperli kamyon şoförü haritadan veya listeden atığın yanına giderek doğrudan **"Toplandı / Çözüldü"** butonuyla kaydı kapatır.
+
+### 5.4. Konteyner Arıza Çözümü (`containerFaults`)
+- Kırık kaldırma kolu, tekerlek, delik sac, hasarlı kapak arızaları fotoğraflı ve koordinatlı bildirilir.
+- Kaynak personeli haritadan veya listeden arızayı seçer, onarım notunu yazar ve kaydı onarılmış olarak kapatır.
+
+### 5.5. Konum ve Geocoding Mimarisi (Forward & Reverse Geocoding)
+Tüm operasyonel bildirim formlarında iki yönlü OpenStreetMap (Nominatim) entegrasyonu vardır:
+1. **Düz Geocoding (Forward Geocoding - Adresten Koordinat Bulma):**
+   - Kullanıcı bir sokak, cadde veya mahalle ismi yazar (Örn: *İsmet İnönü Caddesi*, *Şirintepe*).
+   - Sistem Nominatim API'sine `query + ", Tepebaşı, Eskişehir"` sorgusu atar.
+   - Enlem (`latitude`) ve boylam (`longitude`) otomatik doldurulur, açık adres kullanıcıya teyit ettirilir.
+2. **Ters Geocoding (Reverse Geocoding - GPS'ten Adres Bulma):**
+   - Kullanıcı **"Anlık GPS Al"** butonuna basar (`navigator.geolocation` yüksek hassasiyet modu).
+   - Alınan koordinat Nominatim reverse API'sine gönderilerek mahalle ve sokak adı form alanına doldurulur.
+
+### 5.6. Operasyon Haritası ve Pin Özellikleri (`OperationsMap.tsx`)
+- **Tekil Harita Filtreleme:** Her operasyon sekmesinde (`Konteyner`, `Damperlik Atık`, `Şikayetler`) sadece o kategoriye ait özel harita gösterilir.
+- **Fotoğraf Önizleme & Lightbox:** Pin tıklandığında yüklenen fotoğrafın küçük önizlemesi çıkar; tıklandığında tam ekran yüksek çözünürlüklü Lightbox açılır.
+- **Doğrudan Pinden Kapatma:** Yetkili personel pin üzerindeki butona basarak listede aramaya gerek kalmadan görevi haritadan kapatabilir.
+- **Kompakt Bildirim Tablosu:** Ana haritanın altında fotoğrafsız, kompakt, doğrudan pine odaklayan (`Pini Göster`) bir özet bildirim listesi bulunur.
+
+---
+
+## 6. Proje Dosya ve Dizin Yapısı (Directory Structure)
+
+```
+TepeBasiTemizlikYEni/
+├── client/                               # Frontend (React + Vite + TS)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ui/                       # Radix UI / shadcn atomik bileşenleri
+│   │   │   ├── OperationsWorkspace.tsx   # Ana Workspace yönlendiricisi, Dashboard, Şoför Mesai & Vardiya Paneli, Damperlik Atık Paneli
+│   │   │   ├── FieldOperations.tsx       # Konteyner Arıza Çözümü ve Vatandaş Şikayetleri Panelleri (Formlar + Haritalar + Listeler)
+│   │   │   ├── FleetOperations.tsx       # Araç Envanteri ve Araç Arıza/Bakım Panelleri
+│   │   │   ├── ManagementOperations.tsx  # Mahalle Yönetimi, Genel Raporlar, Full CRUD Yönetimi, Veri Sıfırlama, Personel Paneli
+│   │   │   └── OperationsMap.tsx         # Leaflet harita bileşeni (SVG Markerlar, Lightbox, Pinden Kapatma)
+│   │   ├── pages/
+│   │   │   ├── Home.tsx                  # Ana sayfa kabuğu (Sidebar, Header, Rol Değiştirici, View Switcher)
+│   │   │   └── Auth.tsx                  # Giriş ve kayıt ekranı
+│   │   ├── lib/
+│   │   │   ├── trpc.ts                   # tRPC React Client tanımları
+│   │   │   └── utils.ts                  # Tailwind sınıf birleştirici (cn)
+│   │   ├── App.tsx                       # React kök bileşeni ve tRPC Provider
+│   │   └── main.tsx                      # Vite giriş noktası
+├── server/                               # Backend (Node.js + Express + tRPC)
+│   ├── _core/
+│   │   ├── index.ts                      # Express sunucu başlatıcı, tRPC middleware
+│   │   └── trpc.ts                       # tRPC context, publicProcedure, protectedProcedure
+│   ├── routers/
+│   │   ├── operations.ts                 # Ana tRPC router'ı (shifts, bulkWaste, containerFaults, complaints, vehicles, faults, neighborhoods, reports)
+│   │   └── auth.ts                       # Kullanıcı giriş, kayıt, session router'ı
+│   ├── operations-db.ts                  # Veritabanı sorgu fonksiyonları (Drizzle ORM yardımcıları)
+│   └── db.ts                             # MySQL connection pool ve Drizzle instance'ı
+├── drizzle/
+│   └── schema.ts                         # Drizzle ORM TypeScript şema tanımları
+├── schema.sql                            # Veritabanı tek kaynak SQL dosyası (Tablolar + Seed Verileri + Migrationlar)
+├── package.json                          # Bağımlılıklar ve scriptler
+├── tsconfig.json                         # TypeScript yapılandırması
+├── tailwind.config.ts                    # Tailwind CSS yapılandırması
+└── AI_HANDOVER.md                        # (Bu Dosya) Proje devir ve mimari kılavuzu
+```
+
+---
+
+## 7. tRPC API Uç Noktaları Özeti (tRPC API Endpoints)
+
+Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
+
+### `shifts` (Mesailer)
+- `current` (Query): Şoförün mevcut açık mesaisini döner.
+- `driverHistory` (Query): Şoförün son 10 tamamlanan mesaisini döner.
+- `start` (Mutation): Yeni mesai başlatır (şoför kendisi veya yönetici şoför adına).
+- `finish` (Mutation): Mesaiyi sonlandırır (km, doluluk, kantar fişi fotoğrafları, arıza kaydı).
+- `update` (Mutation - Admin): Mesai kaydını günceller.
+- `remove` (Mutation - Admin): Mesai kaydını siler.
+
+### `neighborhoods` (Mahalleler)
+- `list` (Query): Tanımlı mahalleleri alfabetik/bölgeye göre döner.
+- `create` (Mutation): Yeni mahalle ekler (`name`, `region`).
+- `update` (Mutation): Mahalle adını ve bölgesini günceller.
+- `remove` (Mutation): Mahalleyi siler.
+
+### `bulkWaste` (Damperlik Atıklar)
+- `list` (Query): Tüm damperlik atıkları döner.
+- `create` (Mutation): Yeni atık bildirir (tür, mahalle, koordinat, fotoğraf).
+- `collect` (Mutation): Atığı toplandı olarak işaretler.
+- `update` (Mutation - Admin): Damperlik atık kaydını günceller.
+- `remove` (Mutation - Admin): Damperlik atık kaydını siler.
+
+### `containerFaults` (Konteyner Arızaları)
+- `list` (Query): Tüm konteyner arızalarını döner.
+- `create` (Mutation): Yeni konteyner arızası bildirir.
+- `repair` (Mutation): Arızayı onarım notuyla kapatır.
+- `update` (Mutation - Admin): Konteyner arıza kaydını günceller.
+- `remove` (Mutation - Admin): Konteyner arıza kaydını siler.
+
+### `complaints` (Vatandaş Şikayetleri)
+- `list` (Query): Tüm şikayetleri döner.
+- `create` (Mutation): Yeni şikayet kaydeder (mahalle, açıklama, koordinat, fotoğraf).
+- `acknowledge` (Mutation): Şikayeti çözüldü olarak kapatır.
+- `update` (Mutation - Admin): Şikayet kaydını günceller.
+- `remove` (Mutation - Admin): Şikayet kaydını siler.
+
+### `vehicles` & `faults` (Filo ve Bakım)
+- `vehicles.list`, `vehicles.create`, `vehicles.updateStatus`, `vehicles.remove`
+- `faults.list`, `faults.create`, `faults.review` (kademe onayı)
+
+### `reports` (Yönetim ve Raporlama)
+- `summary` (Query): Dashboard ve yönetim için özet operasyon sayıları.
+- `resetData` (Mutation - Admin): Seçilen kategorilerdeki operasyonel verileri kalıcı temizler ve denetim loguna yazar.
+
+---
+
+## 8. Geliştirici & Yapay Zeka İlkeleri (Guidelines for Next AI / Developer)
+
+1. **Tip Uyumluluğu:** Kod tabanında `npx tsc --noEmit` çalıştırıldığında **daima 0 hata** vermelidir. `any` kullanımı en aza indirilmeli, `drizzle/schema.ts` ve tRPC çıktı tipleriyle tam uyumlu çalışılmalıdır.
+2. **Gereksiz Başlık ve Metin Kalabalığından Kaçının:** Arayüz minimal, sade, ferah ve işlev odaklı tutulmalıdır. Kartların içine gereksiz uzun açıklama paragrafları ve tekrarlı üst banner'lar eklenmemelidir.
+3. **Mobil Uyum ve Kamera Desteği:** Saha personelinin mobil cihazlardan fotoğraf çekeceği unutulmamalıdır; dosya inputlarında `accept="image/*"` ve `capture="environment"` parametreleri korunmalıdır.
+4. **Veritabanı Güncellemeleri:** Drizzle şemasında yapılan her değişiklik eş zamanlı olarak `schema.sql` dosyasına yansıtılmalıdır. Sunucu başlangıcında asla otomatik DDL çalıştırılmamalıdır.
+5. **DOKÜMANTASYON GÜNCELLEME KURALI (ZORUNLU):** Projede yapılan her yeni özellik, hata düzeltmesi, şema veya arayüz değişikliğinde `AI_HANDOVER.md` dosyasının **"9. Değişiklik ve Güncelleme Geçmişi (Changelog)"** bölümüne yeni bir sürüm başlığı altında maddeler halinde ekleme yapılmalıdır.
+
+---
+
+## 9. Değişiklik ve Güncelleme Geçmişi (Changelog & History)
+
+### [v2.4.8] - 2026-08-20 (Son Güncelleme)
+- **Tonaj Fişi ve Modal Dialoglarının React Portal (`createPortal`) Mimarisine Geçirilmesi:**
+  - Tablodaki satır/mesai sayısı arttıkça sayfa uzadığında, CSS transform efektlerinden dolayı `position: fixed` modal katmanının viewport dışına taşması ve arka planın devasa uzaması sorunu kökten çözüldü.
+  - Tüm modallar (`receiptModal`, `editingShift`, `editingWaste`, `editingContainer`, `editingComplaint`, `showPurgeModal`, `editingUser`) doğrudan `document.body` üzerine teleport eden React Portal yapısına geçirildi. Sayfada kaç satır olursa olsun modal daima ekranın tam merkezine sabitlenir.
+- **Çoklu Tonaj Fişi Galeri Düzeni (Multi-Image Grid):**
+  - 1 adet tonaj fişi yüklendiğinde kompakt tekli kart görünümü (`max-w-md`), 2 veya daha fazla tonaj fişi olduğunda ise yan yana 2 sütunlu (`max-w-2xl grid-cols-1 sm:grid-cols-2`) nizamlı kart ızgarası devreye alınarak dikey taşma ve üst üste binme sorunları giderildi.
+  - Her bir fiş için `h-[46vh]` sabit yükseklikli ve `object-contain` özellikli beyaz zeminli çerçeve oluşturularak fişlerin birbirini ezmesi engellendi.
+- **CSS `fadeIn` Animasyonu İyileştirmesi:**
+  - `client/src/index.css` dosyasındaki `.view-transition` `fadeIn` animasyonundan `translateY` kaldırılarak saf opaklık geçişine dönüştürüldü ve çocuk bileşenlerdeki sabit konumlandırma bozulmaları önlendi.
+
+### [v2.4.7] - 2026-08-20
+- **Mahalle Analiz Tablosu Tarih ve Metrik Sıralaması (Sorting):**
+  - Analiz çubuğuna ve tablo başlıklarına gelişmiş sıralama özelliği entegre edildi.
+  - Seçenekler: `📅 Tarih (Yeniden Eskiye)`, `📅 Tarih (Eskiden Yeniye)`, `⚖️ Tonaj (Çoktan Aza)`, `⚖️ Tonaj (Azdan Çoka)`, `🚛 Sefer (En Çok Sefer)`, `🔤 Mahalle Adı (A-Z)`.
+  - Tablo sütun başlıklarına (`Mahalle`, `Son Sefer Tarihi`, `Çöp Seferi`, `Toplam Tonaj`) tıklandığında anlık yön göstergeli (▲ / ▼) dinamik sıralama tetiklenir.
+- **Tonaj Fişi Modal Arka Plan & Ölçek Dengelemesi:**
+  - Geniş ekranlarda tüm sayfayı karartan koyu siyah arka plan katmanı kaldırıldı; hafif, ferah ve modern `bg-black/35 backdrop-blur-xs` arayüz filtresine dönüştürüldü.
+  - Fiş modalının genişliği kompakt (`max-w-md`) ölçeğe çekildi; fotoğraflar doğal oranlarında ve net biçimde gösterilerek görsel ferahlık sağlandı.
+
+### [v2.4.6] - 2026-08-20
+- **Mahalle Denetim Tablosuna Sefer Tarihi Sütunu:**
+  - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu"na her mahalle için son yapılan seferin kesin tarihini (`📅 Son Sefer Tarihi`, örn: `20.08.2026` veya `Son: 20.08.2026 (2 Sefer)`) gösteren özel bir sütun eklendi.
+- **Kantar Fişi Terminolojisinin "Tonaj Fişi" Olarak Güncellenmesi:**
+  - Projedeki tüm sekme, buton, tablo başlığı ve modal metinlerindeki *"Kantar Fişi"* ibareleri belediye operasyon standardı gereği *"Tonaj Fişi"* olarak revize edildi.
+- **Tonaj Fişi Modal & Görüntüleme Optimizasyonu (Lightbox İyileştirmesi):**
+  - Fiş görüntüleme modalının aşırı karartıcı arka planı yumuşatılarak modern `bg-slate-950/60 backdrop-blur-sm` yarı saydam efektine dönüştürüldü.
+  - Kart boyutu dengeli `max-w-xl` ölçeğine getirildi; fiş fotoğraflarının orijinal en-boy oranı ve netliği korundu.
+  - Fiş detaylarına `Tam Boyut Aç` (`ExternalLink`) butonu eklenerek küçük kantar/tonaj yazılarını orijinal çözünürlükte yeni sekmede inceleme imkanı sağlandı.
+
+### [v2.4.5] - 2026-08-20
+- **Tarihe Göre Dinamik Filtreleme (Tek Gün & Tarih Aralığı Seçimi):**
+  - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu" ve üstündeki tüm KPI kartlarına takvimden özel gün (`[🎯 Belirli Gün Seç]`) ve tarih aralığı (`[↔️ Tarih Aralığı]`) seçme özellikleri eklendi.
+  - Seçilen günün tarihi (Örn: *20 Ağustos 2026 Perşembe*) rozette gösterilir ve tüm mahallelerin sefer sayıları, tonajları, atık/arıza/şikayet sayıları ve vardiya dağılımları seçilen tarihe göre anında yeniden hesaplanıp listelenir.
+
+### [v2.4.4] - 2026-08-20
+- **Kantar / Tonaj Fişi İnceleme & Lightbox:**
+  - Yönetim Raporları (`Mesailer` sekmesi) tablosunda kantar fişi yüklenmiş tüm mesailere `📸 Kantar Fişi (X)` butonu eklendi.
+  - Tıklandığında kantar fişlerini tam çözünürlükte gösteren modern bir Lightbox modalı açılır.
+  - Mesai düzenleme modalına da yüklenen fiş fotoğraflarının önizleme küçük resimleri ve büyütme butonu entegre edildi.
+- **Mahalle Bazlı Kapsamlı Tonaj & Günlük Denetim Analizi (`Genel Özet` Sekmesi):**
+  - Yönetim raporlarının `Genel Özet` sekmesi günlük belediye denetim standartlarına uygun kapsamlı bir analiz merkezine dönüştürüldü:
+    1. **Zaman Aralığı Filtresi:** `[📅 Bugünün Denetimi]`, `[⏱️ Son 7 Gün]`, `[🗓️ Bu Ay]`, `[📊 Tüm Zamanlar]`, `[🎯 Belirli Gün Seç]`, `[↔️ Tarih Aralığı]`.
+    2. **Bölge & Mahalle Arama:** Dinamik bölge filtreleme ve arama desteği.
+    3. **KPI Kartları:** Toplam Tonaj, Sefer Başına Ortalama Tonaj, En Çok Atık Çıkan Mahalle (% Payıyla), Bekleyen Saha İşleri.
+    4. **Vardiya Tonaj Analizi:** Gündüz, Akşam ve Gece vardiyalarının ayrı ayrı tonaj, sefer ve yüzde dağılım göstergesi.
+    5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
+
+### [v2.4.3] - 2026-08-20
+- **Haritadan Anında Pin Kaldırma (Optimistic Resolution):**
+  - Harita üzerinden Şikayet, Konteyner Arızası veya Damperlik Atık kapatıldığında pinin beklemesi/gecikmesi engellendi.
+  - Tıklanma anında detay popup'ı anında kapatılır ve pin haritadan 0 milisaniye gecikmeyle kaldırılır (arka planda sorgular hemen yenilenir).
+- **Yumuşak ve Kararlı Sayfa Geçişleri (Smooth UI Transitions):**
+  - Sayfa/sekme geçişlerine `view-transition` CSS animasyonu eklendi (`key={view}` ile yumuşak fade ve yukarı kayma).
+  - Harita detay kartlarına `popup-transition` (scale/fade) eklendi.
+  - Kart ve buton hover geçişleri cubic-bezier eğrisiyle daha kararlı ve modern hale getirildi.
+
+### [v2.4.2] - 2026-08-20
+- **Damperlik Atık Müdahale Süresi Seçimi:**
+  - Damperlik Atık formuna `Acil (24 Saat İçinde)` ve `Standart (48 Saat İçinde)` (varsayılan) hızlı süre seçim butonları eklendi.
+  - Backend `bulkWaste.create` mutasyonuna `durationHours` parametresi entegre edilerek `dueAt` kesin olarak geleceğe ayarlandı.
+- **Harita Pin Renk ve Logo Optimizasyonu:**
+  - Haritada yalnızca süresi dolan Damperlik Atıkların (`D`) kırmızı ve yanıp sönen animasyonla (`operations-map-pin--overdue`) görünmesi sağlandı; günü geçmemiş damperlik atıklar yeşil (`D`) kalır.
+  - Konteyner Arızaları (`K` - Turuncu) ve Vatandaş Şikayetleri (`V` - Mavi) kendi sabit logo sembolleriyle gösterildi ve gereksiz yanıp sönmeler kaldırıldı.
+- **Buton Etiketi Revizyonu:**
+  - Tüm formlardaki `"Anlık GPS Al"` buton metinleri `"Anlık Konum Al"` olarak güncellendi.
+
+### [v2.4.1] - 2026-08-20
+- **Forward Geocoding (Adresten Koordinat Bulma):**
+  - Damperlik Atık, Konteyner Arızası ve Vatandaş Şikayeti bildirim formlarına OpenStreetMap (Nominatim) entegrasyonlu adres arama kutusu eklendi.
+  - Cadde/sokak/mahalle ismi yazılıp arandığında enlem (`latitude`) ve boylam (`longitude`) koordinatları otomatik hesaplanıp forma doldurulması sağlandı.
+- **MySQL Şema Senkronizasyonu & Test:**
+  - `shifts.shiftHours`, `bulkWasteReports.photoUrl`, `containerFaults.photoUrl` kolonları yerel MySQL veritabanına uygulandı ve `shifts.start` sorgu testleri %100 başarılı şekilde tamamlandı.
+  - `schema.sql` dosyasına mevcut veritabanları için `ALTER TABLE` göç komutları eklendi.
+- **Görsel Sadeleştirme ve Temizlik:**
+  - Sayfa içi tekrarlayan banner başlıkları, uzun açıklama paragrafları ve kalabalık yardımcı metinler temizlenerek ferah, modern ve kompakt bir arayüz sağlandı.
+
+### [v2.4.0] - 2026-08-20
+- **Dinamik Mahalle Yönetimi (`neighborhoods`):**
+  - Yönetim paneline Mahalle Yönetimi eklendi. Tepebaşı mahalleleri dinamik CRUD ile veritabanına bağlandı.
+- **Vardiya Saatleri:**
+  - 3 sabit vardiya dilimi (`08:00 - 16:00`, `16:00 - 00:00`, `00:00 - 08:00`) mesai başlatma ve listeleme akışlarına entegre edildi.
+- **Kategori Bazlı Özel Haritalar & Lightbox:**
+  - Konteyner, Damperlik Atık ve Vatandaş Şikayetleri sekmelerine sadece kendi türlerini gösteren özel haritalar eklendi.
+  - Harita pinlerine fotoğraf önizleme, tam ekran Lightbox ve doğrudan görev kapatma butonları eklendi.
+- **Şoför Geçmiş 10 Mesai Tablosu:**
+  - Şoför mesai ekranının altına tamamlanan son 10 mesainin başlangıç/bitiş km, vardiya, mahalle ve kantar fişi detaylarını gösteren tablo eklendi.
+- **Yönetici CRUD & Güvenli Veri Sıfırlama:**
+  - Yönetim raporları sekmesine tüm operasyonel kayıtlar için düzenleme/silme modalları ve çift onaylı veri sıfırlama merkezi eklendi.
+- **AI Handover Dokümantasyonu:**
+  - `AI_HANDOVER.md` ana mimari ve devir dokümanı oluşturuldu.
+
+---
+*Doküman Sürümü: v2.4.2 (Canlı Şema & Operasyonel Devir Standardı)*  
+*Son Güncelleme: 2026-08-20*
+
