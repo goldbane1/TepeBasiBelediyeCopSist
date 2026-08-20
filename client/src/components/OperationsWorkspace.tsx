@@ -594,11 +594,14 @@ function ShiftPanel({
     event.preventDefault();
     const currentData = current.data as any;
     if (!currentData) return;
+    if (!endForm.tonnage || !endForm.tonnage.trim()) {
+      return toast.error("Lütfen mesai tonaj bilgisini girin.");
+    }
     finish.mutate({
       shiftId: currentData.id,
       endKm: Number(endForm.endKm),
       endFullness: endForm.endFullness,
-      tonnage: endForm.tonnage || undefined,
+      tonnage: endForm.tonnage.trim(),
       faultReported: endForm.faultReported,
       tonnageReceipt: endForm.tonnageReceipts.length > 0 ? endForm.tonnageReceipts : undefined,
     });
@@ -902,8 +905,8 @@ function ShiftPanel({
                   <option value="dolu">dolu</option>
                 </select>
               </Field>
-              <Field label="Tonaj (İsteğe Bağlı)">
-                <Input value={endForm.tonnage} onChange={e => setEndForm({ ...endForm, tonnage: e.target.value })} placeholder="Örn. 4,25" />
+              <Field label="Tonaj (Zorunlu)">
+                <Input required value={endForm.tonnage} onChange={e => setEndForm({ ...endForm, tonnage: e.target.value })} placeholder="Örn. 4,25 veya 4250" />
               </Field>
               <Field label="Tonaj Fişi (İsteğe Bağlı)">
                 <Input

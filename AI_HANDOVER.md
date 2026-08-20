@@ -384,8 +384,8 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - Toolbar üzerindeki `Operasyon Haritası & Bildirimler` menü başlığı `Operasyon Haritası` olarak sadeleştirildi.
 - **Mesai Başlatma Ekranı Sadeleştirmesi:**
   - Şoför mesai başlatma formundan `Bölge` giriş kutusu kaldırıldı; bölge bilgisi seçilen mahalleye göre otomatik doldurulur.
-- **Mesai Sonlandırmada Tonaj Fişi İsteğe Bağlılığı:**
-  - Mesai sonlandırma formundaki tonaj fişi yükleme alanı `Tonaj Fişi (İsteğe Bağlı)` olarak düzenlendi; fiş yüklemeden de mesai sorunsuz tamamlanabilir.
+- **Mesai Sonlandırmada Tonaj Girişi Zorunluluğu & Fiş İsteğe Bağlılığı:**
+  - Mesai sonlandırma formunda tonaj bilgisi girişi zorunlu (`Tonaj (Zorunlu)`) hale getirildi; kantar/tonaj fişi fotoğrafı yükleme ise isteğe bağlı (`Tonaj Fişi (İsteğe Bağlı)`) bırakıldı. Şoförler tonaj bilgisini girip fiş fotoğrafı yüklemeden de mesaiyi kapatabilir.
 - **Vatandaş Şikayet Kaydı Yetkilendirmesi:**
   - Vatandaş şikayeti bildirme formu (`ComplaintPanel`) ve backend mutasyonu (`complaints.create`) yalnızca `yönetim` rolüne tahsis edildi; şoförler için bildirim formu gizlendi ve sadece harita & çözüm akışı aktif bırakıldı.
 
