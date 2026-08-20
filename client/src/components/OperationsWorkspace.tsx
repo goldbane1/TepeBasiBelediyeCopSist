@@ -507,6 +507,7 @@ function ShiftPanel({
 
   const availableVehicles = vehicles.filter(vehicle => vehicle.type === form.vehicleType);
   const activeShifts = useMemo(() => shifts.filter(shift => shift.status === "açık"), [shifts]);
+  const selectedVehicle = useMemo(() => vehicles.find(v => String(v.id) === String(form.vehicleId)), [vehicles, form.vehicleId]);
 
   // Handle neighborhood change and auto-set region if defined in neighborhoodsList
   const handleNeighborhoodSelect = (name: string) => {
@@ -739,7 +740,7 @@ function ShiftPanel({
                   <option value="">Araç seçin</option>
                   {availableVehicles.map(vehicle => (
                     <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.plate} · {vehicle.brand} ({vehicle.status})
+                      {vehicle.plate} · {vehicle.brand} ({vehicle.status}){vehicle.nextOilMaintenanceKm ? ` [🛢️ ${Number(vehicle.nextOilMaintenanceKm).toLocaleString('tr-TR')} KM]` : ""}
                     </option>
                   ))}
                 </select>
@@ -748,6 +749,21 @@ function ShiftPanel({
               <Field label="Başlangıç Km">
                 <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
               </Field>
+
+              {selectedVehicle?.nextOilMaintenanceKm && (
+                <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 flex items-center gap-3 text-amber-950 text-xs shadow-xs">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-xl">
+                    🛢️
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-amber-900 text-xs">Araç Yağ Bakım Bilgilendirmesi</p>
+                    <p className="text-amber-800 text-xs">
+                      Seçilen <strong>{selectedVehicle.plate}</strong> ({selectedVehicle.brand}) plakalı aracın{" "}
+                      <span className="font-bold text-amber-950 underline">{Number(selectedVehicle.nextOilMaintenanceKm).toLocaleString("tr-TR")} KM</span>'de yağ bakımı bulunmaktadır.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="sm:col-span-2 lg:col-span-3">
                 <Button disabled={start.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
@@ -821,7 +837,7 @@ function ShiftPanel({
                 <option value="">Araç seçin</option>
                 {availableVehicles.map(vehicle => (
                   <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.plate} · {vehicle.brand} ({vehicle.status})
+                    {vehicle.plate} · {vehicle.brand} ({vehicle.status}){vehicle.nextOilMaintenanceKm ? ` [🛢️ ${Number(vehicle.nextOilMaintenanceKm).toLocaleString('tr-TR')} KM]` : ""}
                   </option>
                 ))}
               </select>
@@ -837,6 +853,21 @@ function ShiftPanel({
                 <option value="dolu">dolu</option>
               </select>
             </Field>
+
+            {selectedVehicle?.nextOilMaintenanceKm && (
+              <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 flex items-center gap-3 text-amber-950 text-xs shadow-xs animate-fadeIn">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-xl">
+                  🛢️
+                </div>
+                <div className="space-y-0.5">
+                  <p className="font-bold text-amber-900 text-xs">Araç Yağ Bakım Bilgilendirmesi</p>
+                  <p className="text-amber-800 text-xs">
+                    Seçilen <strong>{selectedVehicle.plate}</strong> ({selectedVehicle.brand}) plakalı aracın{" "}
+                    <span className="font-bold text-amber-950 underline">{Number(selectedVehicle.nextOilMaintenanceKm).toLocaleString("tr-TR")} KM</span>'de yağ bakımı bulunmaktadır.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="sm:col-span-2 lg:col-span-4 pt-1">
               <Button disabled={start.isPending || Boolean(current.data)} className="w-full bg-emerald-700 hover:bg-emerald-800">

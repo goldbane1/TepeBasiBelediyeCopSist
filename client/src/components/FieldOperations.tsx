@@ -20,8 +20,12 @@ import {
   Trash2,
   Wrench,
   X,
+  Clock,
+  ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
 
@@ -571,9 +575,11 @@ function ComplaintPanel({
   onFocusOnMap: (id: number) => void;
 }) {
   const isDriver = role === "şoför";
-  const canAcknowledge = isDriver || role === "yönetim";
+  const isManager = role === "yönetim";
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
+  const [resolvingComplaint, setResolvingComplaint] = useState<any | null>(null);
+  const [resolutionPhoto, setResolutionPhoto] = useState<string>("");
 
   const [complaintForm, setComplaintForm] = useState({
     region: "Tepebaşı",
@@ -606,9 +612,27 @@ function ComplaintPanel({
     onError: e => toast.error(e.message),
   });
 
-  const acknowledge = trpc.operations.complaints.acknowledge.useMutation({
+  const resolveComplaint = trpc.operations.complaints.resolve.useMutation({
     onSuccess: () => {
-      toast.success("Şikayet müdahalesi tamamlandı.");
+      toast.success("Şikayet çözümü fotoğrafla kaydedildi. Yönetici onayı bekleniyor.");
+      setResolvingComplaint(null);
+      setResolutionPhoto("");
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const approveComplaint = trpc.operations.complaints.approve.useMutation({
+    onSuccess: () => {
+      toast.success("Vatandaş şikayeti onaylandı ve kapatıldı.");
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const rejectComplaint = trpc.operations.complaints.reject.useMutation({
+    onSuccess: () => {
+      toast.success("Şikayet reddedildi, tekrar açık duruma getirildi.");
       refresh();
     },
     onError: e => toast.error(e.message),
@@ -715,6 +739,20 @@ function ComplaintPanel({
     reader.readAsDataURL(file);
   };
 
+  const handleResolutionPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Lütfen geçerli bir resim seçin.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setResolutionPhoto(String(reader.result));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const submitComplaint = (event: FormEvent) => {
     event.preventDefault();
     if (!complaintForm.neighborhood.trim()) return toast.error("Lütfen mahalle seçin veya girin.");
@@ -730,23 +768,26 @@ function ComplaintPanel({
   };
 
   const openComplaints = useMemo(() => records.filter(c => c.status === "açık"), [records]);
+  const pendingApprovalCount = useMemo(() => records.filter(c => c.status === "onay_bekliyor").length, [records]);
 
   const mapOperations = useMemo<MapOperation[]>(
     () =>
-      openComplaints.map(record => ({
-        id: record.id,
-        category: "Vatandaş şikayeti" as const,
-        title: `Şikayet · ${record.neighborhood}`,
-        description: record.description,
-        latitude: record.latitude,
-        longitude: record.longitude,
-        photoUrl: record.photoUrl,
-        dueAt: record.dueAt,
-        status: record.status,
-        reporterName: record.reporterName,
-        extra: record,
-      })),
-    [openComplaints]
+      records
+        .filter(c => c.status === "açık" || c.status === "onay_bekliyor")
+        .map(record => ({
+          id: record.id,
+          category: "Vatandaş şikayeti" as const,
+          title: `Şikayet · ${record.neighborhood}`,
+          description: record.description,
+          latitude: record.latitude,
+          longitude: record.longitude,
+          photoUrl: record.photoUrl,
+          dueAt: record.dueAt,
+          status: record.status,
+          reporterName: record.reporterName,
+          extra: record,
+        })),
+    [records]
   );
 
   return (
@@ -758,9 +799,16 @@ function ComplaintPanel({
             <MessageSquareWarning className="h-5 w-5 text-red-600" />
             Vatandaş Şikayetleri Haritası
           </h2>
-          <Badge className="bg-red-50 text-red-700 border-red-200 font-bold">
-            {openComplaints.length} Açık Şikayet
-          </Badge>
+          <div className="flex items-center gap-2">
+            {pendingApprovalCount > 0 && (
+              <Badge className="bg-amber-100 text-amber-900 border-amber-300 font-bold">
+                ⏳ {pendingApprovalCount} Onay Bekliyor
+              </Badge>
+            )}
+            <Badge className="bg-red-50 text-red-700 border-red-200 font-bold">
+              {openComplaints.length} Açık Şikayet
+            </Badge>
+          </div>
         </div>
         <OperationsMap
           operations={mapOperations}
@@ -768,7 +816,13 @@ function ComplaintPanel({
           showCategoryTabs={false}
           role={role}
           selectedOperationId={selectedPinId}
-          onResolveOperation={op => acknowledge.mutate({ id: op.id })}
+          onResolveOperation={op => {
+            if (isManager && op.status === "onay_bekliyor") {
+              approveComplaint.mutate({ id: op.id });
+            } else {
+              setResolvingComplaint(op.extra || op);
+            }
+          }}
         />
       </Card>
 
@@ -904,9 +958,16 @@ function ComplaintPanel({
             <MessageSquareWarning className="h-5 w-5 text-red-600" />
             Vatandaş Şikayet Listesi
           </CardTitle>
-          <Badge variant="outline" className="text-slate-600 text-xs">
-            {records.length} Kayıt ({openComplaints.length} Açık)
-          </Badge>
+          <div className="flex items-center gap-2">
+            {pendingApprovalCount > 0 && (
+              <Badge className="bg-amber-500 text-white font-bold text-xs animate-pulse">
+                {pendingApprovalCount} Onay Bekleyen
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-slate-600 text-xs">
+              {records.length} Toplam Kayıt
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {records.length === 0 ? (
@@ -914,6 +975,8 @@ function ComplaintPanel({
           ) : (
             records.map(complaint => {
               const isOpen = complaint.status === "açık";
+              const isPendingApproval = complaint.status === "onay_bekliyor";
+              const isResolved = complaint.status === "onaylandı";
               const isOverdue = isOpen && new Date(complaint.dueAt).getTime() < Date.now();
 
               return (
@@ -922,8 +985,10 @@ function ComplaintPanel({
                   className={`rounded-xl border p-3.5 transition ${
                     isOverdue
                       ? "border-red-200 bg-red-50/30"
+                      : isPendingApproval
+                      ? "border-amber-300 bg-amber-50/40"
                       : isOpen
-                      ? "border-amber-200 bg-amber-50/30"
+                      ? "border-amber-200 bg-amber-50/20"
                       : "border-emerald-100 bg-emerald-50/15"
                   }`}
                 >
@@ -931,19 +996,27 @@ function ComplaintPanel({
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-slate-900 text-sm">
-                          {complaint.neighborhood} Şikayeti
+                          {complaint.neighborhood} Şikayeti #{complaint.id}
                         </span>
                         <Badge
                           variant="outline"
                           className={
                             isOverdue
                               ? "border-red-300 bg-red-100 text-red-800 text-[10px] font-bold"
+                              : isPendingApproval
+                              ? "border-amber-400 bg-amber-100 text-amber-900 text-[10px] font-bold"
                               : isOpen
-                              ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px]"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                              ? "border-slate-200 bg-slate-100 text-slate-700 text-[10px]"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
                           }
                         >
-                          {isOverdue ? "Acil Günü Geçmiş" : isOpen ? "Müdahale Bekliyor" : "Çözüldü"}
+                          {isOverdue
+                            ? "Acil Günü Geçmiş"
+                            : isPendingApproval
+                            ? "⏳ Yönetici Onayı Bekliyor"
+                            : isOpen
+                            ? "Müdahale Bekliyor"
+                            : "✅ Onaylandı & Kapatıldı"}
                         </Badge>
                         {complaint.photoUrl && (
                           <button
@@ -951,7 +1024,16 @@ function ComplaintPanel({
                             onClick={() => setPreviewImage(complaint.photoUrl)}
                             className="flex items-center gap-1 bg-white text-slate-700 hover:bg-slate-100 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-slate-200"
                           >
-                            <ImageIcon className="h-3 w-3 text-emerald-700" /> Fotoğraf
+                            <ImageIcon className="h-3 w-3 text-emerald-700" /> Şikayet Fotoğrafı
+                          </button>
+                        )}
+                        {complaint.resolutionPhotoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(complaint.resolutionPhotoUrl)}
+                            className="flex items-center gap-1 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 px-2 py-0.5 rounded-md text-[11px] font-bold border border-emerald-300 shadow-2xs"
+                          >
+                            <Camera className="h-3 w-3 text-emerald-700" /> 📸 Çözüm Fotoğrafı
                           </button>
                         )}
                       </div>
@@ -965,6 +1047,22 @@ function ComplaintPanel({
                             <span>·</span>
                             <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
                               👤 Bildiren: {complaint.reporterName}
+                            </span>
+                          </>
+                        )}
+                        {complaint.resolverName && (
+                          <>
+                            <span>·</span>
+                            <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              🧹 Çözen Şoför: {complaint.resolverName}
+                            </span>
+                          </>
+                        )}
+                        {complaint.acknowledgedByName && (
+                          <>
+                            <span>·</span>
+                            <span className="font-semibold text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+                              🛡️ Onaylayan: {complaint.acknowledgedByName}
                             </span>
                           </>
                         )}
@@ -986,15 +1084,58 @@ function ComplaintPanel({
                         Haritada Gör
                       </Button>
 
-                      {canAcknowledge && isOpen && (
+                      {/* Şoför Çözüm Butonu (Fotoğraf Yükleme Zorunlu) */}
+                      {isDriver && isOpen && (
                         <Button
                           size="sm"
-                          disabled={acknowledge.isPending}
-                          onClick={() => acknowledge.mutate({ id: complaint.id })}
-                          className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
+                          onClick={() => {
+                            setResolvingComplaint(complaint);
+                            setResolutionPhoto("");
+                          }}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-8 shadow-xs"
+                        >
+                          <Camera className="mr-1.5 h-3.5 w-3.5" />
+                          Çözüm Fotoğrafı Yükle & Kapat
+                        </Button>
+                      )}
+
+                      {/* Yönetici Onay ve Red Butonları */}
+                      {isManager && isPendingApproval && (
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            disabled={approveComplaint.isPending}
+                            onClick={() => approveComplaint.mutate({ id: complaint.id })}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-8 font-bold shadow-xs"
+                          >
+                            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                            Onayla & Kapat
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={rejectComplaint.isPending}
+                            onClick={() => rejectComplaint.mutate({ id: complaint.id })}
+                            className="border-red-200 text-red-700 hover:bg-red-50 text-xs h-8"
+                          >
+                            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                            Reddet
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Yönetici Doğrudan Kapatma (Açık Şikayetler İçin) */}
+                      {isManager && isOpen && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setResolvingComplaint(complaint);
+                            setResolutionPhoto("");
+                          }}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-8 shadow-xs"
                         >
                           <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                          Kapat
+                          Çözümü Tamamla
                         </Button>
                       )}
                     </div>
@@ -1005,6 +1146,75 @@ function ComplaintPanel({
           )}
         </CardContent>
       </Card>
+
+      {/* ŞOFÖR ŞİKAYET ÇÖZÜMÜ FOTOĞRAF YÜKLEME MODALI (REACT PORTAL) */}
+      {resolvingComplaint && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 popup-transition border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Camera className="h-5 w-5 text-emerald-700" />
+                Şikayet Çözüm Fotoğrafı Ekle #{resolvingComplaint.id}
+              </h3>
+              <button onClick={() => setResolvingComplaint(null)}><X className="h-5 w-5 text-slate-500" /></button>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-1 text-xs">
+              <p className="font-bold text-slate-800">📍 {resolvingComplaint.neighborhood} ({resolvingComplaint.region})</p>
+              <p className="text-slate-600">{resolvingComplaint.description}</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-4 text-center space-y-2">
+                <p className="text-xs font-bold text-emerald-950">
+                  📸 Temizlik ve Çözüm Sonrası Fotoğraf (Zorunlu)
+                </p>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Şikayetin giderildiğini doğrulamak için sahada yapılan müdahalenin fotoğrafını çekin veya yükleyin.
+                </p>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  required
+                  onChange={handleResolutionPhotoUpload}
+                  className="bg-white text-xs"
+                />
+              </div>
+
+              {resolutionPhoto && (
+                <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-sm max-h-56">
+                  <img src={resolutionPhoto} alt="Çözüm Önizleme" className="w-full h-48 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setResolutionPhoto("")}
+                    className="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-full bg-red-600 text-white text-xs shadow-md"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              <p className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                ⚠️ Fotoğraf yüklendikten sonra şikayet <strong>yönetici onayına</strong> sunulacak ve yönetici inceleyip onaylayınca tamamen kapatılacaktır.
+              </p>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setResolvingComplaint(null)}>İptal</Button>
+                <Button
+                  disabled={!resolutionPhoto || resolveComplaint.isPending}
+                  onClick={() => resolveComplaint.mutate({ id: resolvingComplaint.id, photo: resolutionPhoto })}
+                  className="bg-emerald-700 hover:bg-emerald-800 font-bold"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                  {resolveComplaint.isPending ? "Kaydediliyor..." : "Çözümü Onaya Gönder"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Lightbox modal */}
       {previewImage && (

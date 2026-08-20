@@ -378,6 +378,24 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu" ve üstündeki tüm KPI kartlarına takvimden özel gün (`[🎯 Belirli Gün Seç]`) ve tarih aralığı (`[↔️ Tarih Aralığı]`) seçme özellikleri eklendi.
   - Seçilen günün tarihi (Örn: *20 Ağustos 2026 Perşembe*) rozette gösterilir ve tüm mahallelerin sefer sayıları, tonajları, atık/arıza/şikayet sayıları ve vardiya dağılımları seçilen tarihe göre anında yeniden hesaplanıp listelenir.
 
+### [v2.4.11] - 2026-08-21
+- **Vatandaş Şikayetlerinde Zorunlu Çözüm Fotoğrafı & Yönetici Onay Akışı:**
+  - Şoförler artık vatandaş şikayetlerini fotoğraf yüklemeden kapatamaz.
+  - Şoför "Çözüm Fotoğrafı Yükle & Kapat" butonuna bastığında kamera/galeri destekli fotoğraf yükleme modalı açılır ve müdahale sonrası temizlik fotoğrafı yüklenir.
+  - Şikayet doğrudan kapanmaz, `onay_bekliyor` (⏳ Yönetici Onayı Bekliyor) durumuna geçer.
+  - Yönetici, şikayetler panelinden ve haritadan yüklenen çözüm fotoğrafını inceleyerek "✅ Onayla & Kapat" veya "❌ Reddet" (tekrar açık duruma getir) işlemi gerçekleştirir.
+  - Şikayet listelerinde ve harita kartlarında bildiren, çözen şoför ve onaylayan yönetici bilgileri açıkça gösterilir.
+- **Araç Yağ Bakım Kilometresi (`nextOilMaintenanceKm`):**
+  - `vehicles` tablosuna `nextOilMaintenanceKm` kolonu eklendi.
+  - Sadece **kademe personeli** ve **yönetim** rolleri tarafından yeni araç ekleme formunda ve "Araç Bilgisi Düzenle" modalında belirlenebilir/güncellenebilir.
+  - Araçlar listesinde "Yağ Bakımı (KM)" sütunu olarak listelenir.
+  - Şoför veya yönetici mesai başlatırken ilgili aracı seçtiğinde araç seçiminin altında belirgin bir bilgilendirme kartı çıkar: `🛢️ Bu aracın [X] KM'de yağ bakımı bulunmaktadır.`
+  - Araç seçim dropdown seçeneklerinde de `[🛢️ X KM]` etiketi yer alır.
+
+### [v2.4.10] - 2026-08-21
+- **Açıklama Alanlarının İsteğe Bağlı Yapılması:**
+  - Damperlik atık, konteyner arızası ve araç arıza bildirimlerindeki açıklama alanları isteğe bağlı hale getirildi (boş bırakıldığında otomatik `"Açıklama belirtilmedi"` fallback'i atanır).
+
 ### [v2.4.4] - 2026-08-20
 - **Kantar / Tonaj Fişi İnceleme & Lightbox:**
   - Yönetim Raporları (`Mesailer` sekmesi) tablosunda kantar fişi yüklenmiş tüm mesailere `📸 Kantar Fişi (X)` butonu eklendi.
@@ -391,51 +409,7 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
     4. **Vardiya Tonaj Analizi:** Gündüz, Akşam ve Gece vardiyalarının ayrı ayrı tonaj, sefer ve yüzde dağılım göstergesi.
     5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
 
-### [v2.4.3] - 2026-08-20
-- **Haritadan Anında Pin Kaldırma (Optimistic Resolution):**
-  - Harita üzerinden Şikayet, Konteyner Arızası veya Damperlik Atık kapatıldığında pinin beklemesi/gecikmesi engellendi.
-  - Tıklanma anında detay popup'ı anında kapatılır ve pin haritadan 0 milisaniye gecikmeyle kaldırılır (arka planda sorgular hemen yenilenir).
-- **Yumuşak ve Kararlı Sayfa Geçişleri (Smooth UI Transitions):**
-  - Sayfa/sekme geçişlerine `view-transition` CSS animasyonu eklendi (`key={view}` ile yumuşak fade ve yukarı kayma).
-  - Harita detay kartlarına `popup-transition` (scale/fade) eklendi.
-  - Kart ve buton hover geçişleri cubic-bezier eğrisiyle daha kararlı ve modern hale getirildi.
-
-### [v2.4.2] - 2026-08-20
-- **Damperlik Atık Müdahale Süresi Seçimi:**
-  - Damperlik Atık formuna `Acil (24 Saat İçinde)` ve `Standart (48 Saat İçinde)` (varsayılan) hızlı süre seçim butonları eklendi.
-  - Backend `bulkWaste.create` mutasyonuna `durationHours` parametresi entegre edilerek `dueAt` kesin olarak geleceğe ayarlandı.
-- **Harita Pin Renk ve Logo Optimizasyonu:**
-  - Haritada yalnızca süresi dolan Damperlik Atıkların (`D`) kırmızı ve yanıp sönen animasyonla (`operations-map-pin--overdue`) görünmesi sağlandı; günü geçmemiş damperlik atıklar yeşil (`D`) kalır.
-  - Konteyner Arızaları (`K` - Turuncu) ve Vatandaş Şikayetleri (`V` - Mavi) kendi sabit logo sembolleriyle gösterildi ve gereksiz yanıp sönmeler kaldırıldı.
-- **Buton Etiketi Revizyonu:**
-  - Tüm formlardaki `"Anlık GPS Al"` buton metinleri `"Anlık Konum Al"` olarak güncellendi.
-
-### [v2.4.1] - 2026-08-20
-- **Forward Geocoding (Adresten Koordinat Bulma):**
-  - Damperlik Atık, Konteyner Arızası ve Vatandaş Şikayeti bildirim formlarına OpenStreetMap (Nominatim) entegrasyonlu adres arama kutusu eklendi.
-  - Cadde/sokak/mahalle ismi yazılıp arandığında enlem (`latitude`) ve boylam (`longitude`) koordinatları otomatik hesaplanıp forma doldurulması sağlandı.
-- **MySQL Şema Senkronizasyonu & Test:**
-  - `shifts.shiftHours`, `bulkWasteReports.photoUrl`, `containerFaults.photoUrl` kolonları yerel MySQL veritabanına uygulandı ve `shifts.start` sorgu testleri %100 başarılı şekilde tamamlandı.
-  - `schema.sql` dosyasına mevcut veritabanları için `ALTER TABLE` göç komutları eklendi.
-- **Görsel Sadeleştirme ve Temizlik:**
-  - Sayfa içi tekrarlayan banner başlıkları, uzun açıklama paragrafları ve kalabalık yardımcı metinler temizlenerek ferah, modern ve kompakt bir arayüz sağlandı.
-
-### [v2.4.0] - 2026-08-20
-- **Dinamik Mahalle Yönetimi (`neighborhoods`):**
-  - Yönetim paneline Mahalle Yönetimi eklendi. Tepebaşı mahalleleri dinamik CRUD ile veritabanına bağlandı.
-- **Vardiya Saatleri:**
-  - 3 sabit vardiya dilimi (`08:00 - 16:00`, `16:00 - 00:00`, `00:00 - 08:00`) mesai başlatma ve listeleme akışlarına entegre edildi.
-- **Kategori Bazlı Özel Haritalar & Lightbox:**
-  - Konteyner, Damperlik Atık ve Vatandaş Şikayetleri sekmelerine sadece kendi türlerini gösteren özel haritalar eklendi.
-  - Harita pinlerine fotoğraf önizleme, tam ekran Lightbox ve doğrudan görev kapatma butonları eklendi.
-- **Şoför Geçmiş 10 Mesai Tablosu:**
-  - Şoför mesai ekranının altına tamamlanan son 10 mesainin başlangıç/bitiş km, vardiya, mahalle ve kantar fişi detaylarını gösteren tablo eklendi.
-- **Yönetici CRUD & Güvenli Veri Sıfırlama:**
-  - Yönetim raporları sekmesine tüm operasyonel kayıtlar için düzenleme/silme modalları ve çift onaylı veri sıfırlama merkezi eklendi.
-- **AI Handover Dokümantasyonu:**
-  - `AI_HANDOVER.md` ana mimari ve devir dokümanı oluşturuldu.
-
 ---
-*Doküman Sürümü: v2.4.10 (Canlı Şema & Operasyonel Devir Standardı)*  
+*Doküman Sürümü: v2.4.11 (Canlı Şema & Operasyonel Devir Standardı)*  
 *Son Güncelleme: 2026-08-21*
 

@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { AlertTriangle, CheckCircle2, Plus, Trash2, Truck, Wrench, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, Trash2, Truck, Wrench, RefreshCw, Edit3, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
 
@@ -29,19 +30,30 @@ export default function FleetOperations({
 function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[]; refresh: () => void }) {
   const canManage = role === "yönetim" || role === "kademe personeli";
   const [showForm, setShowForm] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<any | null>(null);
   const [form, setForm] = useState({
     type: "çöp kamyonu" as "çöp kamyonu" | "damperli kamyon",
     capacityTon: "",
     brand: "",
     plate: "",
     status: "aktif" as "aktif" | "arızalı" | "bakımda",
+    nextOilMaintenanceKm: "",
   });
 
   const create = trpc.operations.vehicles.create.useMutation({
     onSuccess: () => {
       toast.success("Araç envantere eklendi.");
       setShowForm(false);
-      setForm({ type: "çöp kamyonu", capacityTon: "", brand: "", plate: "", status: "aktif" });
+      setForm({ type: "çöp kamyonu", capacityTon: "", brand: "", plate: "", status: "aktif", nextOilMaintenanceKm: "" });
+      refresh();
+    },
+    onError: error => toast.error(error.message),
+  });
+
+  const update = trpc.operations.vehicles.update.useMutation({
+    onSuccess: () => {
+      toast.success("Araç bilgileri güncellendi.");
+      setEditingVehicle(null);
       refresh();
     },
     onError: error => toast.error(error.message),
@@ -74,6 +86,7 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
       brand: form.brand.trim(),
       plate: form.plate.trim().toUpperCase(),
       status: form.status,
+      nextOilMaintenanceKm: form.nextOilMaintenanceKm ? Number(form.nextOilMaintenanceKm) : null,
     });
   };
 
@@ -97,7 +110,7 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
             <CardTitle className="font-display text-base">Yeni Araç Kaydı</CardTitle>
           </CardHeader>
           <CardContent className="p-5">
-            <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5" onSubmit={submit}>
+            <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6" onSubmit={submit}>
               <Field label="Araç tipi">
                 <select
                   value={form.type}
@@ -132,6 +145,14 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
                   placeholder="Örn. 13"
                 />
               </Field>
+              <Field label="Yağ Bakım KM">
+                <Input
+                  type="number"
+                  value={form.nextOilMaintenanceKm}
+                  onChange={e => setForm({ ...form, nextOilMaintenanceKm: e.target.value })}
+                  placeholder="Örn. 120000"
+                />
+              </Field>
               <div className="flex items-end">
                 <Button disabled={create.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
                   {create.isPending ? "Kaydediliyor..." : "Kaydet"}
@@ -155,17 +176,27 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
                     <th className="px-5 py-3">Araç tipi</th>
                     <th className="px-5 py-3">Marka / Model</th>
                     <th className="px-5 py-3">Kapasite</th>
+                    <th className="px-5 py-3">Yağ Bakımı (KM)</th>
                     <th className="px-5 py-3">Durum</th>
-                    {canManage && <th className="px-5 py-3">İşlem</th>}
+                    {canManage && <th className="px-5 py-3 text-right">İşlem</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {vehicles.map(vehicle => (
-                    <tr key={vehicle.id} className="border-t border-slate-100">
+                    <tr key={vehicle.id} className="border-t border-slate-100 hover:bg-slate-50/50">
                       <td className="px-5 py-4 font-bold text-slate-800">{vehicle.plate}</td>
                       <td className="px-5 py-4 text-slate-600">{vehicle.type}</td>
                       <td className="px-5 py-4 text-slate-600">{vehicle.brand}</td>
                       <td className="px-5 py-4 text-slate-600">{vehicle.capacityTon} ton</td>
+                      <td className="px-5 py-4 text-xs font-semibold text-slate-700">
+                        {vehicle.nextOilMaintenanceKm ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-900 border border-amber-200">
+                            🛢️ {Number(vehicle.nextOilMaintenanceKm).toLocaleString("tr-TR")} KM
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-normal">Belirtilmedi</span>
+                        )}
+                      </td>
                       <td className="px-5 py-4">
                         {canManage ? (
                           <select
@@ -187,21 +218,40 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
                         )}
                       </td>
                       {canManage && (
-                        <td className="px-5 py-4">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={remove.isPending}
-                            onClick={() => {
-                              if (window.confirm(`${vehicle.plate} plakalı aracı envanterden çıkarmak istiyor musunuz?`)) {
-                                remove.mutate({ id: vehicle.id });
-                              }
-                            }}
-                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                          >
-                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                            Sil
-                          </Button>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingVehicle({
+                                id: vehicle.id,
+                                type: vehicle.type,
+                                capacityTon: vehicle.capacityTon,
+                                brand: vehicle.brand,
+                                plate: vehicle.plate,
+                                status: vehicle.status,
+                                nextOilMaintenanceKm: vehicle.nextOilMaintenanceKm ?? "",
+                              })}
+                              className="text-emerald-700 hover:bg-emerald-50 h-8 px-2.5"
+                            >
+                              <Edit3 className="mr-1 h-3.5 w-3.5" />
+                              Düzenle
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={remove.isPending}
+                              onClick={() => {
+                                if (window.confirm(`${vehicle.plate} plakalı aracı envanterden çıkarmak istiyor musunuz?`)) {
+                                  remove.mutate({ id: vehicle.id });
+                                }
+                              }}
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700 h-8 px-2"
+                            >
+                              <Trash2 className="mr-1 h-3.5 w-3.5" />
+                              Sil
+                            </Button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -212,6 +262,80 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
           )}
         </CardContent>
       </Card>
+
+      {/* ARAÇ DÜZENLEME MODALI (REACT PORTAL) */}
+      {editingVehicle && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 popup-transition border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Araç Bilgisi Düzenle · {editingVehicle.plate}</h3>
+              <button onClick={() => setEditingVehicle(null)}><X className="h-5 w-5 text-slate-500" /></button>
+            </div>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                update.mutate({
+                  id: editingVehicle.id,
+                  type: editingVehicle.type,
+                  capacityTon: String(editingVehicle.capacityTon),
+                  brand: editingVehicle.brand,
+                  plate: editingVehicle.plate.toUpperCase(),
+                  status: editingVehicle.status,
+                  nextOilMaintenanceKm: editingVehicle.nextOilMaintenanceKm ? Number(editingVehicle.nextOilMaintenanceKm) : null,
+                });
+              }}
+              className="space-y-3"
+            >
+              <Field label="Araç Tipi">
+                <select
+                  value={editingVehicle.type}
+                  onChange={e => setEditingVehicle({ ...editingVehicle, type: e.target.value })}
+                  className="input-native"
+                >
+                  <option value="çöp kamyonu">çöp kamyonu</option>
+                  <option value="damperli kamyon">damperli kamyon</option>
+                </select>
+              </Field>
+              <Field label="Plaka">
+                <Input value={editingVehicle.plate} onChange={e => setEditingVehicle({ ...editingVehicle, plate: e.target.value.toUpperCase() })} required />
+              </Field>
+              <Field label="Marka / Model">
+                <Input value={editingVehicle.brand} onChange={e => setEditingVehicle({ ...editingVehicle, brand: e.target.value })} required />
+              </Field>
+              <Field label="Kapasite (ton)">
+                <Input value={editingVehicle.capacityTon} onChange={e => setEditingVehicle({ ...editingVehicle, capacityTon: e.target.value })} required />
+              </Field>
+              <Field label="🛢️ Yağ Bakım Kilometresi (KM)">
+                <Input
+                  type="number"
+                  value={editingVehicle.nextOilMaintenanceKm ?? ""}
+                  onChange={e => setEditingVehicle({ ...editingVehicle, nextOilMaintenanceKm: e.target.value })}
+                  placeholder="Örn. 120000"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Bu bilgi şoför mesai başlatırken aracı seçtiğinde bilgilendirme olarak gösterilecektir.</p>
+              </Field>
+              <Field label="Durum">
+                <select
+                  value={editingVehicle.status}
+                  onChange={e => setEditingVehicle({ ...editingVehicle, status: e.target.value })}
+                  className="input-native"
+                >
+                  <option value="aktif">aktif</option>
+                  <option value="arızalı">arızalı</option>
+                  <option value="bakımda">bakımda</option>
+                </select>
+              </Field>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setEditingVehicle(null)}>İptal</Button>
+                <Button disabled={update.isPending} className="bg-emerald-700 hover:bg-emerald-800">
+                  {update.isPending ? "Kaydediliyor..." : "Kaydet"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

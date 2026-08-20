@@ -168,17 +168,21 @@ export default function OperationsMap({
     if (role === "yönetim") return true;
     if (selected.category === "Damperlik atık" && (role === "şoför" || role === "kademe personeli")) return true;
     if (selected.category === "Konteyner arızası" && (role === "kaynak personeli" || role === "şoför" || role === "kademe personeli")) return true;
-    if (selected.category === "Vatandaş şikayeti" && role === "şoför") return true;
+    if (selected.category === "Vatandaş şikayeti") {
+      if (selected.status === "açık" && role === "şoför") return true;
+    }
     return false;
   }, [selected, role]);
 
   const selectedReporter = selected?.reporterName || selected?.extra?.reporterName;
   const selectedNeedsExcavator = selected?.requiresExcavator || selected?.extra?.requiresExcavator;
+  const selectedResolver = selected?.extra?.resolverName;
+  const selectedResolutionPhoto = selected?.extra?.resolutionPhotoUrl;
 
   return (
     <div className={cn("space-y-3", className)}>
       {showCategoryTabs && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {categories.map(cat => {
             const Icon = cat.icon;
             const active = activeCategory === cat.key;
@@ -263,6 +267,23 @@ export default function OperationsMap({
                 >
                   {isOverdue(selected) ? "Günü Geçmiş (Acil)" : "İşlem Bekliyor"}
                 </span>
+              ) : selected.category === "Vatandaş şikayeti" ? (
+                <span
+                  className={cn(
+                    "text-[11px] font-bold px-2 py-0.5 rounded-full",
+                    selected.status === "onay_bekliyor"
+                      ? "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                      : isOverdue(selected)
+                      ? "bg-red-100 text-red-700"
+                      : "bg-slate-100 text-slate-700"
+                  )}
+                >
+                  {selected.status === "onay_bekliyor"
+                    ? "⏳ Yönetici Onayı Bekliyor"
+                    : isOverdue(selected)
+                    ? "Günü Geçmiş (Acil)"
+                    : "Müdahale Bekliyor"}
+                </span>
               ) : (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                   İşlem Bekliyor
@@ -275,8 +296,8 @@ export default function OperationsMap({
               {selected.description}
             </p>
 
-            {/* Bildiren Şoför / Personel & Kepçe Rozeti */}
-            {(selectedReporter || selectedNeedsExcavator) && (
+            {/* Bildiren Şoför / Personel & Kepçe Rozeti & Çözen Bilgisi */}
+            {(selectedReporter || selectedNeedsExcavator || selectedResolver) && (
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
                 {selectedReporter && (
                   <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 border border-slate-200/80">
@@ -288,28 +309,53 @@ export default function OperationsMap({
                     🚜 Kepçe Gerekli
                   </span>
                 )}
+                {selectedResolver && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 border border-emerald-300">
+                    🧹 Çözen: {selectedResolver}
+                  </span>
+                )}
               </div>
             )}
 
-            {/* Photo preview if available */}
-            {selected.photoUrl && (
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => setPreviewImage(selected.photoUrl || null)}
-                  className="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left"
-                >
-                  <img
-                    src={selected.photoUrl}
-                    alt={selected.title}
-                    className="h-32 w-full object-cover transition group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
-                    <span className="flex items-center gap-1.5 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
-                      <ImageIcon className="h-3.5 w-3.5" /> Fotoğrafı Büyüt
-                    </span>
-                  </div>
-                </button>
+            {/* Photo previews if available */}
+            {(selected.photoUrl || selectedResolutionPhoto) && (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {selected.photoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImage(selected.photoUrl || null)}
+                    className="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left"
+                  >
+                    <img
+                      src={selected.photoUrl}
+                      alt={selected.title}
+                      className="h-28 w-full object-cover transition group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                      <span className="flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white">
+                        <ImageIcon className="h-3 w-3" /> Şikayet Foto
+                      </span>
+                    </div>
+                  </button>
+                )}
+                {selectedResolutionPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewImage(selectedResolutionPhoto || null)}
+                    className="group relative block w-full overflow-hidden rounded-xl border border-emerald-300 bg-emerald-50 text-left"
+                  >
+                    <img
+                      src={selectedResolutionPhoto}
+                      alt="Çözüm Fotoğrafı"
+                      className="h-28 w-full object-cover transition group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                      <span className="flex items-center gap-1.5 rounded-lg bg-emerald-900/80 px-2 py-1 text-[11px] font-bold text-white">
+                        📸 Çözüm Foto
+                      </span>
+                    </div>
+                  </button>
+                )}
               </div>
             )}
 
@@ -340,6 +386,10 @@ export default function OperationsMap({
                     ? "Atığı Topla & Kapat"
                     : selected.category === "Konteyner arızası"
                     ? "Onarımı Tamamla"
+                    : selected.status === "onay_bekliyor"
+                    ? "Onayla & Kapat"
+                    : role === "şoför"
+                    ? "Çözüm Fotoğrafı Yükle"
                     : "Şikayeti Kapat"}
                 </Button>
               )}

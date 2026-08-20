@@ -108,11 +108,29 @@ export const operationsRouter = router({
         brand: z.string().min(1),
         plate: z.string().min(2),
         status: z.enum(["aktif", "arızalı", "bakımda"]).default("aktif"),
+        nextOilMaintenanceKm: z.number().int().positive().nullable().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["yönetim", "kademe personeli"]);
       await db.createVehicle(input);
       await audit(ctx.user.id, "ARAÇ_OLUŞTURULDU", "araç", undefined, input.plate);
+      return { success: true };
+    }),
+    update: protectedProcedure.input(
+      z.object({
+        id: z.number().int().positive(),
+        type: vehicleType.optional(),
+        capacityTon: z.string().optional(),
+        brand: z.string().optional(),
+        plate: z.string().optional(),
+        status: z.enum(["aktif", "arızalı", "bakımda"]).optional(),
+        nextOilMaintenanceKm: z.number().int().nullable().optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim", "kademe personeli"]);
+      const { id, ...data } = input;
+      await db.updateVehicle(id, data);
+      await audit(ctx.user.id, "ARAÇ_GÜNCELLENDİ", "araç", id, JSON.stringify(data));
       return { success: true };
     }),
     updateStatus: protectedProcedure.input(
@@ -445,19 +463,56 @@ export const operationsRouter = router({
       await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_BİLDİRİLDİ", "vatandaş_şikayeti", undefined, input.neighborhood);
       return { success: true };
     }),
-    acknowledge: protectedProcedure.input(
-      z.object({ id: z.number().int().positive() })
+    resolve: protectedProcedure.input(
+      z.object({
+        id: z.number().int().positive(),
+        photo: z.string().min(1, "Çözüm fotoğrafı yüklemek zorunludur."),
+      })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
-      await db.acknowledgeCitizenComplaint(input.id, ctx.user.id);
-      await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_ONAYLANDI", "vatandaş_şikayeti", input.id);
+      const photoUrl = await uploadImage(input.photo, `complaints-resolved/${ctx.user.id}`);
+      if (!photoUrl) throw new Error("Çözüm fotoğrafı yüklenemedi.");
+      await db.resolveCitizenComplaint(input.id, ctx.user.id, photoUrl);
+      await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_ÇÖZÜLDÜ_ONAY_BEKLİYOR", "vatandaş_şikayeti", input.id);
+      return { success: true };
+    }),
+    approve: protectedProcedure.input(
+      z.object({ id: z.number().int().positive() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.approveCitizenComplaint(input.id, ctx.user.id);
+      await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_YÖNETİCİ_ONAYLADI", "vatandaş_şikayeti", input.id);
+      return { success: true };
+    }),
+    reject: protectedProcedure.input(
+      z.object({ id: z.number().int().positive() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.rejectCitizenComplaint(input.id, ctx.user.id);
+      await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_YÖNETİCİ_REDDETTİ", "vatandaş_şikayeti", input.id);
+      return { success: true };
+    }),
+    acknowledge: protectedProcedure.input(
+      z.object({ id: z.number().int().positive(), photo: z.string().optional() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["şoför", "yönetim"]);
+      if (ctx.user.role === "yönetim") {
+        await db.approveCitizenComplaint(input.id, ctx.user.id);
+        await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_ONAYLANDI", "vatandaş_şikayeti", input.id);
+      } else {
+        if (!input.photo) throw new Error("Çözüm fotoğrafı yüklemek zorunludur.");
+        const photoUrl = await uploadImage(input.photo, `complaints-resolved/${ctx.user.id}`);
+        if (!photoUrl) throw new Error("Çözüm fotoğrafı yüklenemedi.");
+        await db.resolveCitizenComplaint(input.id, ctx.user.id, photoUrl);
+        await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_ÇÖZÜLDÜ_ONAY_BEKLİYOR", "vatandaş_şikayeti", input.id);
+      }
       return { success: true };
     }),
     update: protectedProcedure.input(
       z.object({
         id: z.number().int().positive(),
         description: z.string().optional(),
-        status: z.enum(["açık", "onaylandı"]).optional(),
+        status: z.enum(["açık", "onay_bekliyor", "onaylandı"]).optional(),
         region: z.string().optional(),
         neighborhood: z.string().optional(),
       })

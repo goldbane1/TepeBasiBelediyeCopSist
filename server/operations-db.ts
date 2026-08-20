@@ -1,4 +1,5 @@
 import { and, desc, eq, lte, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import {
   auditLogs,
   bulkWasteReports,
@@ -48,6 +49,21 @@ export function firstOrNull<T>(rows: T[]): T | null {
 }
 
 // -----------------------------------------------------------------------------
+// USERS (KULLANICILAR)
+// -----------------------------------------------------------------------------
+export async function listUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(users).orderBy(users.name);
+}
+
+export async function updateUserRole(id: number, role: "şoför" | "kademe personeli" | "kaynak personeli" | "yönetim") {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.update(users).set({ role }).where(eq(users.id, id));
+}
+
+// -----------------------------------------------------------------------------
 // NEIGHBORHOODS (MAHALLELER)
 // -----------------------------------------------------------------------------
 export async function listNeighborhoods() {
@@ -84,13 +100,20 @@ export async function deleteNeighborhood(id: number) {
 // -----------------------------------------------------------------------------
 export async function listVehicles() {
   const db = await getDb();
-  return db ? db.select().from(vehicles).orderBy(desc(vehicles.createdAt)) : [];
+  if (!db) return [];
+  return db.select().from(vehicles).orderBy(vehicles.plate);
 }
 
 export async function createVehicle(data: typeof vehicles.$inferInsert) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.insert(vehicles).values(data);
+}
+
+export async function updateVehicle(id: number, data: Partial<typeof vehicles.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.update(vehicles).set(data).where(eq(vehicles.id, id));
 }
 
 export async function updateVehicleStatus(id: number, status: "aktif" | "arızalı" | "bakımda") {
@@ -401,6 +424,10 @@ export async function repairContainerFault(id: number, technicianId: number, not
 // -----------------------------------------------------------------------------
 // CITIZEN COMPLAINTS (VATANDAŞ ŞİKAYETLERİ)
 // -----------------------------------------------------------------------------
+const reporterUsers = alias(users, "reporterUsers");
+const resolverUsers = alias(users, "resolverUsers");
+const ackUsers = alias(users, "ackUsers");
+
 export async function listCitizenComplaints() {
   const db = await getDb();
   if (!db) return [];
@@ -408,7 +435,7 @@ export async function listCitizenComplaints() {
     .select({
       id: citizenComplaints.id,
       reportedBy: citizenComplaints.reportedBy,
-      reporterName: users.name,
+      reporterName: reporterUsers.name,
       region: citizenComplaints.region,
       neighborhood: citizenComplaints.neighborhood,
       description: citizenComplaints.description,
@@ -417,12 +444,19 @@ export async function listCitizenComplaints() {
       longitude: citizenComplaints.longitude,
       dueAt: citizenComplaints.dueAt,
       status: citizenComplaints.status,
+      resolutionPhotoUrl: citizenComplaints.resolutionPhotoUrl,
+      resolvedBy: citizenComplaints.resolvedBy,
+      resolverName: resolverUsers.name,
+      resolvedAt: citizenComplaints.resolvedAt,
       acknowledgedBy: citizenComplaints.acknowledgedBy,
+      acknowledgedByName: ackUsers.name,
       acknowledgedAt: citizenComplaints.acknowledgedAt,
       createdAt: citizenComplaints.createdAt,
     })
     .from(citizenComplaints)
-    .leftJoin(users, eq(citizenComplaints.reportedBy, users.id))
+    .leftJoin(reporterUsers, eq(citizenComplaints.reportedBy, reporterUsers.id))
+    .leftJoin(resolverUsers, eq(citizenComplaints.resolvedBy, resolverUsers.id))
+    .leftJoin(ackUsers, eq(citizenComplaints.acknowledgedBy, ackUsers.id))
     .orderBy(desc(citizenComplaints.createdAt));
 }
 
@@ -442,6 +476,44 @@ export async function deleteCitizenComplaint(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.delete(citizenComplaints).where(eq(citizenComplaints.id, id));
+}
+
+export async function resolveCitizenComplaint(id: number, driverId: number, photoUrl: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db
+    .update(citizenComplaints)
+    .set({
+      status: "onay_bekliyor",
+      resolutionPhotoUrl: photoUrl,
+      resolvedBy: driverId,
+      resolvedAt: new Date(),
+    })
+    .where(eq(citizenComplaints.id, id));
+}
+
+export async function approveCitizenComplaint(id: number, managerId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db
+    .update(citizenComplaints)
+    .set({
+      status: "onaylandı",
+      acknowledgedBy: managerId,
+      acknowledgedAt: new Date(),
+    })
+    .where(eq(citizenComplaints.id, id));
+}
+
+export async function rejectCitizenComplaint(id: number, managerId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db
+    .update(citizenComplaints)
+    .set({
+      status: "açık",
+    })
+    .where(eq(citizenComplaints.id, id));
 }
 
 export async function acknowledgeCitizenComplaint(id: number, driverId: number) {

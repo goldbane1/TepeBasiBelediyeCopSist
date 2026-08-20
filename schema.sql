@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS `vehicles` (
   `brand` varchar(100) NOT NULL,
   `plate` varchar(16) NOT NULL UNIQUE,
   `status` varchar(64) NOT NULL DEFAULT 'aktif',
+  `nextOilMaintenanceKm` int DEFAULT NULL,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -142,6 +143,9 @@ CREATE TABLE IF NOT EXISTS `citizenComplaints` (
   `photoUrl` text DEFAULT NULL,
   `dueAt` timestamp NOT NULL,
   `status` varchar(64) NOT NULL DEFAULT 'açık',
+  `resolutionPhotoUrl` text DEFAULT NULL,
+  `resolvedBy` int DEFAULT NULL,
+  `resolvedAt` timestamp NULL DEFAULT NULL,
   `acknowledgedBy` int DEFAULT NULL,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `acknowledgedAt` timestamp NULL DEFAULT NULL
@@ -212,8 +216,11 @@ ON DUPLICATE KEY UPDATE `region` = VALUES(`region`);
 -- 10. Mevcut Veritabanları İçin Güncelleme / Kolon Ekleme Komutları (Opsiyonel)
 -- (Daha önce oluşturulmuş tabloları yeni şemaya senkronize etmek için çalıştırılabilir)
 -- ------------------------------------------------------------------------------
+-- ALTER TABLE `vehicles` ADD COLUMN `nextOilMaintenanceKm` int DEFAULT NULL AFTER `status`;
 -- ALTER TABLE `shifts` ADD COLUMN `shiftHours` varchar(32) DEFAULT '08:00 - 16:00' AFTER `vehicleType`;
 -- ALTER TABLE `bulkWasteReports` ADD COLUMN `photoUrl` text DEFAULT NULL AFTER `longitude`;
 -- ALTER TABLE `bulkWasteReports` ADD COLUMN `requiresExcavator` tinyint(1) NOT NULL DEFAULT 0 AFTER `status`;
 -- ALTER TABLE `containerFaults` ADD COLUMN `photoUrl` text DEFAULT NULL AFTER `longitude`;
-
+-- ALTER TABLE `citizenComplaints` ADD COLUMN `resolutionPhotoUrl` text DEFAULT NULL AFTER `photoUrl`;
+-- ALTER TABLE `citizenComplaints` ADD COLUMN `resolvedBy` int DEFAULT NULL AFTER `status`;
+-- ALTER TABLE `citizenComplaints` ADD COLUMN `resolvedAt` timestamp NULL DEFAULT NULL AFTER `resolvedBy`;

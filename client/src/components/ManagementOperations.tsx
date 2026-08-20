@@ -378,6 +378,7 @@ function ReportsAndManagement({
   const [editingWaste, setEditingWaste] = useState<any | null>(null);
   const [editingContainer, setEditingContainer] = useState<any | null>(null);
   const [editingComplaint, setEditingComplaint] = useState<any | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const [purgeOptions, setPurgeOptions] = useState({
     shifts: false,
@@ -423,6 +424,22 @@ function ReportsAndManagement({
   });
   const removeComplaint = trpc.operations.complaints.remove.useMutation({
     onSuccess: () => { toast.success("Şikayet silindi."); refresh(); },
+    onError: e => toast.error(e.message),
+  });
+
+  const approveComplaint = trpc.operations.complaints.approve.useMutation({
+    onSuccess: () => {
+      toast.success("Vatandaş şikayeti onaylandı ve kapatıldı.");
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const rejectComplaint = trpc.operations.complaints.reject.useMutation({
+    onSuccess: () => {
+      toast.success("Vatandaş şikayeti reddedildi, tekrar açık duruma getirildi.");
+      refresh();
+    },
     onError: e => toast.error(e.message),
   });
 
@@ -1428,16 +1445,21 @@ function ReportsAndManagement({
       {activeTab === "sikayetler" && (
         <Card className="border-0 bg-white shadow-sm overflow-hidden">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="font-display text-base">Vatandaş Şikayetleri</CardTitle>
-            <Badge variant="outline" className="text-xs">{complaints.length} Kayıt</Badge>
+            <div>
+              <CardTitle className="font-display text-base font-bold text-slate-900">Vatandaş Şikayetleri ve Denetim</CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">Vatandaş şikayetleri, şoför çözüm fotoğrafları ve yönetici onay akışı</p>
+            </div>
+            <Badge variant="outline" className="text-xs font-bold">{complaints.length} Kayıt</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm min-w-[650px]">
+              <table className="w-full text-left text-sm min-w-[750px]">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
-                    <th className="px-5 py-3">Mahalle</th>
+                    <th className="px-5 py-3">Mahalle & Bölge</th>
                     <th className="px-5 py-3">Açıklama</th>
+                    <th className="px-5 py-3">Bildiren</th>
+                    <th className="px-5 py-3">Çözüm & Fotoğraf</th>
                     <th className="px-5 py-3">Durum</th>
                     <th className="px-5 py-3 text-right">İşlem</th>
                   </tr>
@@ -1445,15 +1467,91 @@ function ReportsAndManagement({
                 <tbody>
                   {complaints.map(comp => (
                     <tr key={comp.id} className="border-t border-slate-100 hover:bg-slate-50/50">
-                      <td className="px-5 py-3 font-semibold text-slate-900">{comp.neighborhood}</td>
-                      <td className="px-5 py-3 text-slate-600 text-xs max-w-md truncate">{comp.description}</td>
                       <td className="px-5 py-3">
-                        <Badge variant="outline" className={comp.status === "açık" ? "bg-red-50 text-red-700 text-[10px]" : "bg-emerald-50 text-emerald-700 text-[10px]"}>
-                          {comp.status}
+                        <span className="font-semibold text-slate-900">{comp.neighborhood}</span>
+                        <span className="block text-xs text-slate-500">📍 {comp.region}</span>
+                      </td>
+                      <td className="px-5 py-3 text-slate-600 text-xs max-w-xs truncate">{comp.description}</td>
+                      <td className="px-5 py-3 text-xs">
+                        {comp.reporterName ? (
+                          <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+                            👤 {comp.reporterName}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {comp.photoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage(comp.photoUrl)}
+                              className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 hover:bg-slate-200 px-2 py-0.5 rounded text-[11px] font-semibold border border-slate-200"
+                            >
+                              <ImageIcon className="h-3 w-3 text-slate-600" /> Şikayet Foto
+                            </button>
+                          )}
+                          {comp.resolutionPhotoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage(comp.resolutionPhotoUrl)}
+                              className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 px-2 py-0.5 rounded text-[11px] font-bold border border-emerald-300 shadow-2xs"
+                            >
+                              <Camera className="h-3 w-3 text-emerald-700" /> 📸 Çözüm Foto
+                            </button>
+                          )}
+                          {comp.resolverName && (
+                            <span className="block w-full text-[10px] text-emerald-800 font-semibold mt-0.5">
+                              🧹 Çözen: {comp.resolverName}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <Badge
+                          variant="outline"
+                          className={
+                            comp.status === "onay_bekliyor"
+                              ? "bg-amber-100 text-amber-900 border-amber-300 text-[10px] font-bold animate-pulse"
+                              : comp.status === "açık"
+                              ? "bg-red-50 text-red-700 text-[10px] font-bold"
+                              : "bg-emerald-50 text-emerald-700 text-[10px] font-bold"
+                          }
+                        >
+                          {comp.status === "onay_bekliyor"
+                            ? "⏳ Onay Bekliyor"
+                            : comp.status === "açık"
+                            ? "Açık"
+                            : "✅ Onaylandı"}
                         </Badge>
                       </td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {comp.status === "onay_bekliyor" && (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={approveComplaint.isPending}
+                                onClick={() => approveComplaint.mutate({ id: comp.id })}
+                                className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-7 px-2.5 font-bold shadow-xs"
+                                title="Onayla ve Kapat"
+                              >
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                Onayla
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={rejectComplaint.isPending}
+                                onClick={() => rejectComplaint.mutate({ id: comp.id })}
+                                className="border-red-200 text-red-700 hover:bg-red-50 text-xs h-7 px-2"
+                                title="Reddet ve Tekrar Aç"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
                           <Button size="sm" variant="ghost" onClick={() => setEditingComplaint(comp)} className="h-8 w-8 p-0 text-slate-600 hover:text-emerald-700">
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -1819,7 +1917,8 @@ function ReportsAndManagement({
               <Field label="Durum">
                 <select value={editingComplaint.status} onChange={e => setEditingComplaint({ ...editingComplaint, status: e.target.value })} className="input-native">
                   <option value="açık">açık</option>
-                  <option value="onaylandı">onaylandı</option>
+                  <option value="onay_bekliyor">onay_bekliyor (Yönetici Onayı Bekliyor)</option>
+                  <option value="onaylandı">onaylandı (Çözüldü & Kapatıldı)</option>
                 </select>
               </Field>
               <div className="flex justify-end gap-2 pt-2">
@@ -1827,6 +1926,26 @@ function ReportsAndManagement({
                 <Button disabled={updateComplaint.isPending} className="bg-emerald-700 hover:bg-emerald-800">Kaydet</Button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* FOTOĞRAF ÖNİZLEME LIGHTBOX MODALI */}
+      {previewImage && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-2">
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img src={previewImage} alt="Fotoğraf" className="max-h-[80vh] w-auto rounded-xl object-contain" />
           </div>
         </div>,
         document.body

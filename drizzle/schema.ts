@@ -38,6 +38,7 @@ export const vehicles = mysqlTable("vehicles", {
   brand: varchar("brand", { length: 100 }).notNull(),
   plate: varchar("plate", { length: 16 }).notNull().unique(),
   status: mysqlEnum("status", ["aktif", "arızalı", "bakımda"]).default("aktif").notNull(),
+  nextOilMaintenanceKm: int("nextOilMaintenanceKm"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -120,7 +121,10 @@ export const citizenComplaints = mysqlTable("citizenComplaints", {
   longitude: varchar("longitude", { length: 32 }).notNull(),
   photoUrl: text("photoUrl"),
   dueAt: timestamp("dueAt").notNull(),
-  status: mysqlEnum("status", ["açık", "onaylandı"]).default("açık").notNull(),
+  status: mysqlEnum("status", ["açık", "onay_bekliyor", "onaylandı"]).default("açık").notNull(),
+  resolutionPhotoUrl: text("resolutionPhotoUrl"),
+  resolvedBy: int("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
   acknowledgedBy: int("acknowledgedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   acknowledgedAt: timestamp("acknowledgedAt"),
