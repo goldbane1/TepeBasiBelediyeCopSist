@@ -6,7 +6,32 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
-import { Archive, AlertTriangle, CheckCircle2, Clock, ClipboardCheck, FileBarChart, Gauge, LocateFixed, Map, MapPin, MessageSquareWarning, Plus, Truck, Wrench, Recycle, User, ShieldCheck } from "lucide-react";
+import {
+  Archive,
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  Clock,
+  ClipboardCheck,
+  FileBarChart,
+  Gauge,
+  History,
+  Image as ImageIcon,
+  LocateFixed,
+  Map,
+  MapPin,
+  MessageSquareWarning,
+  Plus,
+  Search,
+  Truck,
+  Wrench,
+  Recycle,
+  User,
+  ShieldCheck,
+  Eye,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
@@ -24,11 +49,27 @@ export type AppView =
   | "konteyner"
   | "şikayetler"
   | "raporlar"
-  | "personel";
+  | "personel"
+  | "mahalleler";
 
 type Props = { role: Role; view: AppView; onNavigate: (view: AppView) => void };
 
 const EMPTY_SUMMARY = { vehicleCount: 0, activeShiftCount: 0, pendingWasteCount: 0, overdueComplaintCount: 0 };
+
+export const WASTE_TYPES = [
+  "Hafriyat / Moloz",
+  "Mobilya / Koltuk",
+  "Budama / Bahçe Atığı",
+  "Cam / Metal",
+  "Elektronik / Beyaz Eşya",
+  "Diğer Büyük Atık",
+] as const;
+
+export const SHIFT_HOURS = [
+  "08:00 - 16:00",
+  "16:00 - 00:00",
+  "00:00 - 08:00",
+] as const;
 
 export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
   const isDriver = role === "şoför";
@@ -37,13 +78,16 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
   const summary = trpc.operations.summary.useQuery();
   const vehicles = trpc.operations.vehicles.list.useQuery();
   const faults = trpc.operations.vehicleFaults.list.useQuery(undefined, { enabled: isDriver || role === "kademe personeli" || isManager });
-  const waste = trpc.operations.bulkWaste.list.useQuery(undefined, { enabled: isDriver || isManager });
-  const containers = trpc.operations.containerFaults.list.useQuery(undefined, { enabled: isDriver || role === "kaynak personeli" || isManager });
-  const complaints = trpc.operations.complaints.list.useQuery(undefined, { enabled: isDriver || isManager });
+  const waste = trpc.operations.bulkWaste.list.useQuery();
+  const containers = trpc.operations.containerFaults.list.useQuery();
+  const complaints = trpc.operations.complaints.list.useQuery();
   const currentShift = trpc.operations.shifts.current.useQuery(undefined, { enabled: isDriver });
   const shifts = trpc.operations.shifts.list.useQuery(undefined, { enabled: isDriver || isManager });
+  const neighborhoods = trpc.operations.neighborhoods.list.useQuery();
   const logs = trpc.operations.reports.auditLogs.useQuery(undefined, { enabled: isManager });
   const users = trpc.operations.users.list.useQuery(undefined, { enabled: isManager });
+
+  const [focusOpId, setFocusOpId] = useState<number | null>(null);
 
   const refresh = () => {
     void utils.operations.summary.invalidate();
@@ -53,97 +97,203 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
     void utils.operations.containerFaults.list.invalidate();
     void utils.operations.complaints.list.invalidate();
     void utils.operations.shifts.list.invalidate();
+    void utils.operations.shifts.driverHistory.invalidate();
+    void utils.operations.neighborhoods.list.invalidate();
     void utils.operations.reports.auditLogs.invalidate();
+    void utils.operations.shifts.current.invalidate();
   };
 
   const driverActiveComplaints = useMemo(() => {
     const shiftData = currentShift.data as any;
-    if (!isDriver || !shiftData) return [];
-    const shiftNeigh = (shiftData.neighborhood || "").toLocaleLowerCase("tr").trim();
-    const shiftReg = (shiftData.region || "").toLocaleLowerCase("tr").trim();
+    if (!shiftData || !shiftData.neighborhood || !complaints.data) return [];
+    return complaints.data.filter(
+      c => c.status === "açık" && c.neighborhood.toLowerCase().trim() === shiftData.neighborhood.toLowerCase().trim()
+    );
+  }, [currentShift.data, complaints.data]);
 
-    return ((complaints.data as any[]) ?? []).filter((c: any) => {
-      if (c.status !== "açık") return false;
-      const cNeigh = (c.neighborhood || "").toLocaleLowerCase("tr").trim();
-      const cReg = (c.region || "").toLocaleLowerCase("tr").trim();
-      return cNeigh === shiftNeigh || (shiftNeigh === "" && cReg === shiftReg);
-    });
-  }, [isDriver, currentShift.data, complaints.data]);
+  const mapOperations = useMemo<MapOperation[]>(() => {
+    const result: MapOperation[] = [];
 
-  const mapOperations = useMemo<MapOperation[]>(() => [
-    ...((waste.data as any[]) ?? [])
-      .filter((item: any) => item.status === "bekliyor")
-      .map((item: any) => ({
-        id: item.id,
-        category: "Damperlik atık" as const,
-        title: `${item.wasteType} · ${item.neighborhood}`,
-        description: item.description,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        dueAt: item.dueAt,
-        status: item.status,
-      })),
-    ...((containers.data as any[]) ?? [])
-      .filter((item: any) => item.status === "bekliyor")
-      .map((item: any) => ({
-        id: item.id,
-        category: "Konteyner arızası" as const,
-        title: `${item.faultType} arızası · ${item.neighborhood}`,
-        description: item.description,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        status: item.status,
-      })),
-    ...((complaints.data as any[]) ?? [])
-      .filter((item: any) => item.status === "açık")
-      .map((item: any) => ({
-        id: item.id,
-        category: "Vatandaş şikayeti" as const,
-        title: `Şikayet · ${item.neighborhood}`,
-        description: item.description,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        dueAt: item.dueAt,
-        status: item.status,
-      })),
-  ], [waste.data, containers.data, complaints.data]);
+    (waste.data ?? [])
+      .filter(item => item.status === "bekliyor")
+      .forEach(item => {
+        result.push({
+          id: item.id,
+          category: "Damperlik atık",
+          title: `${item.wasteType} · ${item.neighborhood}`,
+          description: item.description,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          photoUrl: item.photoUrl,
+          dueAt: item.dueAt,
+          status: item.status,
+          extra: item,
+        });
+      });
+
+    (containers.data ?? [])
+      .filter(item => item.status === "bekliyor")
+      .forEach(item => {
+        result.push({
+          id: item.id,
+          category: "Konteyner arızası",
+          title: `${item.faultType} arızası · ${item.neighborhood}`,
+          description: item.description,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          photoUrl: item.photoUrl,
+          status: item.status,
+          extra: item,
+        });
+      });
+
+    (complaints.data ?? [])
+      .filter(item => item.status === "açık")
+      .forEach(item => {
+        result.push({
+          id: item.id,
+          category: "Vatandaş şikayeti",
+          title: `Şikayet · ${item.neighborhood}`,
+          description: item.description,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          photoUrl: item.photoUrl,
+          dueAt: item.dueAt,
+          status: item.status,
+          extra: item,
+        });
+      });
+
+    return result;
+  }, [waste.data, containers.data, complaints.data]);
+
+  const openFaultCount = useMemo(() => (faults.data ?? []).filter(f => f.status === "kademe_onayı_bekliyor").length, [faults.data]);
+
+  const navigateToMapItem = (id: number) => {
+    setFocusOpId(id);
+    onNavigate("harita");
+  };
+
+  const resolveCollectWaste = trpc.operations.bulkWaste.collect.useMutation({
+    onSuccess: () => {
+      toast.success("Damperlik atık toplandı olarak kaydedildi ve kapatıldı.");
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const resolveRepairContainer = trpc.operations.containerFaults.repair.useMutation({
+    onSuccess: () => {
+      toast.success("Konteyner onarımı tamamlandı ve kapatıldı.");
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const resolveAcknowledgeComplaint = trpc.operations.complaints.acknowledge.useMutation({
+    onSuccess: () => {
+      toast.success("Vatandaş şikayeti çözüldü olarak kapatıldı.");
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const handleResolveFromMap = (op: MapOperation) => {
+    if (op.category === "Damperlik atık") {
+      const activeDamper = (vehicles.data ?? []).find(v => v.type === "damperli kamyon");
+      const currentShiftData = currentShift.data as any;
+      const vehicleId = currentShiftData?.vehicleId || activeDamper?.id;
+      if (!vehicleId) {
+        toast.error("Toplama için aktif bir damperli kamyon mesaisi gereklidir.");
+        return;
+      }
+      resolveCollectWaste.mutate({ id: op.id, vehicleId });
+    } else if (op.category === "Konteyner arızası") {
+      resolveRepairContainer.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarım tamamlandı." });
+    } else if (op.category === "Vatandaş şikayeti") {
+      resolveAcknowledgeComplaint.mutate({ id: op.id });
+    }
+  };
 
   if (view === "dashboard")
     return (
       <Dashboard
         role={role}
         summary={summary.data ?? EMPTY_SUMMARY}
-        openFaults={((faults.data as any[]) ?? []).filter((fault: any) => fault.status === "kademe_onayı_bekliyor").length}
-        activeShift={currentShift.data as any}
+        openFaults={openFaultCount}
+        activeShift={currentShift.data}
         driverActiveComplaints={driverActiveComplaints}
-        complaintsList={(complaints.data as any[]) ?? []}
+        complaintsList={complaints.data ?? []}
         onNavigate={onNavigate}
       />
     );
 
-  if (view === "mesai") return <ShiftPanel role={role} vehicles={vehicles.data ?? []} shifts={shifts.data ?? []} users={users.data ?? []} refresh={refresh} />;
+  if (view === "mesai")
+    return (
+      <ShiftPanel
+        role={role}
+        vehicles={vehicles.data ?? []}
+        shifts={shifts.data ?? []}
+        neighborhoodsList={neighborhoods.data ?? []}
+        users={users.data ?? []}
+        refresh={refresh}
+      />
+    );
 
   if (view === "harita")
-    return <MapPanel role={role} operations={mapOperations} vehicles={vehicles.data ?? []} refresh={refresh} filterCategory="tümü" />;
+    return (
+      <MapPanel
+        role={role}
+        operations={mapOperations}
+        vehicles={vehicles.data ?? []}
+        refresh={refresh}
+        filterCategory="tümü"
+        selectedOperationId={focusOpId}
+        onResolveOperation={handleResolveFromMap}
+      />
+    );
 
   if (view === "damperlik-çözüm")
-    return <BulkWasteSolutionPanel role={role} operations={mapOperations} wasteList={waste.data ?? []} vehicles={vehicles.data ?? []} refresh={refresh} />;
+    return (
+      <BulkWasteSolutionPanel
+        role={role}
+        wasteList={waste.data ?? []}
+        vehicles={vehicles.data ?? []}
+        neighborhoodsList={neighborhoods.data ?? []}
+        refresh={refresh}
+        onFocusOnMap={navigateToMapItem}
+      />
+    );
 
   if (view === "araçlar" || view === "araç-arızaları")
     return <FleetOperations role={role} view={view} vehicles={vehicles.data ?? []} faults={faults.data ?? []} refresh={refresh} />;
 
   if (view === "konteyner" || view === "şikayetler")
-    return <FieldOperations role={role} view={view} containers={containers.data ?? []} complaints={complaints.data ?? []} refresh={refresh} />;
+    return (
+      <FieldOperations
+        role={role}
+        view={view}
+        containers={containers.data ?? []}
+        complaints={complaints.data ?? []}
+        neighborhoodsList={neighborhoods.data ?? []}
+        refresh={refresh}
+        onFocusOnMap={navigateToMapItem}
+      />
+    );
 
   return (
     <ManagementOperations
       view={view}
       role={role}
       shifts={shifts.data ?? []}
+      wasteList={waste.data ?? []}
+      containers={containers.data ?? []}
       complaints={complaints.data ?? []}
+      neighborhoodsList={neighborhoods.data ?? []}
       logs={logs.data ?? []}
       users={users.data ?? []}
       refresh={refresh}
+      onNavigate={onNavigate}
     />
   );
 }
@@ -171,8 +321,6 @@ function Dashboard({
     { label: "Bekleyen damperlik atık", value: summary.pendingWasteCount, icon: Archive, tone: "text-amber-700 bg-amber-50" },
     { label: "Günü geçen şikayet", value: summary.overdueComplaintCount, icon: AlertTriangle, tone: "text-red-700 bg-red-50" },
   ];
-
-  const allOpenComplaints = useMemo(() => complaintsList.filter(c => c.status === "açık"), [complaintsList]);
 
   return (
     <div className="space-y-6">
@@ -249,66 +397,13 @@ function Dashboard({
                 <p className="text-sm font-medium text-slate-500">{card.label}</p>
                 <p className="mt-2 font-display text-3xl font-bold text-slate-900">{card.value}</p>
               </div>
-              <div className={cn("grid h-10 w-10 place-items-center rounded-xl", card.tone)}>
-                <card.icon className="h-5 w-5" />
+              <div className={cn("grid h-12 w-12 place-items-center rounded-2xl", card.tone)}>
+                <card.icon className="h-6 w-6" />
               </div>
             </CardContent>
           </Card>
         ))}
       </section>
-
-      {/* Vatandaş Şikayetleri Operasyon Analizi Kartı (Ana Sayfada Tüm Şikayet İçerikleri) */}
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-display flex items-center gap-2">
-              <MessageSquareWarning className="h-5 w-5 text-amber-600" />
-              Vatandaş Şikayetleri Operasyon Analizi
-            </CardTitle>
-            <p className="text-sm text-slate-500">
-              Saha şikayetlerinin tam içerikleri, bölgesel dağılımı ve çözüm durumları.
-            </p>
-          </div>
-          <Button size="sm" onClick={() => onNavigate("şikayetler")} className="bg-emerald-700 hover:bg-emerald-800 text-xs">
-            Şikayet Yönetimine Git
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {allOpenComplaints.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-              Şu an çözüm bekleyen açık vatandaş şikayeti bulunmuyor.
-            </p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {allOpenComplaints.map(complaint => (
-                <div key={complaint.id} className="rounded-2xl border border-slate-200/80 p-4 bg-slate-50/40 space-y-3 flex flex-col justify-between hover:border-emerald-200 transition">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 text-sm">{complaint.neighborhood} Şikayeti</span>
-                      <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 text-[10px]">
-                        Bekliyor
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed font-normal">{complaint.description}</p>
-                    <div className="text-[11px] text-slate-400 pt-1 space-y-0.5 font-medium">
-                      <p>📍 Bölge: {complaint.region}</p>
-                      <p>⏳ Son Müdahale: {new Date(complaint.dueAt).toLocaleString("tr-TR")}</p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => onNavigate("şikayetler")}
-                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-8 mt-2"
-                  >
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                    İçeriği İncele & Şikayeti Gider
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Quick icon={Map} label="Operasyon Haritası" onClick={() => onNavigate("harita")} />
@@ -335,7 +430,21 @@ function Quick({ icon: Icon, label, onClick, disabled }: { icon: typeof Map; lab
   );
 }
 
-function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; vehicles: any[]; shifts: any[]; users: any[]; refresh: () => void }) {
+function ShiftPanel({
+  role,
+  vehicles,
+  shifts,
+  neighborhoodsList,
+  users,
+  refresh,
+}: {
+  role: Role;
+  vehicles: any[];
+  shifts: any[];
+  neighborhoodsList: any[];
+  users: any[];
+  refresh: () => void;
+}) {
   const isManager = role === "yönetim";
   const [form, setForm] = useState({
     driverId: "",
@@ -343,6 +452,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
     region: "Tepebaşı",
     neighborhood: "",
     vehicleType: "çöp kamyonu" as "çöp kamyonu" | "damperli kamyon",
+    shiftHours: "08:00 - 16:00" as "08:00 - 16:00" | "16:00 - 00:00" | "00:00 - 08:00",
     startKm: "",
     startFullness: "boş" as "boş" | "dolu",
   });
@@ -358,13 +468,24 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
   const [adminEndKmValues, setAdminEndKmValues] = useState<Record<number, string>>({});
 
   const current = trpc.operations.shifts.current.useQuery(undefined, { enabled: role === "şoför" });
+  const driverHistory = trpc.operations.shifts.driverHistory.useQuery(undefined, { enabled: role === "şoför" });
 
   const start = trpc.operations.shifts.start.useMutation({
     onSuccess: () => {
       toast.success("Mesai başarıyla başlatıldı.");
       refresh();
       if (current.refetch) void current.refetch();
-      setForm({ driverId: "", vehicleId: "", region: "Tepebaşı", neighborhood: "", vehicleType: "çöp kamyonu", startKm: "", startFullness: "boş" });
+      if (driverHistory.refetch) void driverHistory.refetch();
+      setForm({
+        driverId: "",
+        vehicleId: "",
+        region: "Tepebaşı",
+        neighborhood: "",
+        vehicleType: "çöp kamyonu",
+        shiftHours: "08:00 - 16:00",
+        startKm: "",
+        startFullness: "boş",
+      });
     },
     onError: error => toast.error(error.message),
   });
@@ -374,6 +495,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
       toast.success("Mesai sonlandırıldı.");
       refresh();
       if (current.refetch) void current.refetch();
+      if (driverHistory.refetch) void driverHistory.refetch();
       setEndForm({ endKm: "", endFullness: "boş", tonnage: "", faultReported: false, tonnageReceipts: [] });
     },
     onError: error => toast.error(error.message),
@@ -382,14 +504,26 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
   const availableVehicles = vehicles.filter(vehicle => vehicle.type === form.vehicleType);
   const activeShifts = useMemo(() => shifts.filter(shift => shift.status === "açık"), [shifts]);
 
+  // Handle neighborhood change and auto-set region if defined in neighborhoodsList
+  const handleNeighborhoodSelect = (name: string) => {
+    const matched = neighborhoodsList.find(n => n.name === name);
+    setForm(prev => ({
+      ...prev,
+      neighborhood: name,
+      region: matched?.region || prev.region || "Tepebaşı",
+    }));
+  };
+
   const submitDriverStart = (event: FormEvent) => {
     event.preventDefault();
+    if (!form.neighborhood) return toast.error("Lütfen mahalle seçin.");
     if (!form.vehicleId) return toast.error("Lütfen araç plakası seçin.");
     start.mutate({
       vehicleId: Number(form.vehicleId),
-      region: form.region,
+      region: form.region || "Tepebaşı",
       neighborhood: form.neighborhood,
       vehicleType: form.vehicleType,
+      shiftHours: form.shiftHours,
       startKm: Number(form.startKm),
       startFullness: form.startFullness,
     });
@@ -398,13 +532,15 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
   const submitAdminStart = (event: FormEvent) => {
     event.preventDefault();
     if (!form.driverId) return toast.error("Lütfen mesai başlatılacak şoförü seçin.");
+    if (!form.neighborhood) return toast.error("Lütfen mahalle seçin.");
     if (!form.vehicleId) return toast.error("Lütfen araç seçin.");
     start.mutate({
       driverId: Number(form.driverId),
       vehicleId: Number(form.vehicleId),
-      region: form.region,
+      region: form.region || "Tepebaşı",
       neighborhood: form.neighborhood,
       vehicleType: form.vehicleType,
+      shiftHours: form.shiftHours,
       startKm: Number(form.startKm),
       startFullness: form.startFullness,
     });
@@ -427,7 +563,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
     if (validFiles.length === 0) return toast.error("Yalnızca görsel dosyası yükleyebilirsiniz.");
 
     const promises = validFiles.map(file => {
-      return new Promise<string>((resolve) => {
+      return new Promise<string>(resolve => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
         reader.readAsDataURL(file);
@@ -466,39 +602,20 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
   // YÖNETİCİ MESAİ YÖNETİMİ VE KONTROL EKRANI
   if (isManager) {
     return (
-      <div className="space-y-6">
-        {/* Başlık Kartı */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-          <div>
-            <h2 className="font-display text-xl font-bold text-slate-900 flex items-center gap-2">
-              <ShieldCheck className="h-6 w-6 text-emerald-700" />
-              Yönetici Mesai Yönetimi & Kontrol Merkezi
-            </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Sahadaki tüm açık mesaileri anlık takip edin, sonlandırın veya şoförler adına mesai başlatın.
-            </p>
-          </div>
-          <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs px-3 py-1.5 self-start sm:self-auto">
-            {activeShifts.length} Aktif Saha Mesaisi
-          </Badge>
-        </div>
-
+      <div className="space-y-5">
         {/* 1. Devam Eden Açık Mesailer Kontrol Paneli */}
         <Card className="border-0 bg-white shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="font-display flex items-center gap-2 text-slate-900">
-                <ClipboardCheck className="h-5 w-5 text-emerald-700" />
-                Devam Eden Açık Saha Mesaileri
-              </CardTitle>
-              <p className="text-sm text-slate-500">Şoförlerin aktif mesailerini görün ve gerektiğinde bitiş km girerek sonlandırın.</p>
-            </div>
-            <Badge className="bg-sky-50 text-sky-700 hover:bg-sky-50 font-bold">{activeShifts.length} Mesai</Badge>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="font-display flex items-center gap-2 text-base text-slate-900">
+              <ClipboardCheck className="h-5 w-5 text-emerald-700" />
+              Devam Eden Açık Mesailer
+            </CardTitle>
+            <Badge className="bg-sky-50 text-sky-700 hover:bg-sky-50 font-bold text-xs">{activeShifts.length} Aktif Mesai</Badge>
           </CardHeader>
-          <CardContent className="space-y-3.5">
+          <CardContent className="space-y-3">
             {activeShifts.length === 0 ? (
-              <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">
-                Şu anda sahada aktif açık mesai bulunmuyor. Aşağıdaki formdan yeni mesai başlatabilirsiniz.
+              <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">
+                Şu anda sahada aktif açık mesai bulunmuyor.
               </p>
             ) : (
               activeShifts.map(shift => (
@@ -507,9 +624,12 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-slate-900 text-base">{shift.driverName || `Şoför #${shift.driverId}`}</span>
                       <Badge variant="outline" className="border-sky-200 bg-sky-100/70 text-sky-800 text-xs">
-                        @{shift.driverUsername || "yerel_hesap"} · {shift.driverRole || "şoför"}
+                        @{shift.driverUsername || "yerel_hesap"}
                       </Badge>
                       <Badge className="bg-emerald-600 text-white text-[10px]">Açık Mesai #{shift.id}</Badge>
+                      <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
+                        Vardiya: {shift.shiftHours || "08:00 - 16:00"}
+                      </Badge>
                     </div>
                     <p className="text-xs text-slate-700">
                       📍 Görev Bölgesi: <strong>{shift.region} / {shift.neighborhood}</strong> · Araç: <strong>{shift.vehiclePlate || `#${shift.vehicleId}`} ({shift.vehicleType})</strong>
@@ -545,12 +665,11 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
 
         {/* 2. Yönetici Şoför Adına Mesai Başlatma Formu */}
         <Card className="border-0 bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-display flex items-center gap-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display flex items-center gap-2 text-base">
               <Plus className="h-5 w-5 text-emerald-700" />
-              Şoför Adına Yeni Mesai Başlat
+              Yeni Mesai Başlat (Şoför Adına)
             </CardTitle>
-            <p className="text-sm text-slate-500">Sahadaki şoförler için araç, bölge ve başlangıç km seçerek mesai başlatın.</p>
           </CardHeader>
           <CardContent>
             <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitAdminStart}>
@@ -569,12 +688,37 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
                   ))}
                 </select>
               </Field>
-              <Field label="Bölge">
-                <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} placeholder="Örn. Tepebaşı" />
+
+              <Field label="Görev Mahallesi (Dinamik)">
+                <select
+                  required
+                  value={form.neighborhood}
+                  onChange={e => handleNeighborhoodSelect(e.target.value)}
+                  className="input-native"
+                >
+                  <option value="">Mahalle seçin</option>
+                  {neighborhoodsList.map(n => (
+                    <option key={n.id} value={n.name}>
+                      {n.name} ({n.region})
+                    </option>
+                  ))}
+                </select>
               </Field>
-              <Field label="Mahalle">
-                <Input required value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} placeholder="Örn. Hoşnudiye" />
+
+              <Field label="Vardiya Seçimi">
+                <select
+                  value={form.shiftHours}
+                  onChange={e => setForm({ ...form, shiftHours: e.target.value as any })}
+                  className="input-native font-semibold text-emerald-900"
+                >
+                  {SHIFT_HOURS.map(h => (
+                    <option key={h} value={h}>
+                      ⏰ {h}
+                    </option>
+                  ))}
+                </select>
               </Field>
+
               <Field label="Araç Tipi">
                 <select
                   value={form.vehicleType}
@@ -585,6 +729,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
                   <option value="damperli kamyon">damperli kamyon</option>
                 </select>
               </Field>
+
               <Field label="Araç Plakası">
                 <select required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} className="input-native">
                   <option value="">Araç seçin</option>
@@ -595,9 +740,11 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
                   ))}
                 </select>
               </Field>
+
               <Field label="Başlangıç Km">
                 <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
               </Field>
+
               <div className="sm:col-span-2 lg:col-span-3">
                 <Button disabled={start.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
                   <ClipboardCheck className="mr-2 h-4 w-4" />
@@ -607,145 +754,113 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
             </form>
           </CardContent>
         </Card>
-
-        {/* 3. Tüm Mesai Geçmişi Tablosu */}
-        <Card className="overflow-hidden border-0 bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-display">Tüm Mesai Kayıtları</CardTitle>
-            <p className="text-sm text-slate-500">Tamamlanan ve devam eden tüm mesailer.</p>
-          </CardHeader>
-          <CardContent className="p-0">
-            {shifts.length === 0 ? (
-              <p className="p-6 text-center text-sm text-slate-500">Henüz mesai kaydı bulunmuyor.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[750px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-5 py-3">Şoför & Rol</th>
-                      <th className="px-5 py-3">Bölge / Mahalle</th>
-                      <th className="px-5 py-3">Araç</th>
-                      <th className="px-5 py-3">Km</th>
-                      <th className="px-5 py-3">Durum</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shifts.map(shift => (
-                      <tr key={shift.id} className="border-t border-slate-100">
-                        <td className="px-5 py-4">
-                          <p className="font-semibold text-slate-800">{shift.driverName || `Şoför #${shift.driverId}`}</p>
-                          <p className="text-xs text-slate-400">@{shift.driverUsername || "bilgi_yok"}</p>
-                        </td>
-                        <td className="px-5 py-4 font-medium text-slate-700">
-                          {shift.region} / {shift.neighborhood}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">
-                          {shift.vehiclePlate ? `${shift.vehiclePlate} (${shift.vehicleBrand})` : `#${shift.vehicleId}`}
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">
-                          {shift.startKm} → {shift.endKm ?? "—"}
-                        </td>
-                        <td className="px-5 py-4">
-                          <Badge
-                            variant="outline"
-                            className={
-                              shift.status === "açık"
-                                ? "border-sky-200 bg-sky-50 text-sky-700"
-                                : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            }
-                          >
-                            {shift.status === "açık" ? "Açık Mesai" : "Tamamlandı"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     );
   }
 
   // ŞOFÖR KULLANICI MESAİ EKRANI
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
-        <Card className="border-0 bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-display">Mesai Başlat</CardTitle>
-            <p className="text-sm text-slate-500">Bölge, araç ve kilometre bilgilerini kaydederek mesaiye başlayın.</p>
-          </CardHeader>
-          <CardContent>
-            <form className="grid gap-4 sm:grid-cols-2" onSubmit={submitDriverStart}>
-              <Field label="Bölge">
-                <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} placeholder="Örn. Tepebaşı" />
-              </Field>
-              <Field label="Mahalle">
-                <Input required value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} placeholder="Örn. Hoşnudiye" />
-              </Field>
-              <Field label="Araç Tipi">
-                <select
-                  value={form.vehicleType}
-                  onChange={e => setForm({ ...form, vehicleType: e.target.value as typeof form.vehicleType, vehicleId: "" })}
-                  className="input-native"
-                >
-                  <option value="çöp kamyonu">çöp kamyonu</option>
-                  <option value="damperli kamyon">damperli kamyon</option>
-                </select>
-              </Field>
-              <Field label="Araç Plakası">
-                <select required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} className="input-native">
-                  <option value="">Araç seçin</option>
-                  {availableVehicles.map(vehicle => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.plate} · {vehicle.brand} ({vehicle.status})
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Başlangıç Km">
-                <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
-              </Field>
-              <Field label="Araç Doluluk Durumu">
-                <select value={form.startFullness} onChange={e => setForm({ ...form, startFullness: e.target.value as "boş" | "dolu" })} className="input-native">
-                  <option value="boş">boş</option>
-                  <option value="dolu">dolu</option>
-                </select>
-              </Field>
-              <div className="sm:col-span-2">
-                <Button disabled={start.isPending || Boolean(current.data)} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                  {current.data ? "Açık mesai bulundu" : start.isPending ? "Kaydediliyor..." : "Mesaiyi başlat"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-        <Card className="border-0 bg-emerald-950 text-white shadow-xl">
-          <CardContent className="p-6">
-            <ClipboardCheck className="h-7 w-7 text-emerald-300" />
-            <h3 className="mt-5 font-display text-xl font-bold">Mesai Güvenlik Kuralı</h3>
-            <p className="mt-3 text-sm leading-6 text-emerald-100">
-              Arızalı veya kademe onayı bekleyen arıza kaydı bulunan araçlar mesaiye başlatılamaz.
-            </p>
-            <div className="mt-6 rounded-xl border border-white/10 bg-white/10 p-4 text-sm text-emerald-100">
-              Mesai bitişinde tonaj fişi fotoğrafı, doluluk ve arıza durumu kayıt altına alınır.
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="space-y-5">
+      <Card className="border-0 bg-white shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-base">Yeni Mesai Başlat</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitDriverStart}>
+            <Field label="Görev Mahallesi">
+              <select
+                required
+                value={form.neighborhood}
+                onChange={e => handleNeighborhoodSelect(e.target.value)}
+                className="input-native"
+              >
+                <option value="">Mahalle seçin</option>
+                {neighborhoodsList.map(n => (
+                  <option key={n.id} value={n.name}>
+                    {n.name} ({n.region})
+                  </option>
+                ))}
+              </select>
+            </Field>
 
+            <Field label="Vardiya">
+              <select
+                value={form.shiftHours}
+                onChange={e => setForm({ ...form, shiftHours: e.target.value as any })}
+                className="input-native font-semibold text-emerald-900"
+              >
+                {SHIFT_HOURS.map(h => (
+                  <option key={h} value={h}>
+                    ⏰ {h}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Bölge">
+              <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} />
+            </Field>
+
+            <Field label="Araç Tipi">
+              <select
+                value={form.vehicleType}
+                onChange={e => setForm({ ...form, vehicleType: e.target.value as typeof form.vehicleType, vehicleId: "" })}
+                className="input-native"
+              >
+                <option value="çöp kamyonu">çöp kamyonu</option>
+                <option value="damperli kamyon">damperli kamyon</option>
+              </select>
+            </Field>
+
+            <Field label="Araç Plakası">
+              <select required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} className="input-native">
+                <option value="">Araç seçin</option>
+                {availableVehicles.map(vehicle => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.plate} · {vehicle.brand} ({vehicle.status})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Başlangıç Km">
+              <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
+            </Field>
+
+            <Field label="Doluluk">
+              <select value={form.startFullness} onChange={e => setForm({ ...form, startFullness: e.target.value as "boş" | "dolu" })} className="input-native">
+                <option value="boş">boş</option>
+                <option value="dolu">dolu</option>
+              </select>
+            </Field>
+
+            <div className="sm:col-span-2 lg:col-span-4 pt-1">
+              <Button disabled={start.isPending || Boolean(current.data)} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                {current.data ? "Açık mesainiz bulunuyor" : start.isPending ? "Kaydediliyor..." : "Mesaiyi Başlat"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Açık Mesai Sonlandırma Formu */}
       {Boolean(current.data) && (
-        <Card className="border-0 bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-display">Açık Mesaiyi Sonlandır</CardTitle>
-            <p className="text-sm text-slate-500">
-              Mesai #{(current.data as any).id} · {(current.data as any).neighborhood} · başlangıç {(current.data as any).startKm} km
-            </p>
+        <Card className="border-2 border-emerald-300 bg-white shadow-md">
+          <CardHeader className="bg-emerald-50/70 border-b border-emerald-100 py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="font-display text-emerald-950 flex items-center gap-2 text-base">
+                  <Gauge className="h-5 w-5 text-emerald-700" />
+                  Aktif Mesaiyi Sonlandır
+                </CardTitle>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  Mesai #{(current.data as any).id} · {(current.data as any).neighborhood} · Başlangıç: {(current.data as any).startKm} km · Vardiya: {(current.data as any).shiftHours || "08:00 - 16:00"}
+                </p>
+              </div>
+              <Badge className="bg-emerald-700 text-white text-xs">Devam Ediyor</Badge>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-5">
             <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitFinish}>
               <Field label="Bitiş Km">
                 <Input required type="number" min={(current.data as any).startKm} value={endForm.endKm} onChange={e => setEndForm({ ...endForm, endKm: e.target.value })} />
@@ -759,7 +874,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
               <Field label="Tonaj">
                 <Input value={endForm.tonnage} onChange={e => setEndForm({ ...endForm, tonnage: e.target.value })} placeholder="Örn. 4,25" />
               </Field>
-              <Field label="Tonaj Fişi Fotoğrafları (Kamera / Galeri)">
+              <Field label="Tonaj Fişi (Kamera / Galeri)">
                 <Input
                   type="file"
                   accept="image/*"
@@ -774,7 +889,7 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
                   <p className="text-xs font-bold text-slate-700">Yüklenen Fiş Fotoğrafları ({endForm.tonnageReceipts.length}):</p>
                   <div className="flex flex-wrap gap-2">
                     {endForm.tonnageReceipts.map((src, index) => (
-                      <div key={index} className="relative h-16 w-16 overflow-hidden rounded-xl border border-slate-200 shadow-xs">
+                      <div key={index} className="relative h-16 w-16 overflow-hidden rounded-xl border border-slate-200 shadow-2xs">
                         <img src={src} alt={`Fiş ${index + 1}`} className="h-full w-full object-cover" />
                         <button
                           type="button"
@@ -789,19 +904,85 @@ function ShiftPanel({ role, vehicles, shifts, users, refresh }: { role: Role; ve
                 </div>
               )}
 
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 lg:col-span-2">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 lg:col-span-2">
                 <input type="checkbox" checked={endForm.faultReported} onChange={e => setEndForm({ ...endForm, faultReported: e.target.checked })} />
                 Mesai sırasında araç arızası oluştu
               </label>
               <div className="lg:col-span-2">
                 <Button disabled={finish.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                  {finish.isPending ? "Kaydediliyor..." : "Mesaiyi sonlandır"}
+                  {finish.isPending ? "Kaydediliyor..." : "Mesaiyi Sonlandır & Kaydet"}
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
+
+      {/* Şoför Geçmiş 10 Mesaisi Tablosu */}
+      <Card className="border-0 bg-white shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="font-display flex items-center gap-2 text-base text-slate-900">
+            <History className="h-5 w-5 text-emerald-700" />
+            Geçmiş Mesailerim (Son 10)
+          </CardTitle>
+          <Badge variant="outline" className="text-slate-600 text-xs">
+            {driverHistory.data?.length || 0} Kayıt
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-0">
+          {!driverHistory.data || driverHistory.data.length === 0 ? (
+            <p className="p-6 text-center text-xs text-slate-500">Henüz geçmiş mesai kaydınız bulunmuyor.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[650px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3">Tarih & Vardiya</th>
+                    <th className="px-5 py-3">Mahalle</th>
+                    <th className="px-5 py-3">Araç</th>
+                    <th className="px-5 py-3">Km</th>
+                    <th className="px-5 py-3">Tonaj</th>
+                    <th className="px-5 py-3">Durum</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {driverHistory.data.map(item => (
+                    <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50/50">
+                      <td className="px-5 py-3">
+                        <p className="font-semibold text-slate-800">{new Date(item.startedAt).toLocaleDateString("tr-TR")}</p>
+                        <p className="text-xs text-purple-700 font-medium">{item.shiftHours || "08:00 - 16:00"}</p>
+                      </td>
+                      <td className="px-5 py-3 font-medium text-slate-700">{item.neighborhood}</td>
+                      <td className="px-5 py-3 text-slate-700 font-medium">{item.vehiclePlate || `#${item.vehicleId}`}</td>
+                      <td className="px-5 py-3 text-slate-700 text-xs">
+                        <span className="font-mono">{item.startKm}</span> → <span className="font-mono">{item.endKm ?? "—"}</span>
+                      </td>
+                      <td className="px-5 py-3 text-slate-600 text-xs">
+                        {item.tonnage ? `${item.tonnage} Ton` : "—"}
+                        {item.tonnageReceiptUrl && (
+                          <span className="block text-[10px] text-emerald-600 font-semibold">📸 Fiş</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
+                        <Badge
+                          variant="outline"
+                          className={
+                            item.status === "açık"
+                              ? "border-sky-200 bg-sky-50 text-sky-700 text-[10px]"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                          }
+                        >
+                          {item.status === "açık" ? "Açık" : "Tamamlandı"}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -812,222 +993,180 @@ function MapPanel({
   vehicles,
   refresh,
   filterCategory = "tümü",
+  selectedOperationId,
+  onResolveOperation,
 }: {
   role: Role;
   operations: MapOperation[];
   vehicles: any[];
   refresh: () => void;
   filterCategory?: "tümü" | MapOperationCategory;
+  selectedOperationId?: number | null;
+  onResolveOperation?: (op: MapOperation) => void;
 }) {
-  const [form, setForm] = useState({ region: "Tepebaşı", neighborhood: "", wasteType: "mobilya", description: "", latitude: "39.7767", longitude: "30.5206", dueAt: "" });
-  const [containerForm, setContainerForm] = useState({ region: "Tepebaşı", neighborhood: "", faultType: "kol" as "kol" | "ayak" | "gövde" | "kapak" | "diğer", description: "", latitude: "39.7767", longitude: "30.5206" });
-
-  const [locationState, setLocationState] = useState<"idle" | "loading" | "ready">("idle");
-  const [resolvedAddress, setResolvedAddress] = useState("");
-
-  const currentShift = trpc.operations.shifts.current.useQuery(undefined, { enabled: role === "şoför" });
-  const createWaste = trpc.operations.bulkWaste.create.useMutation({ onSuccess: () => { toast.success("Damperlik atık bildirimi eklendi."); refresh(); }, onError: e => toast.error(e.message) });
-  const createContainerFault = trpc.operations.containerFaults.create.useMutation({
-    onSuccess: () => {
-      toast.success("Konteyner arızası bildirimi eklendi.");
-      refresh();
-      setContainerForm({ region: "Tepebaşı", neighborhood: "", faultType: "kol", description: "", latitude: "39.7767", longitude: "30.5206" });
-    },
-    onError: e => toast.error(e.message),
-  });
-
-  const canReport = (role === "şoför" && (currentShift.data as any)?.vehicleType === "çöp kamyonu") || role === "yönetim" || role === "kaynak personeli" || role === "kademe personeli";
-
-  const submitWaste = (event: FormEvent) => {
-    event.preventDefault();
-    if (!form.neighborhood.trim()) return toast.error("Lütfen mahalle adı girin.");
-    if (!form.dueAt) return toast.error("Lütfen son işlem zamanı seçin.");
-    createWaste.mutate({ ...form, latitude: Number(form.latitude), longitude: Number(form.longitude), dueAt: new Date(form.dueAt) });
-  };
-
-  const submitContainer = (event: FormEvent) => {
-    event.preventDefault();
-    if (!containerForm.neighborhood.trim()) return toast.error("Lütfen mahalle adı girin.");
-    if (!containerForm.description.trim()) return toast.error("Lütfen arıza açıklaması girin.");
-    createContainerFault.mutate({ ...containerForm, latitude: Number(containerForm.latitude), longitude: Number(containerForm.longitude) });
-  };
-
-  const resolveAddress = async (latitude: number, longitude: number) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-        { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
-      );
-      if (!response.ok) {
-        toast.message("Adres bulunamadı; bölge ve mahalle alanlarını manuel doldurabilirsiniz.");
-        return;
-      }
-      const data = await response.json();
-      if (data && data.address) {
-        const addr = data.address;
-        const region = addr.city || addr.town || addr.district || addr.county || addr.state_district || addr.province || "Tepebaşı";
-        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || addr.road || "";
-        setForm(current => ({
-          ...current,
-          region: region || current.region,
-          neighborhood: neighborhood || current.neighborhood,
-        }));
-        setContainerForm(current => ({
-          ...current,
-          region: region || current.region,
-          neighborhood: neighborhood || current.neighborhood,
-        }));
-        setResolvedAddress(data.display_name || `${latitude}, ${longitude}`);
-        toast.success("Konumdan bölge ve mahalle alanları dolduruldu.");
-      } else {
-        toast.message("Adres bulunamadı; bölge ve mahalle alanlarını manuel doldurabilirsiniz.");
-      }
-    } catch {
-      toast.message("Adres servisi yanıt vermedi; bölge ve mahalle alanlarını manuel doldurabilirsiniz.");
-    }
-  };
-
-  const useCurrentLocation = () => {
-    if (!navigator.geolocation) return toast.error("Bu cihaz konum bilgisini desteklemiyor.");
-    setLocationState("loading");
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        setForm(current => ({ ...current, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
-        setContainerForm(current => ({ ...current, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
-        setLocationState("ready");
-        resolveAddress(latitude, longitude);
-      },
-      error => {
-        setLocationState("idle");
-        const message = error.code === error.PERMISSION_DENIED ? "Konum izni verilmedi. Enlem ve boylamı manuel girebilirsiniz." : "Konum alınamadı. Lütfen tekrar deneyin veya manuel giriş yapın.";
-        toast.error(message);
-      },
-      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 }
-    );
-  };
+  const [selectedPinId, setSelectedPinId] = useState<number | null>(selectedOperationId || null);
 
   return (
-    <div className="space-y-6">
-      <OperationsMap operations={operations} initialCategoryFilter={filterCategory} />
+    <div className="space-y-5">
+      {/* 1. Operasyon Haritası */}
+      <OperationsMap
+        operations={operations}
+        initialCategoryFilter={filterCategory}
+        role={role}
+        selectedOperationId={selectedPinId}
+        onResolveOperation={onResolveOperation}
+      />
 
-      {canReport && (
-        <div className="grid gap-6 xl:grid-cols-2">
-          {/* Form 1: Damperlik Atık Bildirimi */}
-          <Card className="border-0 bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="font-display flex items-center gap-2">
-                <Archive className="h-5 w-5 text-amber-600" />
-                Damperlik Atık Bildirimi
-              </CardTitle>
-              <p className="text-sm text-slate-500">Mobilya, hafriyat ve büyük atıkları konumuyla haritaya kaydedin.</p>
-            </CardHeader>
-            <CardContent>
-              <form className="grid gap-4 sm:grid-cols-2" onSubmit={submitWaste}>
-                <Field label="Bölge"><Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} /></Field>
-                <Field label="Mahalle"><Input required value={form.neighborhood} onChange={e => setForm({ ...form, neighborhood: e.target.value })} placeholder="Örn. Hoşnudiye" /></Field>
-                <Field label="Atık cinsi"><Input required value={form.wasteType} onChange={e => setForm({ ...form, wasteType: e.target.value })} placeholder="Örn. Eski Koltuk" /></Field>
-                <Field label="Son işlem zamanı"><Input required type="datetime-local" value={form.dueAt} onChange={e => setForm({ ...form, dueAt: e.target.value })} /></Field>
-                
-                <div className="sm:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-                  <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                    <p className="text-sm font-medium text-emerald-800">Konum tek seferlik alınır; adres otomatik doldurulur.</p>
-                    <Button type="button" size="sm" disabled={locationState === "loading"} onClick={useCurrentLocation} className="bg-emerald-700 hover:bg-emerald-800">
-                      <LocateFixed className="mr-1.5 h-4 w-4" />
-                      {locationState === "loading" ? "Konum alınıyor" : locationState === "ready" ? "Konum güncelle" : "Anlık konumu kullan"}
-                    </Button>
-                  </div>
-                  {resolvedAddress && <p className="mt-2 text-xs leading-5 text-emerald-700">Algılanan adres: {resolvedAddress}</p>}
-                </div>
-
-                <Field label="Enlem"><Input required type="number" step="any" value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} /></Field>
-                <Field label="Boylam"><Input required type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} /></Field>
-                <div className="sm:col-span-2"><Field label="Açıklama"><Input required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Atık detay ve konum tarifi" /></Field></div>
-                <div className="sm:col-span-2"><Button disabled={createWaste.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800"><Plus className="mr-2 h-4 w-4" />Damperlik atık bildirimi oluştur</Button></div>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Form 2: Konteyner Arızası Bildirimi */}
-          <Card className="border-0 bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="font-display flex items-center gap-2">
-                <Recycle className="h-5 w-5 text-emerald-600" />
-                Konteyner Arızası Bildirimi
-              </CardTitle>
-              <p className="text-sm text-slate-500">Saha konteynerlerindeki kol, kapak ve gövde arızalarını konumuyla haritaya kaydedin.</p>
-            </CardHeader>
-            <CardContent>
-              <form className="grid gap-4 sm:grid-cols-2" onSubmit={submitContainer}>
-                <Field label="Bölge"><Input required value={containerForm.region} onChange={e => setContainerForm({ ...containerForm, region: e.target.value })} /></Field>
-                <Field label="Mahalle"><Input required value={containerForm.neighborhood} onChange={e => setContainerForm({ ...containerForm, neighborhood: e.target.value })} placeholder="Örn. Eskibağlar" /></Field>
-                <Field label="Arıza türü">
-                  <select className="input-native" value={containerForm.faultType} onChange={e => setContainerForm({ ...containerForm, faultType: e.target.value as typeof containerForm.faultType })}>
-                    <option value="kol">kol</option>
-                    <option value="ayak">ayak</option>
-                    <option value="gövde">gövde</option>
-                    <option value="kapak">kapak</option>
-                    <option value="diğer">diğer</option>
-                  </select>
-                </Field>
-                <div className="hidden sm:block" />
-
-                <div className="sm:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-                  <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                    <p className="text-sm font-medium text-emerald-800">Konum tek seferlik alınır; adres otomatik doldurulur.</p>
-                    <Button type="button" size="sm" disabled={locationState === "loading"} onClick={useCurrentLocation} className="bg-emerald-700 hover:bg-emerald-800">
-                      <LocateFixed className="mr-1.5 h-4 w-4" />
-                      {locationState === "loading" ? "Konum alınıyor" : locationState === "ready" ? "Konum güncelle" : "Anlık konumu kullan"}
-                    </Button>
-                  </div>
-                  {resolvedAddress && <p className="mt-2 text-xs leading-5 text-emerald-700">Algılanan adres: {resolvedAddress}</p>}
-                </div>
-
-                <Field label="Enlem"><Input required type="number" step="any" value={containerForm.latitude} onChange={e => setContainerForm({ ...containerForm, latitude: e.target.value })} /></Field>
-                <Field label="Boylam"><Input required type="number" step="any" value={containerForm.longitude} onChange={e => setContainerForm({ ...containerForm, longitude: e.target.value })} /></Field>
-                <div className="sm:col-span-2">
-                  <Field label="Arıza açıklaması">
-                    <Textarea required value={containerForm.description} onChange={e => setContainerForm({ ...containerForm, description: e.target.value })} placeholder="Konteynerdeki kırık veya hasar detayı" />
-                  </Field>
-                </div>
-                <div className="sm:col-span-2">
-                  <Button disabled={createContainerFault.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                    <Recycle className="mr-2 h-4 w-4" />
-                    {createContainerFault.isPending ? "Kaydediliyor..." : "Konteyner arızasını bildir"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* 2. Harita Altındaki Genel Şikayetler & Bildirimler Listesi */}
+      <Card className="border-0 bg-white shadow-sm overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="font-display text-base text-slate-900">
+            Genel Bildirim ve Şikayet Listesi
+          </CardTitle>
+          <Badge variant="outline" className="text-slate-600 text-xs">
+            {operations.length} Bildirim
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-0">
+          {operations.length === 0 ? (
+            <p className="p-6 text-center text-xs text-slate-500">Henüz aktif bildirim bulunmuyor.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm min-w-[700px]">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3">Tür</th>
+                    <th className="px-5 py-3">Mahalle & Başlık</th>
+                    <th className="px-5 py-3">Açıklama</th>
+                    <th className="px-5 py-3">Konum</th>
+                    <th className="px-5 py-3">Durum</th>
+                    <th className="px-5 py-3 text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {operations.map(op => {
+                    const isPending = !["toplandı", "onarım_tamamlandı", "onaylandı"].includes(op.status);
+                    return (
+                      <tr key={`${op.category}-${op.id}`} className="border-t border-slate-100 hover:bg-slate-50/60 transition">
+                        <td className="px-5 py-3">
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "text-xs font-semibold",
+                              op.category === "Damperlik atık"
+                                ? "bg-amber-50 text-amber-800"
+                                : op.category === "Konteyner arızası"
+                                ? "bg-purple-50 text-purple-800"
+                                : "bg-red-50 text-red-800"
+                            )}
+                          >
+                            {op.category}
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-3 font-semibold text-slate-900">{op.title}</td>
+                        <td className="px-5 py-3 text-xs text-slate-600 max-w-xs truncate">{op.description}</td>
+                        <td className="px-5 py-3 text-xs font-mono text-slate-500">
+                          {op.latitude}, {op.longitude}
+                        </td>
+                        <td className="px-5 py-3">
+                          <Badge
+                            variant="outline"
+                            className={
+                              isPending
+                                ? "border-amber-200 bg-amber-50/60 text-amber-700 text-[10px]"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                            }
+                          >
+                            {isPending ? "Bekliyor" : "Tamamlandı"}
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedPinId(op.id);
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                            className="text-xs h-8 text-slate-700 hover:bg-slate-100"
+                          >
+                            <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                            Pini Göster
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 function BulkWasteSolutionPanel({
   role,
-  operations,
   wasteList,
   vehicles,
+  neighborhoodsList,
   refresh,
+  onFocusOnMap,
 }: {
   role: Role;
-  operations: MapOperation[];
   wasteList: any[];
   vehicles: any[];
+  neighborhoodsList: any[];
   refresh: () => void;
+  onFocusOnMap: (id: number) => void;
 }) {
   const currentShift = trpc.operations.shifts.current.useQuery(undefined, { enabled: role === "şoför" });
+  const [form, setForm] = useState({
+    region: "Tepebaşı",
+    neighborhood: "",
+    wasteType: "Hafriyat / Moloz",
+    description: "",
+    latitude: "39.7767",
+    longitude: "30.5206",
+    photo: "",
+  });
+  const [durationHours, setDurationHours] = useState<24 | 48>(48);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [locationState, setLocationState] = useState<"idle" | "loading" | "ready">("idle");
+  const [resolvedAddress, setResolvedAddress] = useState("");
+
+  const createWaste = trpc.operations.bulkWaste.create.useMutation({
+    onSuccess: () => {
+      toast.success("Damperlik atık bildirimi kaydedildi.");
+      refresh();
+      setForm({
+        region: "Tepebaşı",
+        neighborhood: "",
+        wasteType: "Hafriyat / Moloz",
+        description: "",
+        latitude: "39.7767",
+        longitude: "30.5206",
+        photo: "",
+      });
+      setDurationHours(48);
+      setSearchQuery("");
+      setResolvedAddress("");
+    },
+    onError: e => toast.error(e.message),
+  });
+
   const collect = trpc.operations.bulkWaste.collect.useMutation({
     onSuccess: () => {
-      toast.success("Damperlik atık toplama kaydı işlendi ve haritadan kaldırıldı.");
+      toast.success("Damperlik atık toplandı.");
       refresh();
     },
     onError: e => toast.error(e.message),
   });
 
+  const canReportWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "çöp kamyonu") || role === "yönetim";
   const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim" || role === "kademe personeli";
   const activeDamper = vehicles.find(vehicle => vehicle.id === (currentShift.data as any)?.vehicleId && vehicle.type === "damperli kamyon");
   const pendingWaste = useMemo(() => wasteList.filter(item => item.status === "bekliyor"), [wasteList]);
@@ -1041,45 +1180,346 @@ function BulkWasteSolutionPanel({
         description: item.description,
         latitude: item.latitude,
         longitude: item.longitude,
+        photoUrl: item.photoUrl,
         dueAt: item.dueAt,
         status: item.status,
       })),
     [pendingWaste]
   );
 
+  // Konum / Adres Arayarak Enlem & Boylam Bulma (Forward Geocoding)
+  const searchAddressLocation = async () => {
+    const query = searchQuery.trim();
+    if (!query) return toast.error("Lütfen aranacak bir adres veya konum yazın.");
+    setIsSearching(true);
+    try {
+      const fullQuery = query.toLowerCase().includes("eskişehir") || query.toLowerCase().includes("tepebaşı")
+        ? query
+        : `${query}, Tepebaşı, Eskişehir`;
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullQuery)}&addressdetails=1&limit=1`,
+        { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
+      );
+      if (!response.ok) throw new Error("Arama servisine ulaşılamadı.");
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const item = data[0];
+        const lat = parseFloat(item.lat);
+        const lon = parseFloat(item.lon);
+        const addr = item.address || {};
+        const region = addr.district || addr.county || addr.town || addr.city || "Tepebaşı";
+        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || "";
+
+        setForm(prev => ({
+          ...prev,
+          latitude: lat.toFixed(6),
+          longitude: lon.toFixed(6),
+          region: region || prev.region,
+          neighborhood: neighborhood || prev.neighborhood,
+        }));
+        setResolvedAddress(item.display_name);
+        toast.success(`Konum bulundu: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+      } else {
+        toast.error("Aradığınız adres için koordinat bulunamadı. Lütfen sokak veya mahalle adını netleştirin.");
+      }
+    } catch (err: any) {
+      toast.error("Adres koordinatı alınamadı: " + err.message);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) return toast.error("Bu cihaz konum bilgisini desteklemiyor.");
+    setLocationState("loading");
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        setForm(current => ({ ...current, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
+        setLocationState("ready");
+        resolveAddress(latitude, longitude);
+      },
+      error => {
+        setLocationState("idle");
+        const message = error.code === error.PERMISSION_DENIED ? "Konum izni verilmedi." : "Hassas konum alınamadı.";
+        toast.error(message);
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }
+    );
+  };
+
+  const resolveAddress = async (latitude: number, longitude: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data && data.address) {
+        const addr = data.address;
+        const region = addr.district || addr.county || addr.town || addr.city || "Tepebaşı";
+        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || "";
+        setForm(current => ({
+          ...current,
+          region: region || current.region,
+          neighborhood: neighborhood || current.neighborhood,
+        }));
+        setResolvedAddress(data.display_name || `${latitude}, ${longitude}`);
+        toast.success("Konum adresi tespit edildi.");
+      }
+    } catch {
+      // Ignored
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Lütfen geçerli bir resim seçin.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm(prev => ({ ...prev, photo: String(reader.result) }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submitWaste = (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.neighborhood.trim()) return toast.error("Lütfen mahalle seçin veya girin.");
+    createWaste.mutate({
+      region: form.region,
+      neighborhood: form.neighborhood,
+      wasteType: form.wasteType,
+      description: form.description,
+      latitude: Number(form.latitude),
+      longitude: Number(form.longitude),
+      durationHours: durationHours,
+      photo: form.photo || undefined,
+    });
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Dedicated Bulk Waste Map Header */}
+    <div className="space-y-5">
+      {/* 1. Sadece Damperlik Atıkları Gösteren Özel Harita */}
       <Card className="border-0 bg-white shadow-sm p-4">
         <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-lg font-bold text-slate-900">Damperlik Atık Çözümü & Haritası</h2>
-            <p className="text-xs text-slate-500">Bildirilen damperlik atıkların harita konumları ve toplama kayıtları bu ekrandan yönetilir.</p>
-          </div>
-          <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50">
-            {pendingWaste.length} Toplanması Bekleyen Atık
+          <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+            <Archive className="h-5 w-5 text-amber-600" />
+            Damperlik Atık Haritası
+          </h2>
+          <Badge className="bg-amber-50 text-amber-800 border-amber-200">
+            {pendingWaste.length} Bekleyen Atık
           </Badge>
         </div>
-        <OperationsMap operations={mapOperations} initialCategoryFilter="Damperlik atık" showCategoryTabs={false} />
+        <OperationsMap
+          operations={mapOperations}
+          initialCategoryFilter="Damperlik atık"
+          showCategoryTabs={false}
+          role={role}
+          onResolveOperation={op => {
+            const damperId = activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
+            if (damperId) {
+              collect.mutate({ id: op.id, vehicleId: damperId });
+            } else {
+              toast.error("Toplama için aktif damperli kamyon tanımlı olmalıdır.");
+            }
+          }}
+        />
       </Card>
 
-      {/* Toplama Kayıtları Listesi */}
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-display flex items-center gap-2">
-              <Archive className="h-5 w-5 text-amber-600" />
-              Damperli Atık Toplama Kayıtları
+      {/* 2. Damperlik Atık Bildirim Formu */}
+      {canReportWaste && (
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display flex items-center gap-2 text-base">
+              <Plus className="h-5 w-5 text-emerald-700" />
+              Yeni Damperlik Atık Bildir
             </CardTitle>
-            <p className="text-sm text-slate-500">Toplanan atıkları kaydet butonuna basarak haritadan ve listeden temizleyin.</p>
-          </div>
-          <Badge variant="outline" className="text-slate-600">
-            Toplam {wasteList.length} Kayıt
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitWaste}>
+              <Field label="Atık Türü">
+                <select
+                  value={form.wasteType}
+                  onChange={e => setForm({ ...form, wasteType: e.target.value })}
+                  className="input-native font-semibold"
+                >
+                  {WASTE_TYPES.map(type => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Mahalle">
+                <select
+                  value={form.neighborhood}
+                  onChange={e => {
+                    const matched = neighborhoodsList.find(n => n.name === e.target.value);
+                    setForm({ ...form, neighborhood: e.target.value, region: matched?.region || form.region });
+                  }}
+                  className="input-native"
+                >
+                  <option value="">Mahalle seçin</option>
+                  {neighborhoodsList.map(n => (
+                    <option key={n.id} value={n.name}>
+                      {n.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Bölge">
+                <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} />
+              </Field>
+
+              <Field label="Müdahale Süresi">
+                <div className="flex gap-1.5 h-10">
+                  <button
+                    type="button"
+                    onClick={() => setDurationHours(24)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1 rounded-lg border text-xs font-semibold transition px-2",
+                      durationHours === 24
+                        ? "border-amber-600 bg-amber-500 text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    )}
+                  >
+                    <Clock className="h-3 w-3" />
+                    Acil (24s)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDurationHours(48)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1 rounded-lg border text-xs font-semibold transition px-2",
+                      durationHours === 48
+                        ? "border-emerald-700 bg-emerald-700 text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    )}
+                  >
+                    <Clock className="h-3 w-3" />
+                    Standart (48s)
+                  </button>
+                </div>
+              </Field>
+
+              {/* Konum Arama & GPS Buton Alanı */}
+              <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Batıkent)..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          searchAddressLocation();
+                        }
+                      }}
+                      className="bg-white pl-9 text-xs h-9"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isSearching}
+                    onClick={searchAddressLocation}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
+                  >
+                    <Search className="mr-1.5 h-3.5 w-3.5" />
+                    {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={locationState === "loading"}
+                    onClick={useCurrentLocation}
+                    className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
+                  >
+                    <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                    {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
+                  </Button>
+                </div>
+                {resolvedAddress && (
+                  <p className="text-[11px] text-emerald-800 font-medium truncate">
+                    📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
+                  </p>
+                )}
+              </div>
+
+              <Field label="Enlem">
+                <Input required type="number" step="any" value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} />
+              </Field>
+              <Field label="Boylam">
+                <Input required type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} />
+              </Field>
+
+              <div className="sm:col-span-2 lg:col-span-2">
+                <Field label="Fotoğraf (İsteğe Bağlı)">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoUpload}
+                      className="text-xs"
+                    />
+                    {form.photo && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setForm({ ...form, photo: "" })} className="text-red-600 px-2 h-8">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </Field>
+              </div>
+
+              {form.photo && (
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <img src={form.photo} alt="Önizleme" className="h-20 w-28 rounded-lg object-cover border border-slate-200" />
+                </div>
+              )}
+
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Field label="Açıklama & Adres Tarifi">
+                  <Textarea required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Atığın bulunduğu nokta (örn. trafo yanı, sokak başı)..." />
+                </Field>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Button disabled={createWaste.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {createWaste.isPending ? "Kaydediliyor..." : "Damperlik Atık Bildirimini Kaydet"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 3. Toplama Kayıtları Listesi */}
+      <Card className="border-0 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="font-display flex items-center gap-2 text-base">
+            <Archive className="h-5 w-5 text-amber-600" />
+            Damperli Atık Listesi
+          </CardTitle>
+          <Badge variant="outline" className="text-slate-600 text-xs">
+            {wasteList.length} Kayıt ({pendingWaste.length} Bekleyen)
           </Badge>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           {wasteList.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500">Henüz bildirilmiş damperlik atık kaydı bulunmuyor.</p>
+            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş damperlik atık kaydı bulunmuyor.</p>
           ) : (
             wasteList.map(waste => {
               const isPending = waste.status === "bekliyor";
@@ -1088,49 +1528,63 @@ function BulkWasteSolutionPanel({
               return (
                 <div
                   key={waste.id}
-                  className={`rounded-2xl border p-4 transition ${
-                    isPending ? "border-amber-200/80 bg-amber-50/20" : "border-emerald-100 bg-emerald-50/10"
+                  className={`rounded-xl border p-3.5 transition ${
+                    isPending ? "border-amber-200 bg-amber-50/30" : "border-emerald-100 bg-emerald-50/15"
                   }`}
                 >
-                  <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-base">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">
                           {waste.wasteType} · {waste.neighborhood}
                         </span>
                         <Badge
                           variant="outline"
                           className={
                             isPending
-                              ? "border-amber-200 bg-amber-50 text-amber-700 font-semibold"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold"
+                              ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px]"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
                           }
                         >
-                          {isPending ? "Toplanma Bekliyor" : "Toplandı & Temizlendi"}
+                          {isPending ? "Toplanma Bekliyor" : "Toplandı"}
                         </Badge>
+                        {waste.photoUrl && (
+                          <Badge className="bg-white text-slate-700 border border-slate-200 text-[10px]">
+                            📸 Fotoğraflı
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-slate-600 leading-relaxed">{waste.description}</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 pt-1">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {waste.latitude}, {waste.longitude}
-                        </span>
+                      <p className="text-xs text-slate-600">{waste.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                        <span>{waste.region}</span>
                         <span>·</span>
-                        <span>Bölge: {waste.region}</span>
+                        <span>{new Date(waste.createdAt).toLocaleDateString("tr-TR")}</span>
                       </div>
                     </div>
 
-                    {canCollectWaste && isPending && (
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <Button
                         size="sm"
-                        disabled={!damperId || collect.isPending}
-                        onClick={() => damperId && collect.mutate({ id: waste.id, vehicleId: damperId })}
-                        className="bg-emerald-700 hover:bg-emerald-800 text-xs shrink-0"
+                        variant="outline"
+                        onClick={() => onFocusOnMap(waste.id)}
+                        className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
                       >
-                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                        Toplandı Olarak Kaydet & Kapat
+                        <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                        Haritada Gör
                       </Button>
-                    )}
+
+                      {canCollectWaste && isPending && (
+                        <Button
+                          size="sm"
+                          disabled={!damperId || collect.isPending}
+                          onClick={() => damperId && collect.mutate({ id: waste.id, vehicleId: damperId })}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
+                        >
+                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                          Toplandı
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

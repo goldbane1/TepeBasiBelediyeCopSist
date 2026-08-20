@@ -3,8 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import L from "leaflet";
-import { AlertTriangle, Archive, MapPin, Navigation, Recycle, X } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, Image as ImageIcon, MapPin, Navigation, Recycle, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Role } from "@/pages/Home";
 
 export type MapOperationCategory =
   | "Damperlik atık"
@@ -18,16 +19,16 @@ export type MapOperation = {
   description: string;
   latitude: string;
   longitude: string;
-  dueAt?: Date;
+  photoUrl?: string | null;
+  dueAt?: Date | string;
   status: string;
+  extra?: Record<string, any>;
 };
 
 function isOverdue(operation: MapOperation) {
-  return Boolean(
-    operation.dueAt &&
-      new Date(operation.dueAt).getTime() < Date.now() &&
-      !["toplandı", "onarım_tamamlandı", "onaylandı"].includes(operation.status)
-  );
+  if (["toplandı", "onarım_tamamlandı", "onaylandı"].includes(operation.status)) return false;
+  if (!operation.dueAt) return false;
+  return new Date(operation.dueAt).getTime() < Date.now();
 }
 
 export default function OperationsMap({
@@ -35,23 +36,32 @@ export default function OperationsMap({
   className,
   initialCategoryFilter = "tümü",
   showCategoryTabs = true,
+  role,
+  selectedOperationId,
+  onResolveOperation,
 }: {
   operations: MapOperation[];
   className?: string;
   initialCategoryFilter?: "tümü" | MapOperationCategory;
   showCategoryTabs?: boolean;
+  role?: Role;
+  selectedOperationId?: number | null;
+  onResolveOperation?: (op: MapOperation) => void;
 }) {
   const [map, setMap] = useState<L.Map | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
   const [selected, setSelected] = useState<MapOperation | null>(null);
   const [activeCategory, setActiveCategory] = useState<"tümü" | MapOperationCategory>(initialCategoryFilter);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [optimisticResolvedIds, setOptimisticResolvedIds] = useState<Set<number>>(new Set());
   const markersRef = useRef<L.Marker[]>([]);
 
-  // Filter items by category if selected
+  // Filter items by category if selected and exclude optimistically resolved items
   const filteredOperations = useMemo(() => {
-    if (activeCategory === "tümü") return operations;
-    return operations.filter(op => op.category === activeCategory);
-  }, [operations, activeCategory]);
+    const activeList = operations.filter(op => !optimisticResolvedIds.has(op.id));
+    if (activeCategory === "tümü") return activeList;
+    return activeList.filter(op => op.category === activeCategory);
+  }, [operations, activeCategory, optimisticResolvedIds]);
 
   const items = useMemo(
     () =>
@@ -63,6 +73,19 @@ export default function OperationsMap({
     [filteredOperations]
   );
 
+  // Sync selectedOperationId prop
+  useEffect(() => {
+    if (selectedOperationId) {
+      const match = operations.find(o => o.id === selectedOperationId && !optimisticResolvedIds.has(o.id));
+      if (match) {
+        setSelected(match);
+        if (map && Number.isFinite(Number(match.latitude)) && Number.isFinite(Number(match.longitude))) {
+          map.setView([Number(match.latitude), Number(match.longitude)], 16, { animate: true });
+        }
+      }
+    }
+  }, [selectedOperationId, operations, map, optimisticResolvedIds]);
+
   useEffect(() => {
     if (!map) return;
 
@@ -70,23 +93,25 @@ export default function OperationsMap({
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    // Create open source Leaflet custom markers
+    // Create Leaflet custom markers
     markersRef.current = items.map(operation => {
-      const overdue = isOverdue(operation);
       let pinClass = "operations-map-pin--active";
       let categorySymbol = "•";
 
-      if (overdue) {
-        pinClass = "operations-map-pin--overdue";
-      } else if (operation.category === "Damperlik atık") {
-        pinClass = "operations-map-pin--damper";
+      if (operation.category === "Damperlik atık") {
+        const overdue = isOverdue(operation);
+        if (overdue) {
+          pinClass = "operations-map-pin--overdue";
+        } else {
+          pinClass = "operations-map-pin--damper";
+        }
         categorySymbol = "D";
       } else if (operation.category === "Konteyner arızası") {
         pinClass = "operations-map-pin--ariza";
         categorySymbol = "K";
       } else if (operation.category === "Vatandaş şikayeti") {
         pinClass = "operations-map-pin--sikayet";
-        categorySymbol = "Ş";
+        categorySymbol = "V";
       }
 
       const pinHtml = `<button type="button" class="operations-map-pin ${pinClass}" aria-label="${operation.category}: ${operation.title}"><span>${categorySymbol}</span></button>`;
@@ -106,7 +131,11 @@ export default function OperationsMap({
         }
       );
 
-      marker.on("click", () => setSelected(operation));
+      marker.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        setSelected(operation);
+        map.panTo([Number(operation.latitude), Number(operation.longitude)], { animate: true });
+      });
       marker.addTo(map);
       return marker;
     });
@@ -132,6 +161,17 @@ export default function OperationsMap({
     { key: "Konteyner arızası", label: "Konteyner Arızaları", count: operations.filter(o => o.category === "Konteyner arızası").length, icon: Recycle },
     { key: "Vatandaş şikayeti", label: "Vatandaş Şikayetleri", count: operations.filter(o => o.category === "Vatandaş şikayeti").length, icon: AlertTriangle },
   ] as const;
+
+  const canCloseSelected = useMemo(() => {
+    if (!selected) return false;
+    const isPending = !["toplandı", "onarım_tamamlandı", "onaylandı"].includes(selected.status);
+    if (!isPending) return false;
+    if (role === "yönetim") return true;
+    if (selected.category === "Damperlik atık" && role === "şoför") return true;
+    if (selected.category === "Konteyner arızası" && (role === "kaynak personeli" || role === "şoför")) return true;
+    if (selected.category === "Vatandaş şikayeti" && role === "şoför") return true;
+    return false;
+  }, [selected, role]);
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -183,16 +223,22 @@ export default function OperationsMap({
         <div className="absolute left-4 top-4 z-10 rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1.5">
-              <i className="legend-dot legend-dot--green" /> Günü geçmemiş / Aktif
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">D</span> Damperlik Atık (Aktif)
             </span>
             <span className="flex items-center gap-1.5">
-              <i className="legend-dot legend-dot--red" /> Günü geçmiş
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white animate-pulse">D</span> Damperlik Atık (Günü Geçmiş)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">K</span> Konteyner Arızası
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">V</span> Vatandaş Şikayeti
             </span>
           </div>
         </div>
 
         {selected && (
-          <aside className="absolute bottom-4 left-4 right-4 z-10 max-w-md rounded-2xl border border-white/80 bg-white/95 p-4 shadow-xl backdrop-blur md:left-auto">
+          <aside className="popup-transition absolute bottom-4 left-4 right-4 z-10 max-w-md rounded-2xl border border-white/80 bg-white/95 p-4 shadow-xl backdrop-blur md:left-auto">
             <button
               type="button"
               onClick={() => setSelected(null)}
@@ -206,30 +252,104 @@ export default function OperationsMap({
                 {selected.category}
               </Badge>
               <span className="text-xs text-slate-400">Kayıt #{selected.id}</span>
+              {selected.category === "Damperlik atık" ? (
+                <span
+                  className={cn(
+                    "text-[11px] font-bold px-2 py-0.5 rounded-full",
+                    isOverdue(selected) ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
+                  )}
+                >
+                  {isOverdue(selected) ? "Günü Geçmiş (Acil)" : "İşlem Bekliyor"}
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                  İşlem Bekliyor
+                </span>
+              )}
             </div>
+
             <h3 className="text-base font-bold text-slate-900">{selected.title}</h3>
             <p className="mt-1 text-sm leading-5 text-slate-600">
               {selected.description}
             </p>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <span
-                className={cn(
-                  "text-xs font-semibold",
-                  isOverdue(selected) ? "text-red-600" : "text-emerald-700"
-                )}
-              >
-                {isOverdue(selected) ? "Günü geçmiş" : "İşlem bekliyor / Aktif"}
-              </span>
+
+            {/* Photo preview if available */}
+            {selected.photoUrl && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(selected.photoUrl || null)}
+                  className="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left"
+                >
+                  <img
+                    src={selected.photoUrl}
+                    alt={selected.title}
+                    className="h-32 w-full object-cover transition group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                    <span className="flex items-center gap-1.5 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+                      <ImageIcon className="h-3.5 w-3.5" /> Fotoğrafı Büyüt
+                    </span>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
               <Button
                 size="sm"
+                variant="outline"
                 onClick={openRoute}
-                className="bg-emerald-700 hover:bg-emerald-800"
+                className="text-slate-700 hover:bg-slate-100"
               >
-                <Navigation className="mr-1.5 h-3.5 w-3.5" />
-                Rota aç
+                <Navigation className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                Navigasyon Rota
               </Button>
+
+              {canCloseSelected && onResolveOperation && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const target = selected;
+                    setSelected(null);
+                    setOptimisticResolvedIds(prev => new Set(prev).add(target.id));
+                    onResolveOperation(target);
+                  }}
+                  className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                  {selected.category === "Damperlik atık"
+                    ? "Atığı Topla & Kapat"
+                    : selected.category === "Konteyner arızası"
+                    ? "Onarımı Tamamla"
+                    : "Şikayeti Kapat"}
+                </Button>
+              )}
             </div>
           </aside>
+        )}
+
+        {/* Lightbox photo modal */}
+        {previewImage && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setPreviewImage(null)}
+          >
+            <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-2">
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <img
+                src={previewImage}
+                alt="Bildirim Fotoğrafı"
+                className="max-h-[80vh] w-auto rounded-xl object-contain"
+              />
+            </div>
+          </div>
         )}
 
         {mapFailed ? (

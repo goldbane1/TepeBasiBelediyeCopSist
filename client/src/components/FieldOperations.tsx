@@ -6,7 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { Camera, CheckCircle2, LocateFixed, MapPin, MessageSquareWarning, Recycle, Search, Wrench } from "lucide-react";
+import {
+  Camera,
+  CheckCircle2,
+  Eye,
+  Image as ImageIcon,
+  LocateFixed,
+  MapPin,
+  MessageSquareWarning,
+  Plus,
+  Recycle,
+  Search,
+  Trash2,
+  Wrench,
+  X,
+} from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
@@ -16,25 +30,93 @@ export default function FieldOperations({
   view,
   containers,
   complaints,
+  neighborhoodsList = [],
   refresh,
+  onFocusOnMap,
 }: {
   role: Role;
   view: AppView;
   containers: any[];
   complaints: any[];
+  neighborhoodsList?: any[];
   refresh: () => void;
+  onFocusOnMap: (id: number) => void;
 }) {
-  if (view === "konteyner") return <ContainerPanel role={role} records={containers} refresh={refresh} />;
-  return <ComplaintPanel role={role} records={complaints} refresh={refresh} />;
+  if (view === "konteyner")
+    return (
+      <ContainerPanel
+        role={role}
+        records={containers}
+        neighborhoodsList={neighborhoodsList}
+        refresh={refresh}
+        onFocusOnMap={onFocusOnMap}
+      />
+    );
+  return (
+    <ComplaintPanel
+      role={role}
+      records={complaints}
+      neighborhoodsList={neighborhoodsList}
+      refresh={refresh}
+      onFocusOnMap={onFocusOnMap}
+    />
+  );
 }
 
-function ContainerPanel({ role, records, refresh }: { role: Role; records: any[]; refresh: () => void }) {
+function ContainerPanel({
+  role,
+  records,
+  neighborhoodsList,
+  refresh,
+  onFocusOnMap,
+}: {
+  role: Role;
+  records: any[];
+  neighborhoodsList: any[];
+  refresh: () => void;
+  onFocusOnMap: (id: number) => void;
+}) {
   const canRepair = role === "kaynak personeli" || role === "yönetim" || role === "kademe personeli" || role === "şoför";
   const [repairNotes, setRepairNotes] = useState<Record<number, string>>({});
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // Bildirim formu state'i
+  const [containerForm, setContainerForm] = useState({
+    region: "Tepebaşı",
+    neighborhood: "",
+    faultType: "kol" as "kol" | "ayak" | "gövde" | "kapak" | "diğer",
+    description: "",
+    latitude: "39.7767",
+    longitude: "30.5206",
+    photo: "",
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [locationState, setLocationState] = useState<"idle" | "loading" | "ready">("idle");
+  const [resolvedAddress, setResolvedAddress] = useState("");
+
+  const createContainerFault = trpc.operations.containerFaults.create.useMutation({
+    onSuccess: () => {
+      toast.success("Konteyner arızası bildirimi kaydedildi.");
+      refresh();
+      setContainerForm({
+        region: "Tepebaşı",
+        neighborhood: "",
+        faultType: "kol",
+        description: "",
+        latitude: "39.7767",
+        longitude: "30.5206",
+        photo: "",
+      });
+      setSearchQuery("");
+      setResolvedAddress("");
+    },
+    onError: e => toast.error(e.message),
+  });
 
   const repair = trpc.operations.containerFaults.repair.useMutation({
     onSuccess: () => {
-      toast.success("Konteyner onarımı tamamlandı ve kayıt güncellendi.");
+      toast.success("Konteyner onarımı tamamlandı.");
       refresh();
     },
     onError: e => toast.error(e.message),
@@ -45,298 +127,45 @@ function ContainerPanel({ role, records, refresh }: { role: Role; records: any[]
     repair.mutate({ id, note });
   };
 
-  const openRecords = useMemo(() => records.filter(r => r.status === "bekliyor"), [records]);
-  const completedRecords = useMemo(() => records.filter(r => r.status === "onarım_tamamlandı"), [records]);
-
-  const mapOperations = useMemo<MapOperation[]>(
-    () =>
-      openRecords.map(record => ({
-        id: record.id,
-        category: "Konteyner arızası" as const,
-        title: `${record.faultType} arızası · ${record.neighborhood}`,
-        description: record.description,
-        latitude: record.latitude,
-        longitude: record.longitude,
-        status: record.status,
-      })),
-    [openRecords]
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* Dedicated Container Faults Map Header */}
-      <Card className="border-0 bg-white shadow-sm p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-lg font-bold text-slate-900">Konteyner Arıza Çözümü & Haritası</h2>
-            <p className="text-xs text-slate-500">Bildirilen konteyner arızalarının harita konumları ve onarım işlemleri bu ekrandan yönetilir.</p>
-          </div>
-          <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50">
-            {openRecords.length} Onarım Bekleyen Arıza
-          </Badge>
-        </div>
-        <OperationsMap operations={mapOperations} initialCategoryFilter="Konteyner arızası" showCategoryTabs={false} />
-      </Card>
-
-      {/* Onarım Bekleyen Kayıtlar Listesi */}
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="font-display flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-amber-600" />
-              Konteyner Onarım Kayıtları
-            </CardTitle>
-            <p className="text-sm text-slate-500">Arızalı konteynerleri onarıldı olarak kaydedin ve haritadan kaldırın.</p>
-          </div>
-          <Badge variant="outline" className="text-slate-600">
-            Toplam {records.length} Kayıt
-          </Badge>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {records.length === 0 ? (
-            <NoRecords icon={Recycle} text="Henüz konteyner arıza kaydı yok." />
-          ) : (
-            records.map(record => {
-              const isPending = record.status === "bekliyor";
-              return (
-                <div
-                  key={record.id}
-                  className={`rounded-2xl border p-4 transition ${
-                    isPending ? "border-amber-200/80 bg-amber-50/20" : "border-emerald-100 bg-emerald-50/10"
-                  }`}
-                >
-                  <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-base">
-                          {record.faultType.toUpperCase()} Arızası · {record.neighborhood}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={
-                            isPending
-                              ? "border-amber-200 bg-amber-50 text-amber-700 font-semibold"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold"
-                          }
-                        >
-                          {isPending ? "Onarım Bekliyor" : "Onarım Tamamlandı"}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-slate-600 leading-relaxed">{record.description}</p>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 pt-1">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {record.latitude}, {record.longitude}
-                        </span>
-                        <span>·</span>
-                        <span>Bölge: {record.region}</span>
-                        {record.repairNote && (
-                          <>
-                            <span>·</span>
-                            <span className="font-medium text-emerald-700">Not: {record.repairNote}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {canRepair && isPending && (
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-                        <Input
-                          placeholder="Onarım notu (opsiyonel)"
-                          value={repairNotes[record.id] || ""}
-                          onChange={e => setRepairNotes({ ...repairNotes, [record.id]: e.target.value })}
-                          className="bg-white text-xs h-9 w-full sm:w-56"
-                        />
-                        <Button
-                          size="sm"
-                          disabled={repair.isPending}
-                          onClick={() => handleRepair(record.id)}
-                          className="bg-emerald-700 hover:bg-emerald-800 text-xs shrink-0"
-                        >
-                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                          Onarımı Kaydet & Kapat
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function ComplaintPanel({ role, records, refresh }: { role: Role; records: any[]; refresh: () => void }) {
-  const canReport = role === "şoför" || role === "yönetim";
-  const canAcknowledge = role === "şoför" || role === "yönetim";
-
-  const [form, setForm] = useState({
-    region: "Tepebaşı",
-    neighborhood: "",
-    description: "",
-    latitude: "39.7767",
-    longitude: "30.5206",
-    dueAt: "",
-    photo: undefined as string | undefined,
-  });
-
-  const [searchAddressText, setSearchAddressText] = useState("");
-  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
-  const [locationState, setLocationState] = useState<"idle" | "loading" | "ready">("idle");
-  const [resolvedAddress, setResolvedAddress] = useState("");
-
-  const create = trpc.operations.complaints.create.useMutation({
-    onSuccess: () => {
-      toast.success("Vatandaş şikayeti kaydedildi.");
-      refresh();
-      setForm({
-        region: "Tepebaşı",
-        neighborhood: "",
-        description: "",
-        latitude: "39.7767",
-        longitude: "30.5206",
-        dueAt: "",
-        photo: undefined,
-      });
-      setResolvedAddress("");
-      setSearchAddressText("");
-    },
-    onError: e => toast.error(e.message),
-  });
-
-  const acknowledge = trpc.operations.complaints.acknowledge.useMutation({
-    onSuccess: () => {
-      toast.success("Vatandaş şikayeti giderildi olarak işaretlendi.");
-      refresh();
-    },
-    onError: e => toast.error(e.message),
-  });
-
-  const readPhoto = async (file: File | null) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("Yalnızca görsel yükleyebilirsiniz.");
-    const reader = new FileReader();
-    reader.onload = () => setForm(current => ({ ...current, photo: String(reader.result) }));
-    reader.readAsDataURL(file);
-  };
-
-  const resolveAddress = async (latitude: number, longitude: number) => {
+  // Konum / Adres Arayarak Enlem & Boylam Bulma (Forward Geocoding)
+  const searchAddressLocation = async () => {
+    const query = searchQuery.trim();
+    if (!query) return toast.error("Lütfen aranacak bir adres veya konum yazın.");
+    setIsSearching(true);
     try {
+      const fullQuery = query.toLowerCase().includes("eskişehir") || query.toLowerCase().includes("tepebaşı")
+        ? query
+        : `${query}, Tepebaşı, Eskişehir`;
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullQuery)}&addressdetails=1&limit=1`,
         { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
       );
-      if (!response.ok) {
-        toast.message("Adres bulunamadı; bölge ve mahalle alanlarını manuel doldurabilirsiniz.");
-        return;
-      }
+      if (!response.ok) throw new Error("Arama servisine ulaşılamadı.");
       const data = await response.json();
-      if (data && data.address) {
-        const addr = data.address;
-        const region = addr.city || addr.town || addr.district || addr.county || addr.state_district || addr.province || "Tepebaşı";
-        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || addr.road || "";
-        setForm(current => ({
-          ...current,
-          region: region || current.region,
-          neighborhood: neighborhood || current.neighborhood,
+      if (data && data.length > 0) {
+        const item = data[0];
+        const lat = parseFloat(item.lat);
+        const lon = parseFloat(item.lon);
+        const addr = item.address || {};
+        const region = addr.district || addr.county || addr.town || addr.city || "Tepebaşı";
+        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || "";
+
+        setContainerForm(prev => ({
+          ...prev,
+          latitude: lat.toFixed(6),
+          longitude: lon.toFixed(6),
+          region: region || prev.region,
+          neighborhood: neighborhood || prev.neighborhood,
         }));
-        setResolvedAddress(data.display_name || `${latitude}, ${longitude}`);
-        toast.success("Konumdan bölge ve mahalle alanları dolduruldu.");
+        setResolvedAddress(item.display_name);
+        toast.success(`Konum bulundu: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
       } else {
-        toast.message("Adres bulunamadı; bölge ve mahalle alanlarını manuel doldurabilirsiniz.");
+        toast.error("Aradığınız adres için koordinat bulunamadı. Lütfen sokak veya mahalle adını netleştirin.");
       }
-    } catch {
-      toast.message("Adres servisi yanıt vermedi; bölge ve mahalle alanlarını manuel doldurabilirsiniz.");
-    }
-  };
-
-  const searchLocationByAddress = async () => {
-    const textToSearch = (searchAddressText || form.neighborhood || form.region).trim();
-    if (!textToSearch) {
-      return toast.error("Lütfen konum aramak için bir mahalle, cadde veya sokak adı yazın.");
-    }
-
-    setIsSearchingAddress(true);
-
-    // Temizleme: mah., mahallesi, cad., caddesi, sok. gibi gürültü kelimeleri kaldırarak aramayı güçlendir
-    const cleanSearchText = textToSearch
-      .replace(/mah(\.|allesi)?/gi, "")
-      .replace(/cad(\.|desi)?/gi, "")
-      .replace(/sok(\.|ağı)?/gi, "")
-      .trim();
-
-    // Arama başarısını maksimuma çıkarmak için sırayla denenecek arama sorguları
-    const queryCandidates = [
-      `${cleanSearchText}, Tepebaşı, Eskişehir, Türkiye`,
-      `${cleanSearchText}, Eskişehir, Türkiye`,
-      `${cleanSearchText}, Tepebaşı`,
-      cleanSearchText,
-      `Tepebaşı, Eskişehir`,
-    ];
-
-    try {
-      let foundResult: any = null;
-
-      for (const queryStr of queryCandidates) {
-        if (!queryStr.trim()) continue;
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=tr&limit=3&q=${encodeURIComponent(queryStr)}`,
-            { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-              foundResult = data[0];
-              break;
-            }
-          }
-        } catch {
-          // Bir sonraki alternatife geç
-        }
-      }
-
-      if (foundResult) {
-        const lat = Number(foundResult.lat).toFixed(6);
-        const lon = Number(foundResult.lon).toFixed(6);
-        const addr = foundResult.address || {};
-        const region = addr.city || addr.town || addr.district || addr.county || addr.state_district || addr.province || "Tepebaşı";
-        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || addr.road || form.neighborhood || cleanSearchText;
-
-        setForm(current => ({
-          ...current,
-          latitude: lat,
-          longitude: lon,
-          region: region || current.region,
-          neighborhood: neighborhood || current.neighborhood,
-        }));
-        setResolvedAddress(foundResult.display_name || `${lat}, ${lon}`);
-        toast.success(`Konum bulundu! (${neighborhood})`);
-      } else {
-        // Hata vermek yerine esnek varsayılan koordinat ataması
-        setForm(current => ({
-          ...current,
-          latitude: "39.7767",
-          longitude: "30.5206",
-          region: "Tepebaşı",
-          neighborhood: current.neighborhood || cleanSearchText,
-        }));
-        setResolvedAddress("Tepebaşı Bölge Koordinatı (Varsayılan)");
-        toast.info("Yazılan adres doğrudan haritada eşleşmedi. Tepebaşı bölge koordinatları tanımlandı.");
-      }
-    } catch {
-      setForm(current => ({
-        ...current,
-        latitude: "39.7767",
-        longitude: "30.5206",
-        region: "Tepebaşı",
-      }));
-      toast.info("Arama servisi yanıt vermedi, varsayılan Tepebaşı koordinatları tanımlandı.");
+    } catch (err: any) {
+      toast.error("Adres koordinatı alınamadı: " + err.message);
     } finally {
-      setIsSearchingAddress(false);
+      setIsSearching(false);
     }
   };
 
@@ -347,246 +176,823 @@ function ComplaintPanel({ role, records, refresh }: { role: Role; records: any[]
       position => {
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
-        setForm(current => ({ ...current, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
+        setContainerForm(current => ({ ...current, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
         setLocationState("ready");
         resolveAddress(latitude, longitude);
       },
       error => {
         setLocationState("idle");
-        const message = error.code === error.PERMISSION_DENIED ? "Konum izni verilmedi. Enlem ve boylamı manuel girebilirsiniz." : "Konum alınamadı. Lütfen tekrar deneyin veya manuel giriş yapın.";
+        const message = error.code === error.PERMISSION_DENIED ? "Konum izni verilmedi." : "Hassas konum alınamadı.";
         toast.error(message);
       },
-      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 }
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }
     );
   };
 
-  const mapOperations = useMemo<MapOperation[]>(
-    () =>
-      records
-        .filter(record => record.status === "açık")
-        .map(record => ({
-          id: record.id,
-          category: "Vatandaş şikayeti" as const,
-          title: `Şikayet · ${record.neighborhood}`,
-          description: record.description,
-          latitude: record.latitude,
-          longitude: record.longitude,
-          dueAt: record.dueAt,
-          status: record.status,
-        })),
-    [records]
-  );
+  const resolveAddress = async (latitude: number, longitude: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data && data.address) {
+        const addr = data.address;
+        const region = addr.district || addr.county || addr.town || addr.city || "Tepebaşı";
+        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || "";
+        setContainerForm(current => ({
+          ...current,
+          region: region || current.region,
+          neighborhood: neighborhood || current.neighborhood,
+        }));
+        setResolvedAddress(data.display_name || `${latitude}, ${longitude}`);
+        toast.success("Konum adresi tespit edildi.");
+      }
+    } catch {
+      // Ignored
+    }
+  };
 
-  const submit = (event: FormEvent) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Lütfen geçerli bir resim seçin.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setContainerForm(prev => ({ ...prev, photo: String(reader.result) }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submitContainer = (event: FormEvent) => {
     event.preventDefault();
-    if (!form.neighborhood.trim()) return toast.error("Lütfen mahalle adı girin.");
-    if (!form.description.trim()) return toast.error("Lütfen şikayet açıklaması girin.");
-    if (!form.dueAt) return toast.error("Lütfen son işlem zamanı girin.");
-    create.mutate({
-      ...form,
-      latitude: Number(form.latitude),
-      longitude: Number(form.longitude),
-      dueAt: new Date(form.dueAt),
+    if (!containerForm.neighborhood.trim()) return toast.error("Lütfen mahalle seçin veya girin.");
+    if (!containerForm.description.trim()) return toast.error("Lütfen arıza açıklaması girin.");
+    createContainerFault.mutate({
+      region: containerForm.region,
+      neighborhood: containerForm.neighborhood,
+      faultType: containerForm.faultType,
+      description: containerForm.description,
+      latitude: Number(containerForm.latitude),
+      longitude: Number(containerForm.longitude),
+      photo: containerForm.photo || undefined,
     });
   };
 
+  const openRecords = useMemo(() => records.filter(r => r.status === "bekliyor"), [records]);
+
+  const mapOperations = useMemo<MapOperation[]>(
+    () =>
+      openRecords.map(record => ({
+        id: record.id,
+        category: "Konteyner arızası" as const,
+        title: `${record.faultType} arızası · ${record.neighborhood}`,
+        description: record.description,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        photoUrl: record.photoUrl,
+        status: record.status,
+      })),
+    [openRecords]
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Dedicated Complaints Map Header */}
+    <div className="space-y-5">
+      {/* 1. Sadece Konteyner Arızalarını Gösteren Harita */}
       <Card className="border-0 bg-white shadow-sm p-4">
         <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-lg font-bold text-slate-900">Vatandaş Şikayetleri Haritası</h2>
-            <p className="text-xs text-slate-500">Saha şikayetlerinin konumu, müdahale süresi ve detayları canlı haritada gösterilir.</p>
-          </div>
-          <Badge className="bg-sky-50 text-sky-700 hover:bg-sky-50">
-            {records.filter(r => r.status === "açık").length} Açık Şikayet Kaydı
+          <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+            <Recycle className="h-5 w-5 text-emerald-700" />
+            Konteyner Arıza Haritası
+          </h2>
+          <Badge className="bg-amber-50 text-amber-800 border-amber-200">
+            {openRecords.length} Arıza Bekliyor
           </Badge>
         </div>
-        <OperationsMap operations={mapOperations} initialCategoryFilter="Vatandaş şikayeti" showCategoryTabs={false} />
+        <OperationsMap
+          operations={mapOperations}
+          initialCategoryFilter="Konteyner arızası"
+          showCategoryTabs={false}
+          role={role}
+          onResolveOperation={op => repair.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarıldı." })}
+        />
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-[.85fr_1.15fr]">
-        {canReport ? (
-          <Card className="border-0 bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="font-display">Vatandaş Şikayeti Kaydı</CardTitle>
-              <p className="text-sm text-slate-500">Şikayeti adres arayarak veya konum alarak haritaya kaydedin.</p>
-            </CardHeader>
-            <CardContent>
-              <form className="grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-                <Field label="Bölge">
-                  <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} />
-                </Field>
-                <Field label="Mahalle">
+      {/* 2. Konteyner Arızası Bildirim Formu */}
+      <Card className="border-0 bg-white shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display flex items-center gap-2 text-base">
+            <Plus className="h-5 w-5 text-emerald-700" />
+            Yeni Konteyner Arızası Bildir
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitContainer}>
+            <Field label="Arıza Türü">
+              <select
+                className="input-native font-semibold"
+                value={containerForm.faultType}
+                onChange={e => setContainerForm({ ...containerForm, faultType: e.target.value as typeof containerForm.faultType })}
+              >
+                <option value="kol">Kaldırma Kolu Arızası</option>
+                <option value="ayak">Tekerlek / Ayak Kırığı</option>
+                <option value="gövde">Gövde / Sac Delinmesi</option>
+                <option value="kapak">Kapak Hasarı</option>
+                <option value="diğer">Diğer Kaynak / Boya</option>
+              </select>
+            </Field>
+
+            <Field label="Mahalle">
+              <select
+                value={containerForm.neighborhood}
+                onChange={e => {
+                  const matched = neighborhoodsList.find(n => n.name === e.target.value);
+                  setContainerForm({ ...containerForm, neighborhood: e.target.value, region: matched?.region || containerForm.region });
+                }}
+                className="input-native"
+              >
+                <option value="">Mahalle seçin</option>
+                {neighborhoodsList.map(n => (
+                  <option key={n.id} value={n.name}>
+                    {n.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Bölge">
+              <Input required value={containerForm.region} onChange={e => setContainerForm({ ...containerForm, region: e.target.value })} />
+            </Field>
+
+            {/* Konum Arama & GPS Buton Alanı */}
+            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
-                    required
-                    value={form.neighborhood}
-                    onChange={e => setForm({ ...form, neighborhood: e.target.value })}
-                    placeholder="Örn. Eskibağlar"
+                    placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Şirintepe)..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchAddressLocation();
+                      }
+                    }}
+                    className="bg-white pl-9 text-xs h-9"
                   />
-                </Field>
-                <Field label="Son işlem zamanı">
-                  <Input
-                    required
-                    type="datetime-local"
-                    value={form.dueAt}
-                    onChange={e => setForm({ ...form, dueAt: e.target.value })}
-                  />
-                </Field>
-                <Field label="Fotoğraf (opsiyonel)">
-                  <Input type="file" accept="image/*" onChange={e => void readPhoto(e.target.files?.[0] ?? null)} />
-                </Field>
-
-                {/* Adres/Konum Arama & GPS Konum Alma Alanı */}
-                <div className="sm:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50/80 p-3.5 space-y-3">
-                  <div>
-                    <label className="text-xs font-bold text-emerald-900 block mb-1">Adres/Sokak Yazıp Konum Bul</label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={searchAddressText}
-                        onChange={e => setSearchAddressText(e.target.value)}
-                        placeholder="Örn. Eskibağlar Mah. Üniversite Cad."
-                        className="bg-white text-xs h-9"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={isSearchingAddress}
-                        onClick={searchLocationByAddress}
-                        className="bg-emerald-700 hover:bg-emerald-800 shrink-0 text-xs"
-                      >
-                        <Search className="mr-1.5 h-3.5 w-3.5" />
-                        {isSearchingAddress ? "Aranıyor..." : "Adresten Konum Bul"}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center pt-2 border-t border-emerald-200/60">
-                    <p className="text-xs font-medium text-emerald-800">Veya cihazınızın GPS konumunu çekebilirsiniz:</p>
-                    <Button type="button" size="sm" variant="outline" disabled={locationState === "loading"} onClick={useCurrentLocation} className="border-emerald-300 text-emerald-800 bg-white hover:bg-emerald-100 text-xs">
-                      <LocateFixed className="mr-1.5 h-3.5 w-3.5" />
-                      {locationState === "loading" ? "GPS Alınıyor" : "Anlık GPS Konumu Kullan"}
-                    </Button>
-                  </div>
-
-                  {resolvedAddress && (
-                    <p className="mt-2 text-xs leading-5 font-semibold text-emerald-800 bg-white/80 p-2 rounded-lg border border-emerald-200">
-                      📍 Algılanan Konum: {resolvedAddress}
-                    </p>
-                  )}
                 </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isSearching}
+                  onClick={searchAddressLocation}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
+                >
+                  <Search className="mr-1.5 h-3.5 w-3.5" />
+                  {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={locationState === "loading"}
+                  onClick={useCurrentLocation}
+                  className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
+                >
+                  <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                  {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
+                </Button>
+              </div>
+              {resolvedAddress && (
+                <p className="text-[11px] text-emerald-800 font-medium truncate">
+                  📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
+                </p>
+              )}
+            </div>
 
-                <Field label="Enlem">
-                  <Input required type="number" step="any" value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} />
-                </Field>
-                <Field label="Boylam">
-                  <Input required type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} />
-                </Field>
+            <Field label="Enlem">
+              <Input required type="number" step="any" value={containerForm.latitude} onChange={e => setContainerForm({ ...containerForm, latitude: e.target.value })} />
+            </Field>
+            <Field label="Boylam">
+              <Input required type="number" step="any" value={containerForm.longitude} onChange={e => setContainerForm({ ...containerForm, longitude: e.target.value })} />
+            </Field>
 
-                <div className="sm:col-span-2">
-                  <Field label="Şikayet açıklaması">
-                    <Textarea
-                      required
-                      value={form.description}
-                      onChange={e => setForm({ ...form, description: e.target.value })}
-                      placeholder="Şikayeti ayrıntılı açıklayın"
-                    />
-                  </Field>
-                </div>
-                {form.photo && (
-                  <p className="sm:col-span-2 flex items-center gap-2 text-xs font-medium text-emerald-700">
-                    <Camera className="h-4 w-4" />
-                    Fotoğraf ekleme için hazır.
-                  </p>
-                )}
-                <div className="sm:col-span-2">
-                  <Button disabled={create.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                    <MessageSquareWarning className="mr-2 h-4 w-4" />
-                    {create.isPending ? "Kaydediliyor..." : "Şikayeti kaydet"}
+            <Field label="Fotoğraf (İsteğe Bağlı)">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoUpload}
+                  className="text-xs"
+                />
+                {containerForm.photo && (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setContainerForm({ ...containerForm, photo: "" })} className="text-red-600 px-2 h-8">
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        ) : (
-          <AccessNotice title="Vatandaş şikayetleri takibi izlenebilir." />
-        )}
+                )}
+              </div>
+            </Field>
 
-        <Card className="border-0 bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-display">Şikayet Kayıtları</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {records.length === 0 ? (
-              <NoRecords icon={MessageSquareWarning} text="Henüz vatandaş şikayeti kaydı yok." />
-            ) : (
-              records.map(record => {
-                const overdue = record.status === "açık" && new Date(record.dueAt).getTime() < Date.now();
-                return (
-                  <div key={record.id} className="rounded-xl border border-slate-100 p-4">
-                    <div className="flex flex-wrap justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-slate-800">{record.neighborhood} şikayeti</p>
-                          <Badge
-                            variant="outline"
-                            className={
-                              overdue
-                                ? "border-red-100 bg-red-50 text-red-700"
-                                : record.status === "onaylandı"
-                                  ? "border-emerald-100 bg-emerald-50 text-emerald-700"
-                                  : "border-amber-100 bg-amber-50 text-amber-700"
-                            }
-                          >
-                            {overdue ? "günü geçmiş" : record.status === "onaylandı" ? "Giderildi" : record.status}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-sm text-slate-500">{record.description}</p>
-                        {record.photoUrl && (
-                          <a
-                            className="mt-2 inline-flex text-xs font-semibold text-emerald-700 underline"
-                            href={record.photoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Yüklenen fotoğrafı görüntüle
-                          </a>
-                        )}
-                        <p className="mt-2 flex items-center gap-1 text-xs text-slate-400">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {record.latitude}, {record.longitude}
-                        </p>
-                      </div>
-                      {canAcknowledge && record.status === "açık" && (
-                        <Button
-                          size="sm"
-                          disabled={acknowledge.isPending}
-                          onClick={() => acknowledge.mutate({ id: record.id })}
-                          className="bg-emerald-700 hover:bg-emerald-800"
+            {containerForm.photo && (
+              <div className="sm:col-span-2 lg:col-span-3">
+                <img src={containerForm.photo} alt="Önizleme" className="h-20 w-28 rounded-lg object-cover border border-slate-200" />
+              </div>
+            )}
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Field label="Arıza Açıklaması">
+                <Textarea required value={containerForm.description} onChange={e => setContainerForm({ ...containerForm, description: e.target.value })} placeholder="Konteynerdeki hasar ve konum tarifi..." />
+              </Field>
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Button disabled={createContainerFault.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                <Plus className="mr-2 h-4 w-4" />
+                {createContainerFault.isPending ? "Kaydediliyor..." : "Arıza Bildirimini Kaydet"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* 3. Onarım Bekleyen Kayıtlar Listesi */}
+      <Card className="border-0 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="font-display flex items-center gap-2 text-base">
+            <Wrench className="h-5 w-5 text-amber-600" />
+            Konteyner Arıza & Onarım Listesi
+          </CardTitle>
+          <Badge variant="outline" className="text-slate-600 text-xs">
+            {records.length} Kayıt ({openRecords.length} Bekleyen)
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {records.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş konteyner arıza kaydı bulunmuyor.</p>
+          ) : (
+            records.map(record => {
+              const isPending = record.status === "bekliyor";
+
+              return (
+                <div
+                  key={record.id}
+                  className={`rounded-xl border p-3.5 transition ${
+                    isPending ? "border-amber-200 bg-amber-50/30" : "border-emerald-100 bg-emerald-50/15"
+                  }`}
+                >
+                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {record.faultType} Arızası · {record.neighborhood}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            isPending
+                              ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px]"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                          }
                         >
-                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                          Şikayeti Gider ve Kapat
-                        </Button>
+                          {isPending ? "Onarım Bekliyor" : "Onarım Tamamlandı"}
+                        </Badge>
+                        {record.photoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(record.photoUrl)}
+                            className="flex items-center gap-1 bg-white text-slate-700 hover:bg-slate-100 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-slate-200"
+                          >
+                            <ImageIcon className="h-3 w-3 text-emerald-700" /> Fotoğraf
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600">{record.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                        <span>{record.region}</span>
+                        <span>·</span>
+                        <span>{new Date(record.createdAt).toLocaleDateString("tr-TR")}</span>
+                        {record.repairNote && <span className="text-emerald-700 font-medium">· {record.repairNote}</span>}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onFocusOnMap(record.id)}
+                        className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+                      >
+                        <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                        Haritada Gör
+                      </Button>
+
+                      {canRepair && isPending && (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            placeholder="Onarım notu"
+                            value={repairNotes[record.id] || ""}
+                            onChange={e => setRepairNotes({ ...repairNotes, [record.id]: e.target.value })}
+                            className="h-8 text-xs w-36 bg-white"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={repair.isPending}
+                            onClick={() => handleRepair(record.id)}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
+                          >
+                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                            Tamamla
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
-                );
-              })
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lightbox modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-2">
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img src={previewImage} alt="Fotoğraf" className="max-h-[80vh] w-auto rounded-xl object-contain" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function NoRecords({ icon: Icon, text }: { icon: typeof Recycle; text: string }) {
+function ComplaintPanel({
+  role,
+  records,
+  neighborhoodsList,
+  refresh,
+  onFocusOnMap,
+}: {
+  role: Role;
+  records: any[];
+  neighborhoodsList: any[];
+  refresh: () => void;
+  onFocusOnMap: (id: number) => void;
+}) {
+  const isDriver = role === "şoför";
+  const canAcknowledge = isDriver || role === "yönetim";
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const [complaintForm, setComplaintForm] = useState({
+    region: "Tepebaşı",
+    neighborhood: "",
+    description: "",
+    latitude: "39.7767",
+    longitude: "30.5206",
+    photo: "",
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [locationState, setLocationState] = useState<"idle" | "loading" | "ready">("idle");
+  const [resolvedAddress, setResolvedAddress] = useState("");
+
+  const createComplaint = trpc.operations.complaints.create.useMutation({
+    onSuccess: () => {
+      toast.success("Vatandaş şikayeti kaydedildi.");
+      refresh();
+      setComplaintForm({
+        region: "Tepebaşı",
+        neighborhood: "",
+        description: "",
+        latitude: "39.7767",
+        longitude: "30.5206",
+        photo: "",
+      });
+      setSearchQuery("");
+      setResolvedAddress("");
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const acknowledge = trpc.operations.complaints.acknowledge.useMutation({
+    onSuccess: () => {
+      toast.success("Şikayet müdahalesi tamamlandı.");
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  // Konum / Adres Arayarak Enlem & Boylam Bulma (Forward Geocoding)
+  const searchAddressLocation = async () => {
+    const query = searchQuery.trim();
+    if (!query) return toast.error("Lütfen aranacak bir adres veya konum yazın.");
+    setIsSearching(true);
+    try {
+      const fullQuery = query.toLowerCase().includes("eskişehir") || query.toLowerCase().includes("tepebaşı")
+        ? query
+        : `${query}, Tepebaşı, Eskişehir`;
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullQuery)}&addressdetails=1&limit=1`,
+        { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
+      );
+      if (!response.ok) throw new Error("Arama servisine ulaşılamadı.");
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const item = data[0];
+        const lat = parseFloat(item.lat);
+        const lon = parseFloat(item.lon);
+        const addr = item.address || {};
+        const region = addr.district || addr.county || addr.town || addr.city || "Tepebaşı";
+        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || "";
+
+        setComplaintForm(prev => ({
+          ...prev,
+          latitude: lat.toFixed(6),
+          longitude: lon.toFixed(6),
+          region: region || prev.region,
+          neighborhood: neighborhood || prev.neighborhood,
+        }));
+        setResolvedAddress(item.display_name);
+        toast.success(`Konum bulundu: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+      } else {
+        toast.error("Aradığınız adres için koordinat bulunamadı. Lütfen sokak veya mahalle adını netleştirin.");
+      }
+    } catch (err: any) {
+      toast.error("Adres koordinatı alınamadı: " + err.message);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) return toast.error("Bu cihaz konum bilgisini desteklemiyor.");
+    setLocationState("loading");
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        setComplaintForm(current => ({ ...current, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) }));
+        setLocationState("ready");
+        resolveAddress(latitude, longitude);
+      },
+      error => {
+        setLocationState("idle");
+        const message = error.code === error.PERMISSION_DENIED ? "Konum izni verilmedi." : "Konum alınamadı.";
+        toast.error(message);
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }
+    );
+  };
+
+  const resolveAddress = async (latitude: number, longitude: number) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        { headers: { "User-Agent": "TepebasiTemizlikApp/1.0" } }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data && data.address) {
+        const addr = data.address;
+        const region = addr.district || addr.county || addr.town || addr.city || "Tepebaşı";
+        const neighborhood = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.village || "";
+        setComplaintForm(current => ({
+          ...current,
+          region: region || current.region,
+          neighborhood: neighborhood || current.neighborhood,
+        }));
+        setResolvedAddress(data.display_name || `${latitude}, ${longitude}`);
+        toast.success("Konum adresi tespit edildi.");
+      }
+    } catch {
+      // Ignored
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Lütfen geçerli bir resim seçin.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setComplaintForm(prev => ({ ...prev, photo: String(reader.result) }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submitComplaint = (event: FormEvent) => {
+    event.preventDefault();
+    if (!complaintForm.neighborhood.trim()) return toast.error("Lütfen mahalle seçin veya girin.");
+    if (!complaintForm.description.trim()) return toast.error("Lütfen şikayet detayını girin.");
+    createComplaint.mutate({
+      region: complaintForm.region,
+      neighborhood: complaintForm.neighborhood,
+      description: complaintForm.description,
+      latitude: Number(complaintForm.latitude),
+      longitude: Number(complaintForm.longitude),
+      photo: complaintForm.photo || undefined,
+    });
+  };
+
+  const openComplaints = useMemo(() => records.filter(c => c.status === "açık"), [records]);
+
+  const mapOperations = useMemo<MapOperation[]>(
+    () =>
+      openComplaints.map(record => ({
+        id: record.id,
+        category: "Vatandaş şikayeti" as const,
+        title: `Şikayet · ${record.neighborhood}`,
+        description: record.description,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        photoUrl: record.photoUrl,
+        dueAt: record.dueAt,
+        status: record.status,
+      })),
+    [openComplaints]
+  );
+
   return (
-    <div className="grid min-h-44 place-items-center p-6 text-center">
-      <Icon className="h-7 w-7 text-emerald-600" />
-      <p className="mt-3 font-semibold text-slate-800">{text}</p>
-      <p className="mt-1 text-sm text-slate-500">Yeni saha bildirimleri burada görüntülenir.</p>
+    <div className="space-y-5">
+      {/* 1. Sadece Vatandaş Şikayetlerini Gösteren Harita */}
+      <Card className="border-0 bg-white shadow-sm p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+            <MessageSquareWarning className="h-5 w-5 text-red-600" />
+            Vatandaş Şikayetleri Haritası
+          </h2>
+          <Badge className="bg-red-50 text-red-700 border-red-200 font-bold">
+            {openComplaints.length} Açık Şikayet
+          </Badge>
+        </div>
+        <OperationsMap
+          operations={mapOperations}
+          initialCategoryFilter="Vatandaş şikayeti"
+          showCategoryTabs={false}
+          role={role}
+          onResolveOperation={op => acknowledge.mutate({ id: op.id })}
+        />
+      </Card>
+
+      {/* 2. Yeni Vatandaş Şikayeti Kayıt Formu */}
+      <Card className="border-0 bg-white shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display flex items-center gap-2 text-base">
+            <Plus className="h-5 w-5 text-emerald-700" />
+            Yeni Vatandaş Şikayeti Kaydet
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitComplaint}>
+            <Field label="Mahalle">
+              <select
+                value={complaintForm.neighborhood}
+                onChange={e => {
+                  const matched = neighborhoodsList.find(n => n.name === e.target.value);
+                  setComplaintForm({ ...complaintForm, neighborhood: e.target.value, region: matched?.region || complaintForm.region });
+                }}
+                className="input-native"
+              >
+                <option value="">Mahalle seçin</option>
+                {neighborhoodsList.map(n => (
+                  <option key={n.id} value={n.name}>
+                    {n.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Bölge">
+              <Input required value={complaintForm.region} onChange={e => setComplaintForm({ ...complaintForm, region: e.target.value })} />
+            </Field>
+
+            {/* Konum Arama & GPS Buton Alanı */}
+            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Batıkent)..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchAddressLocation();
+                      }
+                    }}
+                    className="bg-white pl-9 text-xs h-9"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isSearching}
+                  onClick={searchAddressLocation}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
+                >
+                  <Search className="mr-1.5 h-3.5 w-3.5" />
+                  {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={locationState === "loading"}
+                  onClick={useCurrentLocation}
+                  className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
+                >
+                  <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                  {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
+                </Button>
+              </div>
+              {resolvedAddress && (
+                <p className="text-[11px] text-emerald-800 font-medium truncate">
+                  📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
+                </p>
+              )}
+            </div>
+
+            <Field label="Enlem">
+              <Input required type="number" step="any" value={complaintForm.latitude} onChange={e => setComplaintForm({ ...complaintForm, latitude: e.target.value })} />
+            </Field>
+            <Field label="Boylam">
+              <Input required type="number" step="any" value={complaintForm.longitude} onChange={e => setComplaintForm({ ...complaintForm, longitude: e.target.value })} />
+            </Field>
+
+            <Field label="Fotoğraf (İsteğe Bağlı)">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoUpload}
+                  className="text-xs"
+                />
+                {complaintForm.photo && (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setComplaintForm({ ...complaintForm, photo: "" })} className="text-red-600 px-2 h-8">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </Field>
+
+            {complaintForm.photo && (
+              <div className="sm:col-span-2 lg:col-span-3">
+                <img src={complaintForm.photo} alt="Önizleme" className="h-20 w-28 rounded-lg object-cover border border-slate-200" />
+              </div>
+            )}
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Field label="Şikayet Açıklaması & Sokak Tarifi">
+                <Textarea required value={complaintForm.description} onChange={e => setComplaintForm({ ...complaintForm, description: e.target.value })} placeholder="Vatandaşın bildirdiği durum ve adres tarifi..." />
+              </Field>
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Button disabled={createComplaint.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                <Plus className="mr-2 h-4 w-4" />
+                {createComplaint.isPending ? "Kaydediliyor..." : "Şikayeti Kaydet"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* 3. Şikayetler Listesi */}
+      <Card className="border-0 bg-white shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <CardTitle className="font-display flex items-center gap-2 text-base">
+            <MessageSquareWarning className="h-5 w-5 text-red-600" />
+            Vatandaş Şikayet Listesi
+          </CardTitle>
+          <Badge variant="outline" className="text-slate-600 text-xs">
+            {records.length} Kayıt ({openComplaints.length} Açık)
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {records.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz kayıtlı vatandaş şikayeti bulunmuyor.</p>
+          ) : (
+            records.map(complaint => {
+              const isOpen = complaint.status === "açık";
+              const isOverdue = isOpen && new Date(complaint.dueAt).getTime() < Date.now();
+
+              return (
+                <div
+                  key={complaint.id}
+                  className={`rounded-xl border p-3.5 transition ${
+                    isOverdue
+                      ? "border-red-200 bg-red-50/30"
+                      : isOpen
+                      ? "border-amber-200 bg-amber-50/30"
+                      : "border-emerald-100 bg-emerald-50/15"
+                  }`}
+                >
+                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">
+                          {complaint.neighborhood} Şikayeti
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            isOverdue
+                              ? "border-red-300 bg-red-100 text-red-800 text-[10px] font-bold"
+                              : isOpen
+                              ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px]"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                          }
+                        >
+                          {isOverdue ? "Acil Günü Geçmiş" : isOpen ? "Müdahale Bekliyor" : "Çözüldü"}
+                        </Badge>
+                        {complaint.photoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(complaint.photoUrl)}
+                            className="flex items-center gap-1 bg-white text-slate-700 hover:bg-slate-100 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-slate-200"
+                          >
+                            <ImageIcon className="h-3 w-3 text-emerald-700" /> Fotoğraf
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600">{complaint.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                        <span>{complaint.region}</span>
+                        <span>·</span>
+                        <span>{new Date(complaint.createdAt).toLocaleDateString("tr-TR")}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onFocusOnMap(complaint.id)}
+                        className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+                      >
+                        <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                        Haritada Gör
+                      </Button>
+
+                      {canAcknowledge && isOpen && (
+                        <Button
+                          size="sm"
+                          disabled={acknowledge.isPending}
+                          onClick={() => acknowledge.mutate({ id: complaint.id })}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
+                        >
+                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                          Kapat
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lightbox modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-2">
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img src={previewImage} alt="Fotoğraf" className="max-h-[80vh] w-auto rounded-xl object-contain" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

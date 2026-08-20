@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import OperationsWorkspace, { type AppView } from "@/components/OperationsWorkspace";
 import LocalAuthGate from "@/components/LocalAuthGate";
-import { AlertTriangle, Archive, ClipboardCheck, FileBarChart, LayoutDashboard, LogOut, Map, Menu, Recycle, Settings, Truck, UserCog, Wrench, X } from "lucide-react";
+import { AlertTriangle, Archive, ClipboardCheck, FileBarChart, LayoutDashboard, LogOut, Map, MapPin, Menu, Recycle, Settings, Truck, UserCog, Wrench, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import tepebasiLogo from "../../Logo/TepeBasi.png";
@@ -20,7 +20,8 @@ const navItems: { id: AppView; label: string; icon: typeof LayoutDashboard; role
   { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["şoför", "yönetim"] },
   { id: "araçlar", label: "Araçlar", icon: Truck, roles: ["şoför", "kademe personeli", "yönetim"] },
   { id: "araç-arızaları", label: "Araç Arızaları", icon: Wrench, roles: ["şoför", "kademe personeli", "yönetim"] },
-  { id: "raporlar", label: "Yönetim Raporları", icon: FileBarChart, roles: ["yönetim"] },
+  { id: "mahalleler", label: "Mahalle Yönetimi", icon: MapPin, roles: ["yönetim"] },
+  { id: "raporlar", label: "Yönetim Raporları & Analiz", icon: FileBarChart, roles: ["yönetim"] },
   { id: "personel", label: "Personel Hesapları", icon: UserCog, roles: ["yönetim"] },
 ];
 
@@ -177,7 +178,9 @@ export default function Home() {
             </div>
           </header>
 
-          <OperationsWorkspace role={role} view={view} onNavigate={setView} />
+          <div key={view} className="view-transition">
+            <OperationsWorkspace role={role} view={view} onNavigate={setView} />
+          </div>
         </main>
       </div>
     </div>

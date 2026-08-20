@@ -79,25 +79,22 @@ function VehiclesPanel({ role, vehicles, refresh }: { role: Role; vehicles: any[
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="font-display text-xl font-bold text-slate-900">Araç envanteri</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Şantiyedeki araçların kapasite, marka, plaka ve arıza durumlarını izleyin ve yönetin.
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">{vehicles.length} Kayıtlı Araç</Badge>
         </div>
         {canManage && (
-          <Button onClick={() => setShowForm(!showForm)} className="bg-emerald-700 hover:bg-emerald-800">
-            <Plus className="mr-2 h-4 w-4" />
-            Yeni Araç Ekle
+          <Button onClick={() => setShowForm(!showForm)} className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9">
+            <Plus className="mr-1.5 h-4 w-4" />
+            {showForm ? "Formu Gizle" : "Yeni Araç Ekle"}
           </Button>
         )}
       </div>
 
       {showForm && (
         <Card className="border-0 bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="font-display text-lg">Yeni Araç Kaydı</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-base">Yeni Araç Kaydı</CardTitle>
           </CardHeader>
           <CardContent className="p-5">
             <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5" onSubmit={submit}>
@@ -266,14 +263,16 @@ function FaultsPanel({
 
   return (
     <div className="grid gap-5 xl:grid-cols-[.8fr_1.2fr]">
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="font-display">Araç arızası bildir</CardTitle>
-          <p className="text-sm text-slate-500">Bildirilen araç, kademe onayı alıp bakımdan çıkarılana kadar mesaiye çıkamaz.</p>
+      <Card className="border-0 bg-white shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display flex items-center gap-2 text-base">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            Yeni Arıza Bildir
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4" onSubmit={submit}>
-            <Field label="Araç plakası">
+            <Field label="Araç">
               <select
                 required
                 className="input-native"
@@ -288,7 +287,7 @@ function FaultsPanel({
                 ))}
               </select>
             </Field>
-            <Field label="Arıza önceliği">
+            <Field label="Öncelik">
               <select
                 className="input-native"
                 value={form.severity}
@@ -299,26 +298,29 @@ function FaultsPanel({
                 <option value="yüksek">yüksek</option>
               </select>
             </Field>
-            <Field label="Arıza açıklaması">
+            <Field label="Arıza Açıklaması">
               <Input
                 required
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
-                placeholder="Arızayı açık biçimde yazın"
+                placeholder="Arıza durumu ve detayları..."
               />
             </Field>
             <Button disabled={create.isPending} className="bg-emerald-700 hover:bg-emerald-800">
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Arıza bildirimi oluştur
+              <AlertTriangle className="mr-1.5 h-4 w-4" />
+              Arıza Bildirimini Kaydet
             </Button>
           </form>
         </CardContent>
       </Card>
 
       <Card className="border-0 bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="font-display">Araç arıza ve bakım kayıtları</CardTitle>
-          <p className="text-sm text-slate-500">Arızalı veya bakımda olan araçları bakımdan çıkarıp onaylayabilirsiniz.</p>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="font-display flex items-center gap-2 text-base">
+            <Wrench className="h-5 w-5 text-slate-700" />
+            Arıza & Bakım Kayıtları
+          </CardTitle>
+          <Badge variant="outline" className="text-xs">{faults.length} Kayıt</Badge>
         </CardHeader>
         <CardContent className="space-y-3">
           {faults.length === 0 ? (
