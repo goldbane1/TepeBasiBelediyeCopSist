@@ -250,6 +250,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
         role={role}
         operations={mapOperations}
         vehicles={vehicles.data ?? []}
+        activeShifts={(shifts.data ?? []).filter((s: any) => s.status === "açık")}
         refresh={refresh}
         filterCategory="tümü"
         selectedOperationId={focusOpId}
@@ -1025,6 +1026,7 @@ function MapPanel({
   role,
   operations,
   vehicles,
+  activeShifts = [],
   refresh,
   filterCategory = "tümü",
   selectedOperationId,
@@ -1033,8 +1035,9 @@ function MapPanel({
   role: Role;
   operations: MapOperation[];
   vehicles: any[];
+  activeShifts?: any[];
   refresh: () => void;
-  filterCategory?: "tümü" | MapOperationCategory;
+  filterCategory?: "tümü" | MapOperationCategory | "mesailer";
   selectedOperationId?: number | null;
   onResolveOperation?: (op: MapOperation) => void;
 }) {
@@ -1045,6 +1048,7 @@ function MapPanel({
       {/* 1. Operasyon Haritası */}
       <OperationsMap
         operations={operations}
+        activeShifts={activeShifts}
         initialCategoryFilter={filterCategory}
         role={role}
         selectedOperationId={selectedPinId}
