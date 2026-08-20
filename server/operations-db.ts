@@ -550,7 +550,7 @@ export async function listAuditLogs() {
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.actorId, users.id))
     .orderBy(desc(auditLogs.createdAt))
-    .limit(100);
+    .limit(1000);
 }
 
 export async function getOperationalSummary() {

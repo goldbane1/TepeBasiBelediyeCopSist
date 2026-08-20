@@ -378,6 +378,28 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu" ve üstündeki tüm KPI kartlarına takvimden özel gün (`[🎯 Belirli Gün Seç]`) ve tarih aralığı (`[↔️ Tarih Aralığı]`) seçme özellikleri eklendi.
   - Seçilen günün tarihi (Örn: *20 Ağustos 2026 Perşembe*) rozette gösterilir ve tüm mahallelerin sefer sayıları, tonajları, atık/arıza/şikayet sayıları ve vardiya dağılımları seçilen tarihe göre anında yeniden hesaplanıp listelenir.
 
+### [v2.4.15] - 2026-08-21
+- **Yönetim Raporları ve Analiz Sayfasına Kapsamlı "Sistem Denetim Logları" Sekmesi Eklendi:**
+  - `ManagementOperations.tsx` içerisine **`📜 Sistem Denetim Logları`** sekmesi ve üst navigasyon rozeti eklendi.
+  - **4 Boyutlu KPI İstatistik Kartları:**
+    1. 📊 *Filtrelenen İşlemler* (dinamik sayı).
+    2. 📅 *Bugünkü Hareketler* (günün toplam işlem hacmi).
+    3. 👤 *En Aktif Personel* (seçilen zaman aralığında en çok işlem gerçekleştiren kullanıcı ve adedi).
+    4. ⚡ *En Çok Yapılan İşlem* (en yoğun gerçekleşen eylem türü).
+  - **Kapsamlı Filtreleme ve Arama Paneli:**
+    - **Zaman Aralığı:** `[📅 Bugünün Logları]`, `[⏱️ Son 7 Gün]`, `[🗓️ Bu Ay]`, `[📊 Tüm Zamanlar]`, `[🎯 Belirli Gün Seç]` (takvimden gün seçimi) ve `[↔️ Tarih Aralığı]` (başlangıç/bitiş tarihleri).
+    - **Eylem Kategorisi (Pills):** `[Tüm Eylemler]`, `[🚛 Mesailer]`, `[📦 Damperlik Atık]`, `[🏗️ Konteyner Arızası]`, `[🚨 Vatandaş Şikayeti]`, `[🔧 Araç & Kademe]`, `[⚙️ Yönetim & Sistem]`.
+    - **Personel Filtresi:** Sistemdeki tüm kullanıcıları isim, kullanıcı adı ve rolleriyle listeleyen dropdown filtresi.
+    - **Canlı Metin Arama:** İşlem detayı, eylem adı, kullanıcı bilgisi ve ID bazlı anlık arama.
+  - **Denetim İzi Tablosu:**
+    - Tarih & Saat (Türkçe yerel format ve "Bugün" etiketi),
+    - Personel / Aktör (Avatar, İsim, @kullanıcı_adı, Rol rozeti),
+    - Eylem Türü (Renkli ve ikonlu eylem rozetleri: ✅ Başlatıldı/Kapatıldı/Onaylandı, 📢 Bildirildi, ✏️ Güncellendi, 🗑️ Silindi/Sıfırlandı),
+    - Hedef Varlık ve Kayıt ID (`mesai #42`, `damperlik_atık #14`, vb.),
+    - İşlem Detayı ve Açıklama kutusu.
+  - **Sayfalama (Pagination):** Sayfa başına 25 kayıt, önceki/sonraki sayfa kontrolleri ve sayfa göstergesi.
+  - **Backend Log Limiti Artırımı:** `listAuditLogs` sorgusu 100 kayıttan 1000 kayda çıkarılarak yöneticilerin geçmişe dönük geniş hareketleri analiz edebilmesi sağlandı.
+
 ### [v2.4.13] - 2026-08-21
 - **Toolbar Navigasyon Düzeni & İsim Sadeleştirmesi:**
   - `Mesai Yönetimi` menü öğesi, şoförler ve yöneticiler için doğrudan `Operasyon Özeti` (Dashboard) öğesinin hemen altına taşındı.

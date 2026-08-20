@@ -7,18 +7,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
+  Activity,
   AlertTriangle,
   Archive,
   ArrowUpDown,
   Calendar,
   Camera,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   Clock,
   ExternalLink,
   Eye,
   FileBarChart,
+  FileText,
   Filter,
+  History,
   Image as ImageIcon,
   Layers,
   MapPin,
@@ -347,7 +352,7 @@ function ReportsAndManagement({
   users: any[];
   refresh: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"genel" | "mesailer" | "atiklar" | "konteynerler" | "sikayetler" | "sifirla">("genel");
+  const [activeTab, setActiveTab] = useState<"genel" | "mesailer" | "atiklar" | "konteynerler" | "sikayetler" | "loglar" | "sifirla">("genel");
 
   // Günlük Denetim ve Analiz Filtreleri (Tarih ve Aralık Seçimi)
   const [auditPeriod, setAuditPeriod] = useState<"today" | "week" | "month" | "all" | "single_date" | "custom_range">("today");
@@ -363,6 +368,23 @@ function ReportsAndManagement({
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [neighborhoodSearch, setNeighborhoodSearch] = useState<string>("");
   const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "tonnage_desc" | "tonnage_asc" | "shifts_desc" | "name_asc">("date_desc");
+
+  // Denetim Logları Filtreleme State'leri
+  const [logPeriod, setLogPeriod] = useState<"today" | "week" | "month" | "all" | "single_date" | "custom_range">("today");
+  const [logSelectedDate, setLogSelectedDate] = useState<string>(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
+  const [logStartDate, setLogStartDate] = useState<string>("");
+  const [logEndDate, setLogEndDate] = useState<string>("");
+  const [logActorFilter, setLogActorFilter] = useState<string>("all");
+  const [logActionCategory, setLogActionCategory] = useState<string>("all");
+  const [logSearchQuery, setLogSearchQuery] = useState<string>("");
+  const [logPage, setLogPage] = useState<number>(1);
+  const logPageSize = 25;
 
   // Tonaj Fişi Lightbox Modal State
   const [receiptModal, setReceiptModal] = useState<{
@@ -697,6 +719,180 @@ function ReportsAndManagement({
     return neighborhoodMatrix[0];
   }, [neighborhoodMatrix]);
 
+  // --- DENETİM LOGLARI HESAPLAMALARI VE FİLTRELEME ---
+  const isLogDateInPeriod = (dateVal: string | Date | null | undefined) => {
+    if (!dateVal) return false;
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return false;
+
+    if (logPeriod === "today") {
+      const now = new Date();
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    }
+    if (logPeriod === "week") {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      weekAgo.setHours(0, 0, 0, 0);
+      return d >= weekAgo;
+    }
+    if (logPeriod === "month") {
+      const monthAgo = new Date();
+      monthAgo.setDate(monthAgo.getDate() - 30);
+      monthAgo.setHours(0, 0, 0, 0);
+      return d >= monthAgo;
+    }
+    if (logPeriod === "single_date" && logSelectedDate) {
+      const [year, month, day] = logSelectedDate.split("-").map(Number);
+      return (
+        d.getFullYear() === year &&
+        d.getMonth() + 1 === month &&
+        d.getDate() === day
+      );
+    }
+    if (logPeriod === "custom_range") {
+      const start = logStartDate ? new Date(`${logStartDate}T00:00:00`) : null;
+      const end = logEndDate ? new Date(`${logEndDate}T23:59:59`) : null;
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
+    }
+    return true; // "all"
+  };
+
+  const filteredLogs = useMemo(() => {
+    return (logs || []).filter(log => {
+      // 1. Tarih Filtresi
+      if (!isLogDateInPeriod(log.createdAt)) return false;
+
+      // 2. Kullanıcı Filtresi
+      if (logActorFilter !== "all") {
+        if (String(log.actorId) !== String(logActorFilter) && log.actorUsername !== logActorFilter) {
+          return false;
+        }
+      }
+
+      // 3. Eylem Kategorisi
+      if (logActionCategory !== "all") {
+        const action = String(log.action || "").toUpperCase();
+        const entity = String(log.entityType || "").toLowerCase();
+        if (logActionCategory === "mesai" && !action.includes("MESAİ") && entity !== "mesai") return false;
+        if (logActionCategory === "atik" && !action.includes("ATIK") && !action.includes("DAMPER") && entity !== "damperlik_atık") return false;
+        if (logActionCategory === "konteyner" && !action.includes("KONTEYNER") && entity !== "konteyner_arızası") return false;
+        if (logActionCategory === "sikayet" && !action.includes("ŞİKAYET") && entity !== "vatandaş_şikayeti") return false;
+        if (logActionCategory === "arac" && !action.includes("ARAÇ") && entity !== "araç" && entity !== "araç_arızası") return false;
+        if (logActionCategory === "yonetim" && !action.includes("SIFIRLA") && !action.includes("MAHALLE") && !action.includes("PERSONEL") && entity !== "kullanıcı" && entity !== "mahalle") return false;
+      }
+
+      // 4. Metin Arama
+      if (logSearchQuery.trim()) {
+        const q = logSearchQuery.toLowerCase().trim();
+        const matchText = [
+          log.actorName,
+          log.actorUsername,
+          log.actorRole,
+          log.action,
+          log.entityType,
+          String(log.entityId || ""),
+          log.details,
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        if (!matchText.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [logs, logPeriod, logSelectedDate, logStartDate, logEndDate, logActorFilter, logActionCategory, logSearchQuery]);
+
+  // Log İstatistikleri
+  const logStats = useMemo(() => {
+    const todayNow = new Date().toDateString();
+    const todayLogsCount = (logs || []).filter(l => l.createdAt && new Date(l.createdAt).toDateString() === todayNow).length;
+
+    // En aktif kullanıcı
+    const actorCounts: Record<string, number> = {};
+    const actionCounts: Record<string, number> = {};
+
+    filteredLogs.forEach(l => {
+      const actorKey = l.actorName || l.actorUsername || (l.actorId ? `Kullanıcı #${l.actorId}` : "Sistem");
+      actorCounts[actorKey] = (actorCounts[actorKey] || 0) + 1;
+
+      const act = l.action || "İşlem";
+      actionCounts[act] = (actionCounts[act] || 0) + 1;
+    });
+
+    let topActor = "—";
+    let topActorCount = 0;
+    Object.entries(actorCounts).forEach(([actor, count]) => {
+      if (count > topActorCount) {
+        topActor = actor;
+        topActorCount = count;
+      }
+    });
+
+    let topAction = "—";
+    let topActionCount = 0;
+    Object.entries(actionCounts).forEach(([act, count]) => {
+      if (count > topActionCount) {
+        topAction = act.replace(/_/g, " ");
+        topActionCount = count;
+      }
+    });
+
+    return {
+      totalFiltered: filteredLogs.length,
+      todayCount: todayLogsCount,
+      topActor: topActorCount > 0 ? `${topActor} (${topActorCount})` : "—",
+      topAction: topActionCount > 0 ? `${topAction} (${topActionCount})` : "—",
+    };
+  }, [filteredLogs, logs]);
+
+  const logTotalPages = Math.max(1, Math.ceil(filteredLogs.length / logPageSize));
+  const paginatedLogs = useMemo(() => {
+    const start = (logPage - 1) * logPageSize;
+    return filteredLogs.slice(start, start + logPageSize);
+  }, [filteredLogs, logPage]);
+
+  const getActionBadgeInfo = (action: string) => {
+    const upper = (action || "").toUpperCase();
+    if (upper.includes("SİLİNDİ") || upper.includes("SIFIRLANDI") || upper.includes("REDDETTİ")) {
+      return {
+        label: action.replace(/_/g, " "),
+        badgeClass: "bg-red-50 text-red-700 border-red-200",
+        iconText: "🗑️",
+      };
+    }
+    if (upper.includes("GÜNCELLENDİ") || upper.includes("BAKIMA") || upper.includes("DURUMU")) {
+      return {
+        label: action.replace(/_/g, " "),
+        badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
+        iconText: "✏️",
+      };
+    }
+    if (upper.includes("BAŞLATILDI") || upper.includes("BİLDİRİLDİ")) {
+      return {
+        label: action.replace(/_/g, " "),
+        badgeClass: "bg-sky-50 text-sky-700 border-sky-200",
+        iconText: "📢",
+      };
+    }
+    if (upper.includes("SONLANDIRILDI") || upper.includes("TOPLANDI") || upper.includes("ONARILDI") || upper.includes("ONAYLANDI") || upper.includes("OLUŞTURULDU") || upper.includes("EKLENDİ")) {
+      return {
+        label: action.replace(/_/g, " "),
+        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        iconText: "✅",
+      };
+    }
+    return {
+      label: action.replace(/_/g, " "),
+      badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+      iconText: "📋",
+    };
+  };
+
   return (
     <div className="space-y-5">
       {/* Üst Sekmeler */}
@@ -707,6 +903,7 @@ function ReportsAndManagement({
           { id: "atiklar", label: "📦 Damperlik Atıklar", count: activeWasteList.length },
           { id: "konteynerler", label: "🏗️ Konteyner Arızaları", count: activeContainers.length },
           { id: "sikayetler", label: "🚨 Vatandaş Şikayetleri", count: activeComplaints.length },
+          { id: "loglar", label: "📜 Sistem Denetim Logları", count: filteredLogs.length },
           { id: "sifirla", label: "⚠️ Veri Sıfırlama", count: 0 },
         ].map(tab => (
           <button
@@ -1606,7 +1803,420 @@ function ReportsAndManagement({
         </Card>
       )}
 
-      {/* 6. ANALİZ VERİLERİNİ SIFIRLAMA */}
+      {/* 6. SİSTEM DENETİM LOGLARI */}
+      {activeTab === "loglar" && (
+        <div className="space-y-5">
+          {/* Başlık ve Hızlı Eylemler Kartı */}
+          <Card className="border-0 bg-white shadow-sm">
+            <CardHeader className="pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-700" />
+                  Sistem Denetim İzi & Hareket Logları
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Sistemde şoför, kaynak, kademe ve yöneticiler tarafından gerçekleştirilen tüm operasyonel eylemlerin güvenli denetim kaydı
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs font-bold text-slate-700 border-slate-200">
+                  {filteredLogs.length} / {logs.length} Log Kaydı
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={refresh}
+                  className="h-8 text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
+                  title="Logları Yenile"
+                >
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                  Yenile
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* KPI İstatistik Kartları */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-slate-150 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-500">Filtrelenen İşlemler</p>
+                <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+                  <Activity className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-2 text-2xl font-black text-slate-900">{filteredLogs.length}</p>
+              <p className="mt-1 text-[11px] text-slate-500">Seçilen filtrelere uygun hareket</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-150 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-500">Bugünkü Hareketler</p>
+                <span className="p-2 rounded-xl bg-sky-50 text-sky-700">
+                  <Calendar className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-2 text-2xl font-black text-sky-950">{logStats.todayCount}</p>
+              <p className="mt-1 text-[11px] text-slate-500">Bugün gerçekleşen işlem</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-150 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-500">En Aktif Personel</p>
+                <span className="p-2 rounded-xl bg-amber-50 text-amber-700">
+                  <User className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-2 text-sm font-bold text-slate-900 truncate" title={logStats.topActor}>{logStats.topActor}</p>
+              <p className="mt-1 text-[11px] text-slate-500">Seçilen aralıkta en çok işlem yapan</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-150 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-500">En Çok Yapılan İşlem</p>
+                <span className="p-2 rounded-xl bg-purple-50 text-purple-700">
+                  <TrendingUp className="h-4 w-4" />
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-bold text-slate-900 truncate uppercase" title={logStats.topAction}>{logStats.topAction}</p>
+              <p className="mt-1 text-[11px] text-slate-500">En yoğun işlem türü</p>
+            </div>
+          </div>
+
+          {/* Kapsamlı Filtre Kontrol Paneli */}
+          <Card className="border-0 bg-white shadow-sm">
+            <CardContent className="p-4 space-y-4">
+              {/* 1. Zaman Aralığı Butonları */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-emerald-700" />
+                    Zaman Aralığı Seçimi
+                  </p>
+                  {logPeriod === "single_date" && (
+                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      📅 {new Date(logSelectedDate).toLocaleDateString("tr-TR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: "today", label: "📅 Bugünün Logları" },
+                    { id: "week", label: "⏱️ Son 7 Gün" },
+                    { id: "month", label: "🗓️ Bu Ay" },
+                    { id: "all", label: "📊 Tüm Zamanlar" },
+                    { id: "single_date", label: "🎯 Belirli Gün Seç" },
+                    { id: "custom_range", label: "↔️ Tarih Aralığı" },
+                  ].map(btn => (
+                    <button
+                      key={btn.id}
+                      type="button"
+                      onClick={() => {
+                        setLogPeriod(btn.id as any);
+                        setLogPage(1);
+                      }}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-xs font-semibold transition border",
+                        logPeriod === btn.id
+                          ? "bg-emerald-700 text-white border-emerald-800 shadow-xs"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      )}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tek Gün Takvim Seçimi */}
+                {logPeriod === "single_date" && (
+                  <div className="mt-3 flex items-center gap-3 bg-emerald-50/70 p-3 rounded-xl border border-emerald-200">
+                    <label className="text-xs font-bold text-emerald-950 flex items-center gap-1.5 shrink-0">
+                      <Calendar className="h-4 w-4 text-emerald-700" />
+                      Görüntülenecek Tarih:
+                    </label>
+                    <Input
+                      type="date"
+                      value={logSelectedDate}
+                      onChange={e => {
+                        setLogSelectedDate(e.target.value);
+                        setLogPage(1);
+                      }}
+                      className="bg-white h-8 text-xs font-semibold max-w-[180px]"
+                    />
+                  </div>
+                )}
+
+                {/* Tarih Aralığı Seçimi */}
+                {logPeriod === "custom_range" && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3 bg-emerald-50/70 p-3 rounded-xl border border-emerald-200">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-bold text-emerald-950 shrink-0">Başlangıç:</label>
+                      <Input
+                        type="date"
+                        value={logStartDate}
+                        onChange={e => {
+                          setLogStartDate(e.target.value);
+                          setLogPage(1);
+                        }}
+                        className="bg-white h-8 text-xs font-semibold w-36"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-bold text-emerald-950 shrink-0">Bitiş:</label>
+                      <Input
+                        type="date"
+                        value={logEndDate}
+                        onChange={e => {
+                          setLogEndDate(e.target.value);
+                          setLogPage(1);
+                        }}
+                        className="bg-white h-8 text-xs font-semibold w-36"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Eylem Kategorisi Pills */}
+              <div>
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <Filter className="h-3.5 w-3.5 text-emerald-700" />
+                  İşlem Kategorisi
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: "all", label: "Tüm Eylemler" },
+                    { id: "mesai", label: "🚛 Mesailer" },
+                    { id: "atik", label: "📦 Damperlik Atık" },
+                    { id: "konteyner", label: "🏗️ Konteyner Arızası" },
+                    { id: "sikayet", label: "🚨 Vatandaş Şikayeti" },
+                    { id: "arac", label: "🔧 Araç & Kademe" },
+                    { id: "yonetim", label: "⚙️ Yönetim & Sistem" },
+                  ].map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setLogActionCategory(cat.id);
+                        setLogPage(1);
+                      }}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-medium transition border",
+                        logActionCategory === cat.id
+                          ? "bg-slate-900 text-white border-slate-950 shadow-2xs font-semibold"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Kullanıcı Filtresi ve Metin Arama */}
+              <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 pt-1 border-t border-slate-100">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1.5 block">
+                    👤 İşlemi Yapan Personel:
+                  </label>
+                  <select
+                    value={logActorFilter}
+                    onChange={e => {
+                      setLogActorFilter(e.target.value);
+                      setLogPage(1);
+                    }}
+                    className="input-native text-xs"
+                  >
+                    <option value="all">Tüm Personeller ({users.length} Kullanıcı)</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name || u.username} (@{u.username}) · {u.role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1.5 block">
+                    🔍 Detaylarda Canlı Arama:
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    <Input
+                      placeholder="İşlem detayı, eylem adı, kullanıcı veya ID arayın..."
+                      value={logSearchQuery}
+                      onChange={e => {
+                        setLogSearchQuery(e.target.value);
+                        setLogPage(1);
+                      }}
+                      className="bg-white pl-9 pr-8 text-xs h-9"
+                    />
+                    {logSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLogSearchQuery("");
+                          setLogPage(1);
+                        }}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Log Kayıtları Tablosu */}
+          <Card className="border-0 bg-white shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="font-display text-base">Denetim İzi Kayıt Listesi</CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Toplam {filteredLogs.length} kayıttan {filteredLogs.length > 0 ? (logPage - 1) * logPageSize + 1 : 0} - {Math.min(logPage * logPageSize, filteredLogs.length)} arası gösteriliyor
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs font-bold">
+                Sayfa {logPage} / {logTotalPages}
+              </Badge>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-[850px]">
+                  <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                      <th className="px-5 py-3">Tarih & Saat</th>
+                      <th className="px-5 py-3">Personel / Aktör</th>
+                      <th className="px-5 py-3">Eylem Türü</th>
+                      <th className="px-5 py-3">Hedef Varlık</th>
+                      <th className="px-5 py-3">İşlem Detayı & Açıklama</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-10 text-center text-xs text-slate-500 font-medium">
+                          Seçilen filtre ve arama kriterlerine uygun denetim logu bulunamadı.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedLogs.map(log => {
+                        const badgeInfo = getActionBadgeInfo(log.action);
+                        const isToday = log.createdAt && new Date(log.createdAt).toDateString() === new Date().toDateString();
+
+                        return (
+                          <tr key={log.id} className="border-t border-slate-100 hover:bg-slate-50/50 transition">
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-slate-900 text-xs">
+                                  {log.createdAt ? new Date(log.createdAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
+                                </span>
+                                <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                                  <Clock className="h-3 w-3 text-slate-400" />
+                                  {log.createdAt ? new Date(log.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}
+                                  {isToday && (
+                                    <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-1 py-0.2 rounded border border-emerald-200">
+                                      Bugün
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-7 w-7 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200">
+                                  {(log.actorName || log.actorUsername || "S")[0].toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-slate-900 text-xs truncate">
+                                    {log.actorName || log.actorUsername || (log.actorId ? `Personel #${log.actorId}` : "Sistem")}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    {log.actorUsername && (
+                                      <span className="text-[10px] text-slate-500">@{log.actorUsername}</span>
+                                    )}
+                                    {log.actorRole && (
+                                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200/70">
+                                        {log.actorRole}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="px-5 py-3.5">
+                              <Badge
+                                variant="outline"
+                                className={cn("text-[10px] font-bold inline-flex items-center gap-1 py-1 px-2", badgeInfo.badgeClass)}
+                              >
+                                <span>{badgeInfo.iconText}</span>
+                                <span>{badgeInfo.label}</span>
+                              </Badge>
+                            </td>
+
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className="text-xs font-semibold text-slate-800 uppercase bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                {log.entityType || "Sistem"}
+                                {log.entityId ? ` #${log.entityId}` : ""}
+                              </span>
+                            </td>
+
+                            <td className="px-5 py-3.5 text-xs text-slate-700 max-w-md">
+                              <div className="bg-slate-50 p-2 rounded-lg border border-slate-150 font-mono text-[11px] leading-relaxed break-words text-slate-800">
+                                {log.details || "Açıklama belirtilmedi"}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Sayfalama Kontrolleri */}
+              {logTotalPages > 1 && (
+                <div className="flex items-center justify-between p-4 border-t border-slate-100 bg-slate-50/30">
+                  <p className="text-xs text-slate-500">
+                    Toplam {filteredLogs.length} kayıttan {(logPage - 1) * logPageSize + 1} - {Math.min(logPage * logPageSize, filteredLogs.length)} arası gösteriliyor
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={logPage <= 1}
+                      onClick={() => setLogPage(p => Math.max(1, p - 1))}
+                      className="h-8 text-xs border-slate-200"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                      Önceki
+                    </Button>
+                    <span className="text-xs font-bold text-slate-700 px-2">
+                      {logPage} / {logTotalPages}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={logPage >= logTotalPages}
+                      onClick={() => setLogPage(p => Math.min(logTotalPages, p + 1))}
+                      className="h-8 text-xs border-slate-200"
+                    >
+                      Sonraki
+                      <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 7. ANALİZ VERİLERİNİ SIFIRLAMA */}
       {activeTab === "sifirla" && (
         <Card className="border border-red-200 bg-red-50/20 shadow-sm">
           <CardHeader className="pb-3">
