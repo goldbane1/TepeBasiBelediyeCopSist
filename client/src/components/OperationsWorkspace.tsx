@@ -1603,14 +1603,14 @@ function BulkWasteSolutionPanel({
             Damperli Atık Listesi
           </CardTitle>
           <Badge variant="outline" className="text-slate-600 text-xs font-bold">
-            {wasteList.length} Kayıt ({pendingWaste.length} Bekleyen)
+            {pendingWaste.length} Bekleyen Atık
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
-          {wasteList.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş damperlik atık kaydı bulunmuyor.</p>
+          {pendingWaste.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş bekleyen damperlik atık kaydı bulunmuyor.</p>
           ) : (
-            wasteList.map(waste => {
+            pendingWaste.map(waste => {
               const isPending = waste.status === "bekliyor";
               const damperId = activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
 

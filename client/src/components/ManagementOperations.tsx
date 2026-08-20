@@ -443,6 +443,10 @@ function ReportsAndManagement({
     onError: e => toast.error(e.message),
   });
 
+  const activeWasteList = useMemo(() => wasteList.filter(w => w.status === "bekliyor"), [wasteList]);
+  const activeContainers = useMemo(() => containers.filter(c => c.status === "bekliyor"), [containers]);
+  const activeComplaints = useMemo(() => complaints.filter(c => c.status === "açık" || c.status === "onay_bekliyor"), [complaints]);
+
   const resetDataMutation = trpc.operations.reports.resetData.useMutation({
     onSuccess: () => {
       toast.success("Seçilen analiz ve operasyon verileri sıfırlandı.");
@@ -700,9 +704,9 @@ function ReportsAndManagement({
         {[
           { id: "genel", label: "📊 Genel Özet & Mahalle Analizi", count: neighborhoodMatrix.length },
           { id: "mesailer", label: "🚛 Mesailer & Tonaj Fişleri", count: shifts.length },
-          { id: "atiklar", label: "📦 Damperlik Atıklar", count: wasteList.length },
-          { id: "konteynerler", label: "🏗️ Konteyner Arızaları", count: containers.length },
-          { id: "sikayetler", label: "🚨 Vatandaş Şikayetleri", count: complaints.length },
+          { id: "atiklar", label: "📦 Damperlik Atıklar", count: activeWasteList.length },
+          { id: "konteynerler", label: "🏗️ Konteyner Arızaları", count: activeContainers.length },
+          { id: "sikayetler", label: "🚨 Vatandaş Şikayetleri", count: activeComplaints.length },
           { id: "sifirla", label: "⚠️ Veri Sıfırlama", count: 0 },
         ].map(tab => (
           <button
@@ -1310,7 +1314,7 @@ function ReportsAndManagement({
         <Card className="border-0 bg-white shadow-sm overflow-hidden">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="font-display text-base">Damperlik Atık Kayıtları</CardTitle>
-            <Badge variant="outline" className="text-xs font-bold">{wasteList.length} Kayıt</Badge>
+            <Badge variant="outline" className="text-xs font-bold">{activeWasteList.length} Bekleyen Kayıt</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -1326,58 +1330,66 @@ function ReportsAndManagement({
                   </tr>
                 </thead>
                 <tbody>
-                  {wasteList.map(waste => (
-                    <tr key={waste.id} className="border-t border-slate-100 hover:bg-slate-50/50">
-                      <td className="px-5 py-3 font-semibold text-slate-900">
-                        {waste.wasteType} · {waste.neighborhood}
-                      </td>
-                      <td className="px-5 py-3 text-slate-600 text-xs max-w-xs truncate">{waste.description}</td>
-                      <td className="px-5 py-3 text-xs">
-                        {waste.reporterName ? (
-                          <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/70">
-                            👤 {waste.reporterName}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">Belirtilmedi</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-xs">
-                        {waste.requiresExcavator ? (
-                          <Badge className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">
-                            🚜 Kepçe Gerekli
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-slate-200 text-slate-500 text-[10px]">
-                            Gerekli Değil
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge variant="outline" className={waste.status === "bekliyor" ? "bg-amber-50 text-amber-700 text-[10px] font-bold" : "bg-emerald-50 text-emerald-700 text-[10px] font-bold"}>
-                          {waste.status === "bekliyor" ? "Bekliyor" : "Toplandı"}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingWaste(waste)} className="h-8 w-8 p-0 text-slate-600 hover:text-emerald-700">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              if (confirm(`Damperlik atık #${waste.id} kaydını silmek istiyor musunuz?`)) {
-                                removeWaste.mutate({ id: waste.id });
-                              }
-                            }}
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                  {activeWasteList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-8 text-center text-xs text-slate-500 font-medium">
+                        Henüz bildirilmiş bekleyen damperlik atık kaydı bulunmuyor.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    activeWasteList.map(waste => (
+                      <tr key={waste.id} className="border-t border-slate-100 hover:bg-slate-50/50">
+                        <td className="px-5 py-3 font-semibold text-slate-900">
+                          {waste.wasteType} · {waste.neighborhood}
+                        </td>
+                        <td className="px-5 py-3 text-slate-600 text-xs max-w-xs truncate">{waste.description}</td>
+                        <td className="px-5 py-3 text-xs">
+                          {waste.reporterName ? (
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/70">
+                              👤 {waste.reporterName}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">Belirtilmedi</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-xs">
+                          {waste.requiresExcavator ? (
+                            <Badge className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">
+                              🚜 Kepçe Gerekli
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-slate-200 text-slate-500 text-[10px]">
+                              Gerekli Değil
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 text-[10px] font-bold">
+                            Toplanma Bekliyor
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button size="sm" variant="ghost" onClick={() => setEditingWaste(waste)} className="h-8 w-8 p-0 text-slate-600 hover:text-emerald-700">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm(`Damperlik atık #${waste.id} kaydını silmek istiyor musunuz?`)) {
+                                  removeWaste.mutate({ id: waste.id });
+                                }
+                              }}
+                              className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1390,7 +1402,7 @@ function ReportsAndManagement({
         <Card className="border-0 bg-white shadow-sm overflow-hidden">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="font-display text-base">Konteyner Arıza Kayıtları</CardTitle>
-            <Badge variant="outline" className="text-xs">{containers.length} Kayıt</Badge>
+            <Badge variant="outline" className="text-xs font-bold">{activeContainers.length} Bekleyen Kayıt</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -1404,36 +1416,44 @@ function ReportsAndManagement({
                   </tr>
                 </thead>
                 <tbody>
-                  {containers.map(cont => (
-                    <tr key={cont.id} className="border-t border-slate-100 hover:bg-slate-50/50">
-                      <td className="px-5 py-3 font-semibold text-slate-900">{cont.faultType} · {cont.neighborhood}</td>
-                      <td className="px-5 py-3 text-slate-600 text-xs max-w-md truncate">{cont.description}</td>
-                      <td className="px-5 py-3">
-                        <Badge variant="outline" className={cont.status === "bekliyor" ? "bg-amber-50 text-amber-700 text-[10px]" : "bg-emerald-50 text-emerald-700 text-[10px]"}>
-                          {cont.status}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button size="sm" variant="ghost" onClick={() => setEditingContainer(cont)} className="h-8 w-8 p-0 text-slate-600 hover:text-emerald-700">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              if (confirm(`Konteyner arızası #${cont.id} kaydını silmek istiyor musunuz?`)) {
-                                removeContainer.mutate({ id: cont.id });
-                              }
-                            }}
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                  {activeContainers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-xs text-slate-500 font-medium">
+                        Henüz bildirilmiş bekleyen konteyner arıza kaydı bulunmuyor.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    activeContainers.map(cont => (
+                      <tr key={cont.id} className="border-t border-slate-100 hover:bg-slate-50/50">
+                        <td className="px-5 py-3 font-semibold text-slate-900">{cont.faultType} · {cont.neighborhood}</td>
+                        <td className="px-5 py-3 text-slate-600 text-xs max-w-md truncate">{cont.description}</td>
+                        <td className="px-5 py-3">
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 text-[10px] font-bold">
+                            Onarım Bekliyor
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button size="sm" variant="ghost" onClick={() => setEditingContainer(cont)} className="h-8 w-8 p-0 text-slate-600 hover:text-emerald-700">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm(`Konteyner arızası #${cont.id} kaydını silmek istiyor musunuz?`)) {
+                                  removeContainer.mutate({ id: cont.id });
+                                }
+                              }}
+                              className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1447,9 +1467,9 @@ function ReportsAndManagement({
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div>
               <CardTitle className="font-display text-base font-bold text-slate-900">Vatandaş Şikayetleri ve Denetim</CardTitle>
-              <p className="text-xs text-slate-500 mt-0.5">Vatandaş şikayetleri, şoför çözüm fotoğrafları ve yönetici onay akışı</p>
+              <p className="text-xs text-slate-500 mt-0.5">Aktif vatandaş şikayetleri, şoför çözüm fotoğrafları ve yönetici onay akışı</p>
             </div>
-            <Badge variant="outline" className="text-xs font-bold">{complaints.length} Kayıt</Badge>
+            <Badge variant="outline" className="text-xs font-bold">{activeComplaints.length} Aktif Kayıt</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -1465,7 +1485,14 @@ function ReportsAndManagement({
                   </tr>
                 </thead>
                 <tbody>
-                  {complaints.map(comp => (
+                  {activeComplaints.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-8 text-center text-xs text-slate-500 font-medium">
+                        Henüz bildirilmiş aktif vatandaş şikayeti bulunmuyor.
+                      </td>
+                    </tr>
+                  ) : (
+                    activeComplaints.map(comp => (
                     <tr key={comp.id} className="border-t border-slate-100 hover:bg-slate-50/50">
                       <td className="px-5 py-3">
                         <span className="font-semibold text-slate-900">{comp.neighborhood}</span>
@@ -1570,7 +1597,8 @@ function ReportsAndManagement({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

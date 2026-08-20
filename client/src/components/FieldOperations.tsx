@@ -435,15 +435,15 @@ function ContainerPanel({
             <Wrench className="h-5 w-5 text-amber-600" />
             Konteyner Arıza & Onarım Listesi
           </CardTitle>
-          <Badge variant="outline" className="text-slate-600 text-xs">
-            {records.length} Kayıt ({openRecords.length} Bekleyen)
+          <Badge variant="outline" className="text-slate-600 text-xs font-bold">
+            {openRecords.length} Bekleyen Arıza
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
-          {records.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş konteyner arıza kaydı bulunmuyor.</p>
+          {openRecords.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş bekleyen konteyner arıza kaydı bulunmuyor.</p>
           ) : (
-            records.map(record => {
+            openRecords.map(record => {
               const isPending = record.status === "bekliyor";
 
               return (
@@ -769,6 +769,7 @@ function ComplaintPanel({
 
   const openComplaints = useMemo(() => records.filter(c => c.status === "açık"), [records]);
   const pendingApprovalCount = useMemo(() => records.filter(c => c.status === "onay_bekliyor").length, [records]);
+  const activeComplaints = useMemo(() => records.filter(c => c.status === "açık" || c.status === "onay_bekliyor"), [records]);
 
   const mapOperations = useMemo<MapOperation[]>(
     () =>
@@ -964,16 +965,16 @@ function ComplaintPanel({
                 {pendingApprovalCount} Onay Bekleyen
               </Badge>
             )}
-            <Badge variant="outline" className="text-slate-600 text-xs">
-              {records.length} Toplam Kayıt
+            <Badge variant="outline" className="text-slate-600 text-xs font-bold">
+              {activeComplaints.length} Aktif Şikayet
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {records.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz kayıtlı vatandaş şikayeti bulunmuyor.</p>
+          {activeComplaints.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş aktif vatandaş şikayeti bulunmuyor.</p>
           ) : (
-            records.map(complaint => {
+            activeComplaints.map(complaint => {
               const isOpen = complaint.status === "açık";
               const isPendingApproval = complaint.status === "onay_bekliyor";
               const isResolved = complaint.status === "onaylandı";
