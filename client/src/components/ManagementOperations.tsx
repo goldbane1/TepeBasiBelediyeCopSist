@@ -1293,15 +1293,17 @@ function ReportsAndManagement({
         <Card className="border-0 bg-white shadow-sm overflow-hidden">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="font-display text-base">Damperlik Atık Kayıtları</CardTitle>
-            <Badge variant="outline" className="text-xs">{wasteList.length} Kayıt</Badge>
+            <Badge variant="outline" className="text-xs font-bold">{wasteList.length} Kayıt</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm min-w-[650px]">
+              <table className="w-full text-left text-sm min-w-[750px]">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-5 py-3">Tür & Mahalle</th>
                     <th className="px-5 py-3">Açıklama</th>
+                    <th className="px-5 py-3">Bildiren Şoför</th>
+                    <th className="px-5 py-3">Kepçe Durumu</th>
                     <th className="px-5 py-3">Durum</th>
                     <th className="px-5 py-3 text-right">İşlem</th>
                   </tr>
@@ -1312,10 +1314,30 @@ function ReportsAndManagement({
                       <td className="px-5 py-3 font-semibold text-slate-900">
                         {waste.wasteType} · {waste.neighborhood}
                       </td>
-                      <td className="px-5 py-3 text-slate-600 text-xs max-w-md truncate">{waste.description}</td>
+                      <td className="px-5 py-3 text-slate-600 text-xs max-w-xs truncate">{waste.description}</td>
+                      <td className="px-5 py-3 text-xs">
+                        {waste.reporterName ? (
+                          <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/70">
+                            👤 {waste.reporterName}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Belirtilmedi</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-xs">
+                        {waste.requiresExcavator ? (
+                          <Badge className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">
+                            🚜 Kepçe Gerekli
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-slate-200 text-slate-500 text-[10px]">
+                            Gerekli Değil
+                          </Badge>
+                        )}
+                      </td>
                       <td className="px-5 py-3">
-                        <Badge variant="outline" className={waste.status === "bekliyor" ? "bg-amber-50 text-amber-700 text-[10px]" : "bg-emerald-50 text-emerald-700 text-[10px]"}>
-                          {waste.status}
+                        <Badge variant="outline" className={waste.status === "bekliyor" ? "bg-amber-50 text-amber-700 text-[10px] font-bold" : "bg-emerald-50 text-emerald-700 text-[10px] font-bold"}>
+                          {waste.status === "bekliyor" ? "Bekliyor" : "Toplandı"}
                         </Badge>
                       </td>
                       <td className="px-5 py-3 text-right">
@@ -1675,6 +1697,7 @@ function ReportsAndManagement({
                   description: editingWaste.description,
                   neighborhood: editingWaste.neighborhood,
                   status: editingWaste.status,
+                  requiresExcavator: Boolean(editingWaste.requiresExcavator),
                 });
               }}
               className="space-y-3"
@@ -1682,6 +1705,30 @@ function ReportsAndManagement({
               <Field label="Atık Türü"><Input value={editingWaste.wasteType} onChange={e => setEditingWaste({ ...editingWaste, wasteType: e.target.value })} /></Field>
               <Field label="Mahalle"><Input value={editingWaste.neighborhood} onChange={e => setEditingWaste({ ...editingWaste, neighborhood: e.target.value })} /></Field>
               <Field label="Açıklama"><Textarea value={editingWaste.description} onChange={e => setEditingWaste({ ...editingWaste, description: e.target.value })} /></Field>
+              <Field label="Kepçe İhtiyacı">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingWaste({ ...editingWaste, requiresExcavator: false })}
+                    className={cn(
+                      "flex-1 py-1.5 px-3 rounded-lg border text-xs font-semibold transition",
+                      !editingWaste.requiresExcavator ? "border-emerald-700 bg-emerald-50 text-emerald-800 font-bold" : "border-slate-200 bg-white text-slate-600"
+                    )}
+                  >
+                    Gerekli Değil
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingWaste({ ...editingWaste, requiresExcavator: true })}
+                    className={cn(
+                      "flex-1 py-1.5 px-3 rounded-lg border text-xs font-semibold transition",
+                      editingWaste.requiresExcavator ? "border-amber-500 bg-amber-500 text-white font-bold" : "border-slate-200 bg-white text-slate-600"
+                    )}
+                  >
+                    🚜 Kepçe Gerekli
+                  </button>
+                </div>
+              </Field>
               <Field label="Durum">
                 <select value={editingWaste.status} onChange={e => setEditingWaste({ ...editingWaste, status: e.target.value })} className="input-native">
                   <option value="bekliyor">bekliyor</option>

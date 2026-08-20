@@ -326,7 +326,25 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
 
 ## 9. Değişiklik ve Güncelleme Geçmişi (Changelog & History)
 
-### [v2.4.8] - 2026-08-20 (Son Güncelleme)
+### [v2.4.10] - 2026-08-21 (Son Güncelleme)
+- **Damperlik Atık ve Arıza Çözümü Açıklama Alanlarının İsteğe Bağlı Hale Getirilmesi:**
+  - Damperlik Atık Çözümü (`bulkWasteReports`), Konteyner Arıza Çözümü (`containerFaults`) ve Araç Arıza Çözümü (`vehicleFaults`) bildirim formlarındaki "Açıklama" alanı zorunlu olmaktan çıkarılarak `(İsteğe Bağlı)` formatına getirildi.
+  - Backend tRPC mutasyonlarında (`bulkWaste.create`, `containerFaults.create`, `vehicleFaults.create`) `description` alanı `z.string().optional().default("")` olarak revize edildi; boş bırakılması durumunda sistem otomatik olarak `"Açıklama belirtilmedi"` varsayılanını atar.
+
+### [v2.4.9] - 2026-08-21
+- **Damperlik Atık Bildirimine Kepçe Gereksinimi (`requiresExcavator`) Entegrasyonu:**
+  - `bulkWasteReports` tablosuna `requiresExcavator TINYINT(1) DEFAULT 0` kolonu eklendi (`drizzle/schema.ts`, `schema.sql`).
+  - Saha Damperlik Atık bildirim formuna `🚜 Kepçe Gerekli Değil` (varsayılan) ve `🚜 Kepçe Gerekli` (vurgulu amber) seçim butonları eklendi.
+  - Damperlik atık listesinde, harita pin popup detayında ve yönetim tablosunda `🚜 Kepçe Gerekli` rozeti ve filtreleme göstergesi entegre edildi.
+- **Bildiren Şoför / Personel İsminin Pin ve Listelerde Gösterilmesi:**
+  - `server/operations-db.ts` içerisindeki `listBulkWasteReports`, `listContainerFaults` ve `listCitizenComplaints` sorguları `users` tablosuyla left-join edilerek bildiren personelin adı (`reporterName`) çekildi.
+  - Damperlik atık kartlarında, konteyner arıza kartlarında, vatandaş şikayetlerinde ve harita pin detay kartlarında `👤 Bildiren: [Şoför/Personel Adı]` alanı gösterildi.
+- **Damperli ve Konteyner Çözüm Sayfalarındaki "Haritada Gör" Butonunun Sayfa İçi Haritaya Odaklanması:**
+  - Kullanıcı Damperlik Atık Çözümü, Konteyner Arıza Çözümü veya Vatandaş Şikayetleri sayfasındayken "Haritada Gör" butonuna bastığında genel haritaya yönlenmek yerine, doğrudan bulunduğu sayfadaki üst haritayı ilgili pine odaklayıp popup'ı açması ve sayfayı pürüzsüzce yukarı kaydırması (`selectedOperationId` + smooth scroll) sağlandı.
+- **Damperli Atık Silme & Harita Senkronizasyonu:**
+  - Damperlik atık paneline yönetim için doğrudan silme aksiyonu eklendi; silinen veya toplanan atıkların haritadan ve listelerden anında kaybolması için tRPC `refresh()` ve bileşik anahtarlı (`${category}-${id}`) optimistic state yönetimi optimize edildi.
+
+### [v2.4.8] - 2026-08-20
 - **Tonaj Fişi ve Modal Dialoglarının React Portal (`createPortal`) Mimarisine Geçirilmesi:**
   - Tablodaki satır/mesai sayısı arttıkça sayfa uzadığında, CSS transform efektlerinden dolayı `position: fixed` modal katmanının viewport dışına taşması ve arka planın devasa uzaması sorunu kökten çözüldü.
   - Tüm modallar (`receiptModal`, `editingShift`, `editingWaste`, `editingContainer`, `editingComplaint`, `showPurgeModal`, `editingUser`) doğrudan `document.body` üzerine teleport eden React Portal yapısına geçirildi. Sayfada kaç satır olursa olsun modal daima ekranın tam merkezine sabitlenir.
@@ -418,6 +436,6 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - `AI_HANDOVER.md` ana mimari ve devir dokümanı oluşturuldu.
 
 ---
-*Doküman Sürümü: v2.4.2 (Canlı Şema & Operasyonel Devir Standardı)*  
-*Son Güncelleme: 2026-08-20*
+*Doküman Sürümü: v2.4.10 (Canlı Şema & Operasyonel Devir Standardı)*  
+*Son Güncelleme: 2026-08-21*
 

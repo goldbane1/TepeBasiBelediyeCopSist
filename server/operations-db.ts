@@ -295,7 +295,30 @@ export async function reviewVehicleFault(id: number, approvedBy: number, approve
 // -----------------------------------------------------------------------------
 export async function listBulkWasteReports() {
   const db = await getDb();
-  return db ? db.select().from(bulkWasteReports).orderBy(desc(bulkWasteReports.createdAt)) : [];
+  if (!db) return [];
+  return db
+    .select({
+      id: bulkWasteReports.id,
+      reportedBy: bulkWasteReports.reportedBy,
+      reporterName: users.name,
+      region: bulkWasteReports.region,
+      neighborhood: bulkWasteReports.neighborhood,
+      wasteType: bulkWasteReports.wasteType,
+      description: bulkWasteReports.description,
+      photoUrl: bulkWasteReports.photoUrl,
+      latitude: bulkWasteReports.latitude,
+      longitude: bulkWasteReports.longitude,
+      dueAt: bulkWasteReports.dueAt,
+      status: bulkWasteReports.status,
+      requiresExcavator: bulkWasteReports.requiresExcavator,
+      collectedVehicleId: bulkWasteReports.collectedVehicleId,
+      collectedDriverId: bulkWasteReports.collectedDriverId,
+      collectedAt: bulkWasteReports.collectedAt,
+      createdAt: bulkWasteReports.createdAt,
+    })
+    .from(bulkWasteReports)
+    .leftJoin(users, eq(bulkWasteReports.reportedBy, users.id))
+    .orderBy(desc(bulkWasteReports.createdAt));
 }
 
 export async function createBulkWasteReport(data: typeof bulkWasteReports.$inferInsert) {
@@ -327,7 +350,28 @@ export async function collectBulkWaste(id: number, vehicleId: number, driverId: 
 // -----------------------------------------------------------------------------
 export async function listContainerFaults() {
   const db = await getDb();
-  return db ? db.select().from(containerFaults).orderBy(desc(containerFaults.createdAt)) : [];
+  if (!db) return [];
+  return db
+    .select({
+      id: containerFaults.id,
+      reportedBy: containerFaults.reportedBy,
+      reporterName: users.name,
+      region: containerFaults.region,
+      neighborhood: containerFaults.neighborhood,
+      faultType: containerFaults.faultType,
+      description: containerFaults.description,
+      photoUrl: containerFaults.photoUrl,
+      latitude: containerFaults.latitude,
+      longitude: containerFaults.longitude,
+      status: containerFaults.status,
+      repairedBy: containerFaults.repairedBy,
+      repairNote: containerFaults.repairNote,
+      createdAt: containerFaults.createdAt,
+      repairedAt: containerFaults.repairedAt,
+    })
+    .from(containerFaults)
+    .leftJoin(users, eq(containerFaults.reportedBy, users.id))
+    .orderBy(desc(containerFaults.createdAt));
 }
 
 export async function createContainerFault(data: typeof containerFaults.$inferInsert) {
@@ -359,7 +403,27 @@ export async function repairContainerFault(id: number, technicianId: number, not
 // -----------------------------------------------------------------------------
 export async function listCitizenComplaints() {
   const db = await getDb();
-  return db ? db.select().from(citizenComplaints).orderBy(desc(citizenComplaints.createdAt)) : [];
+  if (!db) return [];
+  return db
+    .select({
+      id: citizenComplaints.id,
+      reportedBy: citizenComplaints.reportedBy,
+      reporterName: users.name,
+      region: citizenComplaints.region,
+      neighborhood: citizenComplaints.neighborhood,
+      description: citizenComplaints.description,
+      photoUrl: citizenComplaints.photoUrl,
+      latitude: citizenComplaints.latitude,
+      longitude: citizenComplaints.longitude,
+      dueAt: citizenComplaints.dueAt,
+      status: citizenComplaints.status,
+      acknowledgedBy: citizenComplaints.acknowledgedBy,
+      acknowledgedAt: citizenComplaints.acknowledgedAt,
+      createdAt: citizenComplaints.createdAt,
+    })
+    .from(citizenComplaints)
+    .leftJoin(users, eq(citizenComplaints.reportedBy, users.id))
+    .orderBy(desc(citizenComplaints.createdAt));
 }
 
 export async function createCitizenComplaint(data: typeof citizenComplaints.$inferInsert) {

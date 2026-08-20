@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS `bulkWasteReports` (
   `longitude` varchar(32) NOT NULL,
   `dueAt` timestamp NOT NULL,
   `status` varchar(64) NOT NULL DEFAULT 'bekliyor',
+  `requiresExcavator` tinyint(1) NOT NULL DEFAULT 0,
   `collectedVehicleId` int DEFAULT NULL,
   `collectedDriverId` int DEFAULT NULL,
   `collectedAt` timestamp NULL DEFAULT NULL,
@@ -213,5 +214,6 @@ ON DUPLICATE KEY UPDATE `region` = VALUES(`region`);
 -- ------------------------------------------------------------------------------
 -- ALTER TABLE `shifts` ADD COLUMN `shiftHours` varchar(32) DEFAULT '08:00 - 16:00' AFTER `vehicleType`;
 -- ALTER TABLE `bulkWasteReports` ADD COLUMN `photoUrl` text DEFAULT NULL AFTER `longitude`;
+-- ALTER TABLE `bulkWasteReports` ADD COLUMN `requiresExcavator` tinyint(1) NOT NULL DEFAULT 0 AFTER `status`;
 -- ALTER TABLE `containerFaults` ADD COLUMN `photoUrl` text DEFAULT NULL AFTER `longitude`;
 

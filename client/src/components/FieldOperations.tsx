@@ -79,6 +79,7 @@ function ContainerPanel({
   const canRepair = role === "kaynak personeli" || role === "yönetim" || role === "kademe personeli" || role === "şoför";
   const [repairNotes, setRepairNotes] = useState<Record<number, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
 
   // Bildirim formu state'i
   const [containerForm, setContainerForm] = useState({
@@ -116,7 +117,7 @@ function ContainerPanel({
 
   const repair = trpc.operations.containerFaults.repair.useMutation({
     onSuccess: () => {
-      toast.success("Konteyner onarımı tamamlandı.");
+      toast.success("Konteyner onarımı kaydedildi.");
       refresh();
     },
     onError: e => toast.error(e.message),
@@ -231,12 +232,11 @@ function ContainerPanel({
   const submitContainer = (event: FormEvent) => {
     event.preventDefault();
     if (!containerForm.neighborhood.trim()) return toast.error("Lütfen mahalle seçin veya girin.");
-    if (!containerForm.description.trim()) return toast.error("Lütfen arıza açıklaması girin.");
     createContainerFault.mutate({
       region: containerForm.region,
       neighborhood: containerForm.neighborhood,
       faultType: containerForm.faultType,
-      description: containerForm.description,
+      description: containerForm.description || "",
       latitude: Number(containerForm.latitude),
       longitude: Number(containerForm.longitude),
       photo: containerForm.photo || undefined,
@@ -256,6 +256,8 @@ function ContainerPanel({
         longitude: record.longitude,
         photoUrl: record.photoUrl,
         status: record.status,
+        reporterName: record.reporterName,
+        extra: record,
       })),
     [openRecords]
   );
@@ -269,7 +271,7 @@ function ContainerPanel({
             <Recycle className="h-5 w-5 text-emerald-700" />
             Konteyner Arıza Haritası
           </h2>
-          <Badge className="bg-amber-50 text-amber-800 border-amber-200">
+          <Badge className="bg-amber-50 text-amber-800 border-amber-200 font-bold">
             {openRecords.length} Arıza Bekliyor
           </Badge>
         </div>
@@ -278,6 +280,7 @@ function ContainerPanel({
           initialCategoryFilter="Konteyner arızası"
           showCategoryTabs={false}
           role={role}
+          selectedOperationId={selectedPinId}
           onResolveOperation={op => repair.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarıldı." })}
         />
       </Card>
@@ -406,8 +409,8 @@ function ContainerPanel({
             )}
 
             <div className="sm:col-span-2 lg:col-span-3">
-              <Field label="Arıza Açıklaması">
-                <Textarea required value={containerForm.description} onChange={e => setContainerForm({ ...containerForm, description: e.target.value })} placeholder="Konteynerdeki hasar ve konum tarifi..." />
+              <Field label="Arıza Açıklaması (İsteğe Bağlı)">
+                <Textarea value={containerForm.description} onChange={e => setContainerForm({ ...containerForm, description: e.target.value })} placeholder="Konteynerdeki hasar veya detaylar (isteğe bağlı)..." />
               </Field>
             </div>
 
@@ -473,11 +476,19 @@ function ContainerPanel({
                         )}
                       </div>
                       <p className="text-xs text-slate-600">{record.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                        <span>{record.region}</span>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                        <span>📍 {record.region}</span>
                         <span>·</span>
-                        <span>{new Date(record.createdAt).toLocaleDateString("tr-TR")}</span>
-                        {record.repairNote && <span className="text-emerald-700 font-medium">· {record.repairNote}</span>}
+                        <span>📅 {new Date(record.createdAt).toLocaleDateString("tr-TR")}</span>
+                        {record.reporterName && (
+                          <>
+                            <span>·</span>
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+                              👤 Bildiren: {record.reporterName}
+                            </span>
+                          </>
+                        )}
+                        {record.repairNote && <span className="text-emerald-700 font-medium">· 🔧 {record.repairNote}</span>}
                       </div>
                     </div>
 
@@ -485,8 +496,12 @@ function ContainerPanel({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onFocusOnMap(record.id)}
+                        onClick={() => {
+                          setSelectedPinId(record.id);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
                         className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+                        title="Bu sayfadaki haritada göster"
                       >
                         <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
                         Haritada Gör
@@ -558,6 +573,7 @@ function ComplaintPanel({
   const isDriver = role === "şoför";
   const canAcknowledge = isDriver || role === "yönetim";
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
 
   const [complaintForm, setComplaintForm] = useState({
     region: "Tepebaşı",
@@ -727,6 +743,8 @@ function ComplaintPanel({
         photoUrl: record.photoUrl,
         dueAt: record.dueAt,
         status: record.status,
+        reporterName: record.reporterName,
+        extra: record,
       })),
     [openComplaints]
   );
@@ -749,6 +767,7 @@ function ComplaintPanel({
           initialCategoryFilter="Vatandaş şikayeti"
           showCategoryTabs={false}
           role={role}
+          selectedOperationId={selectedPinId}
           onResolveOperation={op => acknowledge.mutate({ id: op.id })}
         />
       </Card>
@@ -937,10 +956,18 @@ function ComplaintPanel({
                         )}
                       </div>
                       <p className="text-xs text-slate-600">{complaint.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                        <span>{complaint.region}</span>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                        <span>📍 {complaint.region}</span>
                         <span>·</span>
-                        <span>{new Date(complaint.createdAt).toLocaleDateString("tr-TR")}</span>
+                        <span>📅 {new Date(complaint.createdAt).toLocaleDateString("tr-TR")}</span>
+                        {complaint.reporterName && (
+                          <>
+                            <span>·</span>
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+                              👤 Bildiren: {complaint.reporterName}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -948,8 +975,12 @@ function ComplaintPanel({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onFocusOnMap(complaint.id)}
+                        onClick={() => {
+                          setSelectedPinId(complaint.id);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
                         className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+                        title="Bu sayfadaki haritada göster"
                       >
                         <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
                         Haritada Gör

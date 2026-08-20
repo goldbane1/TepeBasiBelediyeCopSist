@@ -86,6 +86,7 @@ export const bulkWasteReports = mysqlTable("bulkWasteReports", {
   longitude: varchar("longitude", { length: 32 }).notNull(),
   dueAt: timestamp("dueAt").notNull(),
   status: mysqlEnum("status", ["bekliyor", "toplandı"]).default("bekliyor").notNull(),
+  requiresExcavator: boolean("requiresExcavator").default(false).notNull(),
   collectedVehicleId: int("collectedVehicleId"),
   collectedDriverId: int("collectedDriverId"),
   collectedAt: timestamp("collectedAt"),

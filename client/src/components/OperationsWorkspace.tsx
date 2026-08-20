@@ -127,6 +127,8 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
           photoUrl: item.photoUrl,
           dueAt: item.dueAt,
           status: item.status,
+          reporterName: item.reporterName,
+          requiresExcavator: Boolean(item.requiresExcavator),
           extra: item,
         });
       });
@@ -143,6 +145,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
           longitude: item.longitude,
           photoUrl: item.photoUrl,
           status: item.status,
+          reporterName: item.reporterName,
           extra: item,
         });
       });
@@ -160,6 +163,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
           photoUrl: item.photoUrl,
           dueAt: item.dueAt,
           status: item.status,
+          reporterName: item.reporterName,
           extra: item,
         });
       });
@@ -1123,6 +1127,7 @@ function BulkWasteSolutionPanel({
   onFocusOnMap: (id: number) => void;
 }) {
   const currentShift = trpc.operations.shifts.current.useQuery(undefined, { enabled: role === "şoför" });
+  const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
   const [form, setForm] = useState({
     region: "Tepebaşı",
     neighborhood: "",
@@ -1130,6 +1135,7 @@ function BulkWasteSolutionPanel({
     description: "",
     latitude: "39.7767",
     longitude: "30.5206",
+    requiresExcavator: false,
     photo: "",
   });
   const [durationHours, setDurationHours] = useState<24 | 48>(48);
@@ -1149,11 +1155,20 @@ function BulkWasteSolutionPanel({
         description: "",
         latitude: "39.7767",
         longitude: "30.5206",
+        requiresExcavator: false,
         photo: "",
       });
       setDurationHours(48);
       setSearchQuery("");
       setResolvedAddress("");
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const removeWaste = trpc.operations.bulkWaste.remove.useMutation({
+    onSuccess: () => {
+      toast.success("Damperlik atık kaydı silindi.");
+      refresh();
     },
     onError: e => toast.error(e.message),
   });
@@ -1183,6 +1198,9 @@ function BulkWasteSolutionPanel({
         photoUrl: item.photoUrl,
         dueAt: item.dueAt,
         status: item.status,
+        reporterName: item.reporterName,
+        requiresExcavator: Boolean(item.requiresExcavator),
+        extra: item,
       })),
     [pendingWaste]
   );
@@ -1270,7 +1288,7 @@ function BulkWasteSolutionPanel({
         toast.success("Konum adresi tespit edildi.");
       }
     } catch {
-      // Ignored
+      // Geocoding fallback
     }
   };
 
@@ -1295,10 +1313,11 @@ function BulkWasteSolutionPanel({
       region: form.region,
       neighborhood: form.neighborhood,
       wasteType: form.wasteType,
-      description: form.description,
+      description: form.description || "",
       latitude: Number(form.latitude),
       longitude: Number(form.longitude),
       durationHours: durationHours,
+      requiresExcavator: form.requiresExcavator,
       photo: form.photo || undefined,
     });
   };
@@ -1312,7 +1331,7 @@ function BulkWasteSolutionPanel({
             <Archive className="h-5 w-5 text-amber-600" />
             Damperlik Atık Haritası
           </h2>
-          <Badge className="bg-amber-50 text-amber-800 border-amber-200">
+          <Badge className="bg-amber-50 text-amber-800 border-amber-200 font-bold">
             {pendingWaste.length} Bekleyen Atık
           </Badge>
         </div>
@@ -1321,6 +1340,7 @@ function BulkWasteSolutionPanel({
           initialCategoryFilter="Damperlik atık"
           showCategoryTabs={false}
           role={role}
+          selectedOperationId={selectedPinId}
           onResolveOperation={op => {
             const damperId = activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
             if (damperId) {
@@ -1387,7 +1407,7 @@ function BulkWasteSolutionPanel({
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1 rounded-lg border text-xs font-semibold transition px-2",
                       durationHours === 24
-                        ? "border-amber-600 bg-amber-500 text-white shadow-sm"
+                        ? "border-amber-600 bg-amber-500 text-white shadow-sm font-bold"
                         : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     )}
                   >
@@ -1400,7 +1420,7 @@ function BulkWasteSolutionPanel({
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1 rounded-lg border text-xs font-semibold transition px-2",
                       durationHours === 48
-                        ? "border-emerald-700 bg-emerald-700 text-white shadow-sm"
+                        ? "border-emerald-700 bg-emerald-700 text-white shadow-sm font-bold"
                         : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     )}
                   >
@@ -1409,6 +1429,38 @@ function BulkWasteSolutionPanel({
                   </button>
                 </div>
               </Field>
+
+              {/* Kepçe Gereksinimi Seçimi */}
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Field label="Kepçe İhtiyacı Durumu">
+                  <div className="grid grid-cols-2 gap-2 max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, requiresExcavator: false }))}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-semibold transition",
+                        !form.requiresExcavator
+                          ? "border-emerald-700 bg-emerald-50 text-emerald-800 font-bold shadow-2xs"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      🚜 Kepçe Gerekli Değil
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, requiresExcavator: true }))}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-semibold transition",
+                        form.requiresExcavator
+                          ? "border-amber-500 bg-amber-500 text-white font-bold shadow-xs"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      🚜 Kepçe Gerekli
+                    </button>
+                  </div>
+                </Field>
+              </div>
 
               {/* Konum Arama & GPS Buton Alanı */}
               <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
@@ -1425,36 +1477,42 @@ function BulkWasteSolutionPanel({
                           searchAddressLocation();
                         }
                       }}
-                      className="bg-white pl-9 text-xs h-9"
+                      className="pl-9 text-xs bg-white h-9"
                     />
                   </div>
                   <Button
                     type="button"
                     size="sm"
+                    variant="outline"
                     disabled={isSearching}
                     onClick={searchAddressLocation}
-                    className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
+                    className="h-9 text-xs font-semibold bg-white border-emerald-300 text-emerald-800 hover:bg-emerald-50"
                   >
-                    <Search className="mr-1.5 h-3.5 w-3.5" />
-                    {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
+                    {isSearching ? "Aranıyor..." : "Adresi Bul"}
                   </Button>
+                </div>
+
+                {resolvedAddress && (
+                  <p className="text-[11px] font-medium text-emerald-800 bg-white/80 rounded-lg px-2.5 py-1 border border-emerald-200/60 truncate">
+                    📍 {resolvedAddress}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-emerald-200/50 text-xs">
+                  <span className="text-slate-600 font-mono text-[11px]">
+                    📍 Koordinat: {form.latitude}, {form.longitude}
+                  </span>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    disabled={locationState === "loading"}
                     onClick={useCurrentLocation}
-                    className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
+                    className="h-7 text-xs bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
                   >
                     <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
                     {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
                   </Button>
                 </div>
-                {resolvedAddress && (
-                  <p className="text-[11px] text-emerald-800 font-medium truncate">
-                    📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
-                  </p>
-                )}
               </div>
 
               <Field label="Enlem">
@@ -1490,8 +1548,8 @@ function BulkWasteSolutionPanel({
               )}
 
               <div className="sm:col-span-2 lg:col-span-4">
-                <Field label="Açıklama & Adres Tarifi">
-                  <Textarea required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Atığın bulunduğu nokta (örn. trafo yanı, sokak başı)..." />
+                <Field label="Açıklama & Adres Tarifi (İsteğe Bağlı)">
+                  <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Atığın bulunduğu nokta veya detaylar (isteğe bağlı)..." />
                 </Field>
               </div>
 
@@ -1513,7 +1571,7 @@ function BulkWasteSolutionPanel({
             <Archive className="h-5 w-5 text-amber-600" />
             Damperli Atık Listesi
           </CardTitle>
-          <Badge variant="outline" className="text-slate-600 text-xs">
+          <Badge variant="outline" className="text-slate-600 text-xs font-bold">
             {wasteList.length} Kayıt ({pendingWaste.length} Bekleyen)
           </Badge>
         </CardHeader>
@@ -1542,12 +1600,17 @@ function BulkWasteSolutionPanel({
                           variant="outline"
                           className={
                             isPending
-                              ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px]"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                              ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] font-bold"
                           }
                         >
                           {isPending ? "Toplanma Bekliyor" : "Toplandı"}
                         </Badge>
+                        {waste.requiresExcavator && (
+                          <Badge className="bg-amber-500 text-white border-amber-600 text-[10px] font-bold">
+                            🚜 Kepçe Gerekli
+                          </Badge>
+                        )}
                         {waste.photoUrl && (
                           <Badge className="bg-white text-slate-700 border border-slate-200 text-[10px]">
                             📸 Fotoğraflı
@@ -1555,10 +1618,18 @@ function BulkWasteSolutionPanel({
                         )}
                       </div>
                       <p className="text-xs text-slate-600">{waste.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                        <span>{waste.region}</span>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                        <span>📍 {waste.region}</span>
                         <span>·</span>
-                        <span>{new Date(waste.createdAt).toLocaleDateString("tr-TR")}</span>
+                        <span>📅 {new Date(waste.createdAt).toLocaleDateString("tr-TR")}</span>
+                        {waste.reporterName && (
+                          <>
+                            <span>·</span>
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+                              👤 Bildiren: {waste.reporterName}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -1566,8 +1637,12 @@ function BulkWasteSolutionPanel({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onFocusOnMap(waste.id)}
+                        onClick={() => {
+                          setSelectedPinId(waste.id);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
                         className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+                        title="Bu sayfadaki haritada göster"
                       >
                         <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
                         Haritada Gör
@@ -1582,6 +1657,23 @@ function BulkWasteSolutionPanel({
                         >
                           <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                           Toplandı
+                        </Button>
+                      )}
+
+                      {role === "yönetim" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={removeWaste.isPending}
+                          onClick={() => {
+                            if (confirm(`Damperlik atık #${waste.id} kaydını silmek istiyor musunuz?`)) {
+                              removeWaste.mutate({ id: waste.id });
+                            }
+                          }}
+                          className="text-xs h-8 text-slate-400 hover:text-red-600 px-2"
+                          title="Kaydı Sil"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
                     </div>

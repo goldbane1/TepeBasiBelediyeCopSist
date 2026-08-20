@@ -256,7 +256,7 @@ function FaultsPanel({
     if (!form.vehicleId) return toast.error("Lütfen araç seçin.");
     create.mutate({
       vehicleId: Number(form.vehicleId),
-      description: form.description,
+      description: form.description || "",
       severity: form.severity,
     });
   };
@@ -298,12 +298,11 @@ function FaultsPanel({
                 <option value="yüksek">yüksek</option>
               </select>
             </Field>
-            <Field label="Arıza Açıklaması">
+            <Field label="Arıza Açıklaması (İsteğe Bağlı)">
               <Input
-                required
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
-                placeholder="Arıza durumu ve detayları..."
+                placeholder="Arıza durumu ve detayları (isteğe bağlı)..."
               />
             </Field>
             <Button disabled={create.isPending} className="bg-emerald-700 hover:bg-emerald-800">

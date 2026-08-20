@@ -229,13 +229,14 @@ export const operationsRouter = router({
     create: protectedProcedure.input(
       z.object({
         vehicleId: z.number().int().positive(),
-        description: z.string().min(2),
+        description: z.string().optional().default(""),
         severity: z.enum(["düşük", "orta", "yüksek"]).default("orta"),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "kademe personeli", "kaynak personeli", "yönetim"]);
-      await db.createVehicleFault({ ...input, reportedBy: ctx.user.id, status: "kademe_onayı_bekliyor" });
-      await audit(ctx.user.id, "ARAÇ_ARIZASI_BİLDİRİLDİ", "araç_arızası", undefined, input.description);
+      const desc = input.description?.trim() || "Açıklama belirtilmedi";
+      await db.createVehicleFault({ ...input, description: desc, reportedBy: ctx.user.id, status: "kademe_onayı_bekliyor" });
+      await audit(ctx.user.id, "ARAÇ_ARIZASI_BİLDİRİLDİ", "araç_arızası", undefined, desc);
       return { success: true };
     }),
     review: protectedProcedure.input(
@@ -264,10 +265,11 @@ export const operationsRouter = router({
         region: z.string().min(2),
         neighborhood: z.string().min(2),
         wasteType: z.string().min(2),
-        description: z.string().min(2),
+        description: z.string().optional().default(""),
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
         durationHours: z.number().optional().default(48),
+        requiresExcavator: z.boolean().optional().default(false),
         photo: z.string().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
@@ -278,26 +280,34 @@ export const operationsRouter = router({
       const photoUrl = await uploadImage(input.photo, `bulkWaste/${ctx.user.id}`);
       const hours = input.durationHours === 24 ? 24 : 48;
       const autoDueAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+      const desc = input.description?.trim() || "Açıklama belirtilmedi";
 
       await db.createBulkWasteReport({
         region: input.region,
         neighborhood: input.neighborhood,
         wasteType: input.wasteType,
-        description: input.description,
+        description: desc,
         latitude: String(input.latitude),
         longitude: String(input.longitude),
         photoUrl: photoUrl ?? null,
         dueAt: autoDueAt,
+        requiresExcavator: input.requiresExcavator ?? false,
         reportedBy: ctx.user.id,
         status: "bekliyor",
       });
-      await audit(ctx.user.id, "DAMPERLİK_ATIK_BİLDİRİLDİ", "damperlik_atık", undefined, `${input.wasteType} - ${input.neighborhood} (${hours} saat)`);
+      await audit(
+        ctx.user.id,
+        "DAMPERLİK_ATIK_BİLDİRİLDİ",
+        "damperlik_atık",
+        undefined,
+        `${input.wasteType} - ${input.neighborhood} (${hours} saat${input.requiresExcavator ? " - Kepçe Gerekli" : ""})`
+      );
       return { success: true };
     }),
     collect: protectedProcedure.input(
       z.object({ id: z.number().int().positive(), vehicleId: z.number().int().positive() })
     ).mutation(async ({ ctx, input }) => {
-      requireRole(ctx.user.role, ["şoför", "yönetim"]);
+      requireRole(ctx.user.role, ["şoför", "yönetim", "kademe personeli"]);
       if (ctx.user.role === "şoför") {
         await db.requireActiveWasteShift(ctx.user.id, "damperli kamyon", input.vehicleId);
       }
@@ -313,6 +323,7 @@ export const operationsRouter = router({
         status: z.enum(["bekliyor", "toplandı"]).optional(),
         region: z.string().optional(),
         neighborhood: z.string().optional(),
+        requiresExcavator: z.boolean().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["yönetim"]);
@@ -343,7 +354,7 @@ export const operationsRouter = router({
         region: z.string().min(2),
         neighborhood: z.string().min(2),
         faultType: z.enum(["kol", "ayak", "gövde", "kapak", "diğer"]),
-        description: z.string().min(2),
+        description: z.string().optional().default(""),
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
         photo: z.string().optional(),
@@ -351,18 +362,19 @@ export const operationsRouter = router({
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "kaynak personeli", "yönetim"]);
       const photoUrl = await uploadImage(input.photo, `containers/${ctx.user.id}`);
+      const desc = input.description?.trim() || "Açıklama belirtilmedi";
       await db.createContainerFault({
         region: input.region,
         neighborhood: input.neighborhood,
         faultType: input.faultType,
-        description: input.description,
+        description: desc,
         latitude: String(input.latitude),
         longitude: String(input.longitude),
         photoUrl: photoUrl ?? null,
         reportedBy: ctx.user.id,
         status: "bekliyor",
       });
-      await audit(ctx.user.id, "KONTEYNER_ARIZASI_BİLDİRİLDİ", "konteyner_arızası", undefined, input.faultType);
+      await audit(ctx.user.id, "KONTEYNER_ARIZASI_BİLDİRİLDİ", "konteyner_arızası", undefined, `${input.faultType} - ${desc}`);
       return { success: true };
     }),
     repair: protectedProcedure.input(

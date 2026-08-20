@@ -22,6 +22,8 @@ export type MapOperation = {
   photoUrl?: string | null;
   dueAt?: Date | string;
   status: string;
+  reporterName?: string | null;
+  requiresExcavator?: boolean;
   extra?: Record<string, any>;
 };
 
@@ -53,15 +55,15 @@ export default function OperationsMap({
   const [selected, setSelected] = useState<MapOperation | null>(null);
   const [activeCategory, setActiveCategory] = useState<"tümü" | MapOperationCategory>(initialCategoryFilter);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [optimisticResolvedIds, setOptimisticResolvedIds] = useState<Set<number>>(new Set());
+  const [optimisticResolvedKeys, setOptimisticResolvedKeys] = useState<Set<string>>(new Set());
   const markersRef = useRef<L.Marker[]>([]);
 
   // Filter items by category if selected and exclude optimistically resolved items
   const filteredOperations = useMemo(() => {
-    const activeList = operations.filter(op => !optimisticResolvedIds.has(op.id));
+    const activeList = operations.filter(op => !optimisticResolvedKeys.has(`${op.category}-${op.id}`));
     if (activeCategory === "tümü") return activeList;
     return activeList.filter(op => op.category === activeCategory);
-  }, [operations, activeCategory, optimisticResolvedIds]);
+  }, [operations, activeCategory, optimisticResolvedKeys]);
 
   const items = useMemo(
     () =>
@@ -76,7 +78,7 @@ export default function OperationsMap({
   // Sync selectedOperationId prop
   useEffect(() => {
     if (selectedOperationId) {
-      const match = operations.find(o => o.id === selectedOperationId && !optimisticResolvedIds.has(o.id));
+      const match = operations.find(o => o.id === selectedOperationId && !optimisticResolvedKeys.has(`${o.category}-${o.id}`));
       if (match) {
         setSelected(match);
         if (map && Number.isFinite(Number(match.latitude)) && Number.isFinite(Number(match.longitude))) {
@@ -84,7 +86,7 @@ export default function OperationsMap({
         }
       }
     }
-  }, [selectedOperationId, operations, map, optimisticResolvedIds]);
+  }, [selectedOperationId, operations, map, optimisticResolvedKeys]);
 
   useEffect(() => {
     if (!map) return;
@@ -99,22 +101,19 @@ export default function OperationsMap({
       let categorySymbol = "•";
 
       if (operation.category === "Damperlik atık") {
-        const overdue = isOverdue(operation);
-        if (overdue) {
-          pinClass = "operations-map-pin--overdue";
-        } else {
-          pinClass = "operations-map-pin--damper";
-        }
         categorySymbol = "D";
+        pinClass = isOverdue(operation)
+          ? "operations-map-pin--overdue"
+          : "operations-map-pin--damper";
       } else if (operation.category === "Konteyner arızası") {
-        pinClass = "operations-map-pin--ariza";
         categorySymbol = "K";
+        pinClass = "operations-map-pin--ariza";
       } else if (operation.category === "Vatandaş şikayeti") {
-        pinClass = "operations-map-pin--sikayet";
         categorySymbol = "V";
+        pinClass = "operations-map-pin--sikayet";
       }
 
-      const pinHtml = `<button type="button" class="operations-map-pin ${pinClass}" aria-label="${operation.category}: ${operation.title}"><span>${categorySymbol}</span></button>`;
+      const pinHtml = `<div class="operations-map-pin ${pinClass}">${categorySymbol}</div>`;
 
       const customIcon = L.divIcon({
         className: "custom-leaflet-marker",
@@ -167,11 +166,14 @@ export default function OperationsMap({
     const isPending = !["toplandı", "onarım_tamamlandı", "onaylandı"].includes(selected.status);
     if (!isPending) return false;
     if (role === "yönetim") return true;
-    if (selected.category === "Damperlik atık" && role === "şoför") return true;
-    if (selected.category === "Konteyner arızası" && (role === "kaynak personeli" || role === "şoför")) return true;
+    if (selected.category === "Damperlik atık" && (role === "şoför" || role === "kademe personeli")) return true;
+    if (selected.category === "Konteyner arızası" && (role === "kaynak personeli" || role === "şoför" || role === "kademe personeli")) return true;
     if (selected.category === "Vatandaş şikayeti" && role === "şoför") return true;
     return false;
   }, [selected, role]);
+
+  const selectedReporter = selected?.reporterName || selected?.extra?.reporterName;
+  const selectedNeedsExcavator = selected?.requiresExcavator || selected?.extra?.requiresExcavator;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -273,6 +275,22 @@ export default function OperationsMap({
               {selected.description}
             </p>
 
+            {/* Bildiren Şoför / Personel & Kepçe Rozeti */}
+            {(selectedReporter || selectedNeedsExcavator) && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+                {selectedReporter && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 border border-slate-200/80">
+                    👤 Bildiren: {selectedReporter}
+                  </span>
+                )}
+                {selectedNeedsExcavator && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 font-bold text-amber-900 border border-amber-300">
+                    🚜 Kepçe Gerekli
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Photo preview if available */}
             {selected.photoUrl && (
               <div className="mt-3">
@@ -312,7 +330,7 @@ export default function OperationsMap({
                   onClick={() => {
                     const target = selected;
                     setSelected(null);
-                    setOptimisticResolvedIds(prev => new Set(prev).add(target.id));
+                    setOptimisticResolvedKeys(prev => new Set(prev).add(`${target.category}-${target.id}`));
                     onResolveOperation(target);
                   }}
                   className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm"
