@@ -21,6 +21,16 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const neighborhoods = mysqlTable("neighborhoods", {
+  id: int("id").autoincrement().primaryKey(),
+  region: varchar("region", { length: 100 }).notNull(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Neighborhood = typeof neighborhoods.$inferSelect;
+export type InsertNeighborhood = typeof neighborhoods.$inferInsert;
+
 export const vehicles = mysqlTable("vehicles", {
   id: int("id").autoincrement().primaryKey(),
   type: mysqlEnum("type", ["çöp kamyonu", "damperli kamyon"]).notNull(),
@@ -38,6 +48,7 @@ export const shifts = mysqlTable("shifts", {
   region: varchar("region", { length: 100 }).notNull(),
   neighborhood: varchar("neighborhood", { length: 100 }).notNull(),
   vehicleType: mysqlEnum("vehicleType", ["çöp kamyonu", "damperli kamyon"]).notNull(),
+  shiftHours: varchar("shiftHours", { length: 32 }).default("08:00 - 16:00"),
   startKm: int("startKm").notNull(),
   startFullness: mysqlEnum("startFullness", ["boş", "dolu"]).notNull(),
   endKm: int("endKm"),
@@ -70,6 +81,7 @@ export const bulkWasteReports = mysqlTable("bulkWasteReports", {
   neighborhood: varchar("neighborhood", { length: 100 }).notNull(),
   wasteType: varchar("wasteType", { length: 100 }).notNull(),
   description: text("description").notNull(),
+  photoUrl: text("photoUrl"),
   latitude: varchar("latitude", { length: 32 }).notNull(),
   longitude: varchar("longitude", { length: 32 }).notNull(),
   dueAt: timestamp("dueAt").notNull(),
@@ -87,6 +99,7 @@ export const containerFaults = mysqlTable("containerFaults", {
   neighborhood: varchar("neighborhood", { length: 100 }).notNull(),
   faultType: mysqlEnum("faultType", ["kol", "ayak", "gövde", "kapak", "diğer"]).notNull(),
   description: text("description").notNull(),
+  photoUrl: text("photoUrl"),
   latitude: varchar("latitude", { length: 32 }).notNull(),
   longitude: varchar("longitude", { length: 32 }).notNull(),
   status: mysqlEnum("status", ["bekliyor", "onarım_tamamlandı"]).default("bekliyor").notNull(),

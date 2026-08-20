@@ -9,6 +9,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 const staffRole = z.enum(["şoför", "kademe personeli", "kaynak personeli", "yönetim"]);
 const vehicleType = z.enum(["çöp kamyonu", "damperli kamyon"]);
 const fullness = z.enum(["boş", "dolu"]);
+const shiftHoursEnum = z.enum(["08:00 - 16:00", "16:00 - 00:00", "00:00 - 08:00"]);
 
 function requireRole(role: z.infer<typeof staffRole>, allowed: z.infer<typeof staffRole>[]) {
   if (!allowed.includes(role)) {
@@ -53,6 +54,51 @@ async function uploadImages(dataUrlOrArray: string | string[] | undefined, prefi
 
 export const operationsRouter = router({
   summary: protectedProcedure.query(() => db.getOperationalSummary()),
+
+  // ---------------------------------------------------------------------------
+  // NEIGHBORHOODS (MAHALLELER)
+  // ---------------------------------------------------------------------------
+  neighborhoods: router({
+    list: protectedProcedure.query(async () => {
+      return db.listNeighborhoods();
+    }),
+    create: protectedProcedure.input(
+      z.object({
+        region: z.string().min(2),
+        name: z.string().min(2),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.createNeighborhood(input);
+      await audit(ctx.user.id, "MAHALLE_EKLENDİ", "mahalle", undefined, `${input.region} - ${input.name}`);
+      return { success: true };
+    }),
+    update: protectedProcedure.input(
+      z.object({
+        id: z.number().int().positive(),
+        region: z.string().min(2).optional(),
+        name: z.string().min(2).optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      const { id, ...data } = input;
+      await db.updateNeighborhood(id, data);
+      await audit(ctx.user.id, "MAHALLE_GÜNCELLENDİ", "mahalle", id, `${data.region || ""} ${data.name || ""}`);
+      return { success: true };
+    }),
+    remove: protectedProcedure.input(
+      z.object({ id: z.number().int().positive() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.deleteNeighborhood(input.id);
+      await audit(ctx.user.id, "MAHALLE_SİLİNDİ", "mahalle", input.id);
+      return { success: true };
+    }),
+  }),
+
+  // ---------------------------------------------------------------------------
+  // VEHICLES (ARAÇLAR)
+  // ---------------------------------------------------------------------------
   vehicles: router({
     list: protectedProcedure.query(() => db.listVehicles()),
     create: protectedProcedure.input(
@@ -87,6 +133,10 @@ export const operationsRouter = router({
       return { success: true };
     }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // SHIFTS (MESAİLER)
+  // ---------------------------------------------------------------------------
   shifts: router({
     list: protectedProcedure.query(({ ctx }) => {
       requireRole(ctx.user.role, ["yönetim"]);
@@ -94,6 +144,9 @@ export const operationsRouter = router({
     }),
     current: protectedProcedure.query(({ ctx }) => {
       return db.getCurrentShiftForDriver(ctx.user.id);
+    }),
+    driverHistory: protectedProcedure.query(({ ctx }) => {
+      return db.listDriverRecentShifts(ctx.user.id, 10);
     }),
     eligibility: protectedProcedure.input(z.object({ vehicleId: z.number().int().positive() })).query(async ({ ctx, input }) => {
       return db.getVehicleShiftEligibility(input.vehicleId);
@@ -105,6 +158,7 @@ export const operationsRouter = router({
         region: z.string().min(2),
         neighborhood: z.string().min(2),
         vehicleType,
+        shiftHours: shiftHoursEnum.optional().default("08:00 - 16:00"),
         startKm: z.number().int().nonnegative(),
         startFullness: fullness,
       })
@@ -112,7 +166,7 @@ export const operationsRouter = router({
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
       const targetDriverId = (ctx.user.role === "yönetim" && input.driverId) ? input.driverId : ctx.user.id;
       await db.startShift({ ...input, driverId: targetDriverId, status: "açık" });
-      await audit(ctx.user.id, "MESAİ_BAŞLATILDI", "mesai", undefined, `Şoför #${targetDriverId} · ${input.neighborhood} / ${input.startKm} km`);
+      await audit(ctx.user.id, "MESAİ_BAŞLATILDI", "mesai", undefined, `Şoför #${targetDriverId} · ${input.neighborhood} / Vardiya: ${input.shiftHours} / ${input.startKm} km`);
       return { success: true };
     }),
     finish: protectedProcedure.input(
@@ -137,7 +191,37 @@ export const operationsRouter = router({
       await audit(ctx.user.id, "MESAİ_SONLANDIRILDI", "mesai", input.shiftId, `${input.endKm} km`);
       return { success: true };
     }),
+    update: protectedProcedure.input(
+      z.object({
+        id: z.number().int().positive(),
+        region: z.string().optional(),
+        neighborhood: z.string().optional(),
+        shiftHours: z.string().optional(),
+        startKm: z.number().int().optional(),
+        endKm: z.number().int().nullable().optional(),
+        tonnage: z.string().nullable().optional(),
+        status: z.enum(["açık", "tamamlandı"]).optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      const { id, ...data } = input;
+      await db.updateShift(id, data as any);
+      await audit(ctx.user.id, "MESAİ_GÜNCELLENDİ", "mesai", id, JSON.stringify(data));
+      return { success: true };
+    }),
+    remove: protectedProcedure.input(
+      z.object({ id: z.number().int().positive() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.deleteShift(input.id);
+      await audit(ctx.user.id, "MESAİ_SİLİNDİ", "mesai", input.id);
+      return { success: true };
+    }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // VEHICLE FAULTS (ARAÇ ARIZALARI)
+  // ---------------------------------------------------------------------------
   vehicleFaults: router({
     list: protectedProcedure.query(({ ctx }) => {
       return db.listVehicleFaults();
@@ -167,6 +251,10 @@ export const operationsRouter = router({
       return { success: true };
     }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // BULK WASTE REPORTS (DAMPERLİK ATIK)
+  // ---------------------------------------------------------------------------
   bulkWaste: router({
     list: protectedProcedure.query(({ ctx }) => {
       return db.listBulkWasteReports();
@@ -179,21 +267,31 @@ export const operationsRouter = router({
         description: z.string().min(2),
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
-        dueAt: z.date(),
+        durationHours: z.number().optional().default(48),
+        photo: z.string().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
       if (ctx.user.role === "şoför") {
         await db.requireActiveWasteShift(ctx.user.id, "çöp kamyonu");
       }
+      const photoUrl = await uploadImage(input.photo, `bulkWaste/${ctx.user.id}`);
+      const hours = input.durationHours === 24 ? 24 : 48;
+      const autoDueAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+
       await db.createBulkWasteReport({
-        ...input,
+        region: input.region,
+        neighborhood: input.neighborhood,
+        wasteType: input.wasteType,
+        description: input.description,
         latitude: String(input.latitude),
         longitude: String(input.longitude),
+        photoUrl: photoUrl ?? null,
+        dueAt: autoDueAt,
         reportedBy: ctx.user.id,
         status: "bekliyor",
       });
-      await audit(ctx.user.id, "DAMPERLİK_ATIK_BİLDİRİLDİ", "damperlik_atık", undefined, input.wasteType);
+      await audit(ctx.user.id, "DAMPERLİK_ATIK_BİLDİRİLDİ", "damperlik_atık", undefined, `${input.wasteType} - ${input.neighborhood} (${hours} saat)`);
       return { success: true };
     }),
     collect: protectedProcedure.input(
@@ -207,7 +305,35 @@ export const operationsRouter = router({
       await audit(ctx.user.id, "DAMPERLİK_ATIK_TOPLANDI", "damperlik_atık", input.id);
       return { success: true };
     }),
+    update: protectedProcedure.input(
+      z.object({
+        id: z.number().int().positive(),
+        wasteType: z.string().optional(),
+        description: z.string().optional(),
+        status: z.enum(["bekliyor", "toplandı"]).optional(),
+        region: z.string().optional(),
+        neighborhood: z.string().optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      const { id, ...data } = input;
+      await db.updateBulkWasteReport(id, data);
+      await audit(ctx.user.id, "DAMPERLİK_ATIK_GÜNCELLENDİ", "damperlik_atık", id, JSON.stringify(data));
+      return { success: true };
+    }),
+    remove: protectedProcedure.input(
+      z.object({ id: z.number().int().positive() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.deleteBulkWasteReport(input.id);
+      await audit(ctx.user.id, "DAMPERLİK_ATIK_SİLİNDİ", "damperlik_atık", input.id);
+      return { success: true };
+    }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // CONTAINER FAULTS (KONTEYNER ARIZALARI)
+  // ---------------------------------------------------------------------------
   containerFaults: router({
     list: protectedProcedure.query(({ ctx }) => {
       return db.listContainerFaults();
@@ -220,13 +346,19 @@ export const operationsRouter = router({
         description: z.string().min(2),
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
+        photo: z.string().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "kaynak personeli", "yönetim"]);
+      const photoUrl = await uploadImage(input.photo, `containers/${ctx.user.id}`);
       await db.createContainerFault({
-        ...input,
+        region: input.region,
+        neighborhood: input.neighborhood,
+        faultType: input.faultType,
+        description: input.description,
         latitude: String(input.latitude),
         longitude: String(input.longitude),
+        photoUrl: photoUrl ?? null,
         reportedBy: ctx.user.id,
         status: "bekliyor",
       });
@@ -236,12 +368,39 @@ export const operationsRouter = router({
     repair: protectedProcedure.input(
       z.object({ id: z.number().int().positive(), note: z.string().optional() })
     ).mutation(async ({ ctx, input }) => {
-      requireRole(ctx.user.role, ["kaynak personeli", "yönetim"]);
+      requireRole(ctx.user.role, ["kaynak personeli", "yönetim", "şoför"]);
       await db.repairContainerFault(input.id, ctx.user.id, input.note);
       await audit(ctx.user.id, "KONTEYNER_ONARILDI", "konteyner_arızası", input.id, input.note);
       return { success: true };
     }),
+    update: protectedProcedure.input(
+      z.object({
+        id: z.number().int().positive(),
+        faultType: z.enum(["kol", "ayak", "gövde", "kapak", "diğer"]).optional(),
+        description: z.string().optional(),
+        status: z.enum(["bekliyor", "onarım_tamamlandı"]).optional(),
+        repairNote: z.string().optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      const { id, ...data } = input;
+      await db.updateContainerFault(id, data);
+      await audit(ctx.user.id, "KONTEYNER_ARIZASI_GÜNCELLENDİ", "konteyner_arızası", id, JSON.stringify(data));
+      return { success: true };
+    }),
+    remove: protectedProcedure.input(
+      z.object({ id: z.number().int().positive() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.deleteContainerFault(input.id);
+      await audit(ctx.user.id, "KONTEYNER_ARIZASI_SİLİNDİ", "konteyner_arızası", input.id);
+      return { success: true };
+    }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // CITIZEN COMPLAINTS (VATANDAŞ ŞİKAYETLERİ)
+  // ---------------------------------------------------------------------------
   complaints: router({
     list: protectedProcedure.query(({ ctx }) => {
       return db.listCitizenComplaints();
@@ -253,19 +412,20 @@ export const operationsRouter = router({
         description: z.string().min(2),
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
-        dueAt: z.date(),
+        dueAt: z.date().optional(),
         photo: z.string().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
       const photoUrl = await uploadImage(input.photo, `complaints/${ctx.user.id}`);
+      const autoDueAt = input.dueAt ?? new Date(Date.now() + 48 * 60 * 60 * 1000);
       await db.createCitizenComplaint({
         region: input.region,
         neighborhood: input.neighborhood,
         description: input.description,
         latitude: String(input.latitude),
         longitude: String(input.longitude),
-        dueAt: input.dueAt,
+        dueAt: autoDueAt,
         photoUrl: photoUrl ?? null,
         reportedBy: ctx.user.id,
         status: "açık",
@@ -281,13 +441,59 @@ export const operationsRouter = router({
       await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_ONAYLANDI", "vatandaş_şikayeti", input.id);
       return { success: true };
     }),
+    update: protectedProcedure.input(
+      z.object({
+        id: z.number().int().positive(),
+        description: z.string().optional(),
+        status: z.enum(["açık", "onaylandı"]).optional(),
+        region: z.string().optional(),
+        neighborhood: z.string().optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      const { id, ...data } = input;
+      await db.updateCitizenComplaint(id, data);
+      await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_GÜNCELLENDİ", "vatandaş_şikayeti", id, JSON.stringify(data));
+      return { success: true };
+    }),
+    remove: protectedProcedure.input(
+      z.object({ id: z.number().int().positive() })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.deleteCitizenComplaint(input.id);
+      await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_SİLİNDİ", "vatandaş_şikayeti", input.id);
+      return { success: true };
+    }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // AUDIT LOGS & REPORTS & DATA RESET
+  // ---------------------------------------------------------------------------
   reports: router({
     auditLogs: protectedProcedure.query(({ ctx }) => {
       requireRole(ctx.user.role, ["yönetim"]);
       return db.listAuditLogs();
     }),
+    resetData: protectedProcedure.input(
+      z.object({
+        shifts: z.boolean().optional(),
+        waste: z.boolean().optional(),
+        containers: z.boolean().optional(),
+        complaints: z.boolean().optional(),
+        faults: z.boolean().optional(),
+        auditLogs: z.boolean().optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["yönetim"]);
+      await db.resetOperationalData(input);
+      await audit(ctx.user.id, "ANALİZ_VERİLERİ_SIFIRLANDI", "analiz_yönetimi", undefined, JSON.stringify(input));
+      return { success: true };
+    }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // USER MANAGEMENT (KULLANICI YÖNETİMİ)
+  // ---------------------------------------------------------------------------
   users: router({
     list: protectedProcedure.query(({ ctx }) => {
       requireRole(ctx.user.role, ["yönetim"]);

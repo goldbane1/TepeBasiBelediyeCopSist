@@ -4,6 +4,7 @@ import {
   bulkWasteReports,
   citizenComplaints,
   containerFaults,
+  neighborhoods,
   shifts,
   users,
   vehicleFaults,
@@ -46,6 +47,41 @@ export function firstOrNull<T>(rows: T[]): T | null {
   return rows.length > 0 ? rows[0] : null;
 }
 
+// -----------------------------------------------------------------------------
+// NEIGHBORHOODS (MAHALLELER)
+// -----------------------------------------------------------------------------
+export async function listNeighborhoods() {
+  const db = await getDb();
+  if (!db) return [];
+  try {
+    return await db.select().from(neighborhoods).orderBy(neighborhoods.region, neighborhoods.name);
+  } catch (e) {
+    console.warn("[Database] Error listing neighborhoods:", e);
+    return [];
+  }
+}
+
+export async function createNeighborhood(data: typeof neighborhoods.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.insert(neighborhoods).values(data);
+}
+
+export async function updateNeighborhood(id: number, data: Partial<typeof neighborhoods.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.update(neighborhoods).set(data).where(eq(neighborhoods.id, id));
+}
+
+export async function deleteNeighborhood(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.delete(neighborhoods).where(eq(neighborhoods.id, id));
+}
+
+// -----------------------------------------------------------------------------
+// VEHICLES (ARAÇLAR)
+// -----------------------------------------------------------------------------
 export async function listVehicles() {
   const db = await getDb();
   return db ? db.select().from(vehicles).orderBy(desc(vehicles.createdAt)) : [];
@@ -100,6 +136,9 @@ export async function getVehicleShiftEligibility(vehicleId: number): Promise<Shi
   return getShiftEligibility(vehicle.status, Number(openFault?.count ?? 0));
 }
 
+// -----------------------------------------------------------------------------
+// SHIFTS (MESAİLER)
+// -----------------------------------------------------------------------------
 export async function startShift(data: typeof shifts.$inferInsert) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
@@ -128,6 +167,18 @@ export async function finishShift(id: number, data: Partial<typeof shifts.$infer
   await db.update(shifts).set({ ...data, status: "tamamlandı", endedAt: new Date() }).where(eq(shifts.id, id));
 }
 
+export async function updateShift(id: number, data: Partial<typeof shifts.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.update(shifts).set(data).where(eq(shifts.id, id));
+}
+
+export async function deleteShift(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.delete(shifts).where(eq(shifts.id, id));
+}
+
 export async function listShifts() {
   const db = await getDb();
   if (!db) return [];
@@ -144,6 +195,7 @@ export async function listShifts() {
       region: shifts.region,
       neighborhood: shifts.neighborhood,
       vehicleType: shifts.vehicleType,
+      shiftHours: shifts.shiftHours,
       startKm: shifts.startKm,
       startFullness: shifts.startFullness,
       endKm: shifts.endKm,
@@ -159,6 +211,38 @@ export async function listShifts() {
     .leftJoin(users, eq(shifts.driverId, users.id))
     .leftJoin(vehicles, eq(shifts.vehicleId, vehicles.id))
     .orderBy(desc(shifts.startedAt));
+}
+
+export async function listDriverRecentShifts(driverId: number, limit = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: shifts.id,
+      driverId: shifts.driverId,
+      vehicleId: shifts.vehicleId,
+      vehiclePlate: vehicles.plate,
+      vehicleBrand: vehicles.brand,
+      region: shifts.region,
+      neighborhood: shifts.neighborhood,
+      vehicleType: shifts.vehicleType,
+      shiftHours: shifts.shiftHours,
+      startKm: shifts.startKm,
+      startFullness: shifts.startFullness,
+      endKm: shifts.endKm,
+      endFullness: shifts.endFullness,
+      tonnage: shifts.tonnage,
+      tonnageReceiptUrl: shifts.tonnageReceiptUrl,
+      faultReported: shifts.faultReported,
+      status: shifts.status,
+      startedAt: shifts.startedAt,
+      endedAt: shifts.endedAt,
+    })
+    .from(shifts)
+    .leftJoin(vehicles, eq(shifts.vehicleId, vehicles.id))
+    .where(eq(shifts.driverId, driverId))
+    .orderBy(desc(shifts.startedAt))
+    .limit(limit);
 }
 
 export async function getCurrentShiftForDriver(driverId: number) {
@@ -179,6 +263,9 @@ export async function requireActiveWasteShift(
   return currentShift;
 }
 
+// -----------------------------------------------------------------------------
+// VEHICLE FAULTS (ARAÇ ARIZALARI)
+// -----------------------------------------------------------------------------
 export async function listVehicleFaults() {
   const db = await getDb();
   return db ? db.select().from(vehicleFaults).orderBy(desc(vehicleFaults.createdAt)) : [];
@@ -199,12 +286,13 @@ export async function reviewVehicleFault(id: number, approvedBy: number, approve
   const status = approved ? "onaylandı" : "bakımda";
   await db.update(vehicleFaults).set({ status, approvedBy, approvalNote: note ?? null, approvedAt: new Date() }).where(eq(vehicleFaults.id, id));
 
-  // If approved (repaired / taken out of maintenance), set vehicle back to "aktif".
-  // If set to maintenance ("bakımda"), set vehicle status to "bakımda".
   const vehicleStatus = approved ? "aktif" : "bakımda";
   await db.update(vehicles).set({ status: vehicleStatus }).where(eq(vehicles.id, fault.vehicleId));
 }
 
+// -----------------------------------------------------------------------------
+// BULK WASTE REPORTS (DAMPERLİK ATIK)
+// -----------------------------------------------------------------------------
 export async function listBulkWasteReports() {
   const db = await getDb();
   return db ? db.select().from(bulkWasteReports).orderBy(desc(bulkWasteReports.createdAt)) : [];
@@ -216,12 +304,27 @@ export async function createBulkWasteReport(data: typeof bulkWasteReports.$infer
   await db.insert(bulkWasteReports).values(data);
 }
 
+export async function updateBulkWasteReport(id: number, data: Partial<typeof bulkWasteReports.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.update(bulkWasteReports).set(data).where(eq(bulkWasteReports.id, id));
+}
+
+export async function deleteBulkWasteReport(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.delete(bulkWasteReports).where(eq(bulkWasteReports.id, id));
+}
+
 export async function collectBulkWaste(id: number, vehicleId: number, driverId: number) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.update(bulkWasteReports).set({ status: "toplandı", collectedVehicleId: vehicleId, collectedDriverId: driverId, collectedAt: new Date() }).where(eq(bulkWasteReports.id, id));
 }
 
+// -----------------------------------------------------------------------------
+// CONTAINER FAULTS (KONTEYNER ARIZALARI)
+// -----------------------------------------------------------------------------
 export async function listContainerFaults() {
   const db = await getDb();
   return db ? db.select().from(containerFaults).orderBy(desc(containerFaults.createdAt)) : [];
@@ -233,12 +336,27 @@ export async function createContainerFault(data: typeof containerFaults.$inferIn
   await db.insert(containerFaults).values(data);
 }
 
+export async function updateContainerFault(id: number, data: Partial<typeof containerFaults.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.update(containerFaults).set(data).where(eq(containerFaults.id, id));
+}
+
+export async function deleteContainerFault(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.delete(containerFaults).where(eq(containerFaults.id, id));
+}
+
 export async function repairContainerFault(id: number, technicianId: number, note?: string) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.update(containerFaults).set({ status: "onarım_tamamlandı", repairedBy: technicianId, repairNote: note ?? null, repairedAt: new Date() }).where(eq(containerFaults.id, id));
 }
 
+// -----------------------------------------------------------------------------
+// CITIZEN COMPLAINTS (VATANDAŞ ŞİKAYETLERİ)
+// -----------------------------------------------------------------------------
 export async function listCitizenComplaints() {
   const db = await getDb();
   return db ? db.select().from(citizenComplaints).orderBy(desc(citizenComplaints.createdAt)) : [];
@@ -250,12 +368,27 @@ export async function createCitizenComplaint(data: typeof citizenComplaints.$inf
   await db.insert(citizenComplaints).values(data);
 }
 
+export async function updateCitizenComplaint(id: number, data: Partial<typeof citizenComplaints.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.update(citizenComplaints).set(data).where(eq(citizenComplaints.id, id));
+}
+
+export async function deleteCitizenComplaint(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+  await db.delete(citizenComplaints).where(eq(citizenComplaints.id, id));
+}
+
 export async function acknowledgeCitizenComplaint(id: number, driverId: number) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.update(citizenComplaints).set({ status: "onaylandı", acknowledgedBy: driverId, acknowledgedAt: new Date() }).where(eq(citizenComplaints.id, id));
 }
 
+// -----------------------------------------------------------------------------
+// AUDIT LOGS & REPORTS
+// -----------------------------------------------------------------------------
 export async function addAuditLog(data: typeof auditLogs.$inferInsert) {
   const db = await getDb();
   if (!db) return;
@@ -297,4 +430,38 @@ export async function getOperationalSummary() {
     pendingWasteCount: Number(pendingWasteCount?.count ?? 0),
     overdueComplaintCount: Number(overdueComplaintCount?.count ?? 0),
   };
+}
+
+// -----------------------------------------------------------------------------
+// RESET / ANALYTICS DATA MANAGEMENT (YÖNETİM VERİ SIFIRLAMA)
+// -----------------------------------------------------------------------------
+export async function resetOperationalData(options: {
+  shifts?: boolean;
+  waste?: boolean;
+  containers?: boolean;
+  complaints?: boolean;
+  faults?: boolean;
+  auditLogs?: boolean;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  if (options.shifts) {
+    await db.delete(shifts);
+  }
+  if (options.waste) {
+    await db.delete(bulkWasteReports);
+  }
+  if (options.containers) {
+    await db.delete(containerFaults);
+  }
+  if (options.complaints) {
+    await db.delete(citizenComplaints);
+  }
+  if (options.faults) {
+    await db.delete(vehicleFaults);
+  }
+  if (options.auditLogs) {
+    await db.delete(auditLogs);
+  }
 }
