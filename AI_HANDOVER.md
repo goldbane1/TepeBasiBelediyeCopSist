@@ -378,6 +378,17 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu" ve üstündeki tüm KPI kartlarına takvimden özel gün (`[🎯 Belirli Gün Seç]`) ve tarih aralığı (`[↔️ Tarih Aralığı]`) seçme özellikleri eklendi.
   - Seçilen günün tarihi (Örn: *20 Ağustos 2026 Perşembe*) rozette gösterilir ve tüm mahallelerin sefer sayıları, tonajları, atık/arıza/şikayet sayıları ve vardiya dağılımları seçilen tarihe göre anında yeniden hesaplanıp listelenir.
 
+### [v2.4.13] - 2026-08-21
+- **Toolbar Navigasyon Düzeni & İsim Sadeleştirmesi:**
+  - `Mesai Yönetimi` menü öğesi, şoförler ve yöneticiler için doğrudan `Operasyon Özeti` (Dashboard) öğesinin hemen altına taşındı.
+  - Toolbar üzerindeki `Operasyon Haritası & Bildirimler` menü başlığı `Operasyon Haritası` olarak sadeleştirildi.
+- **Mesai Başlatma Ekranı Sadeleştirmesi:**
+  - Şoför mesai başlatma formundan `Bölge` giriş kutusu kaldırıldı; bölge bilgisi seçilen mahalleye göre otomatik doldurulur.
+- **Mesai Sonlandırmada Tonaj Fişi İsteğe Bağlılığı:**
+  - Mesai sonlandırma formundaki tonaj fişi yükleme alanı `Tonaj Fişi (İsteğe Bağlı)` olarak düzenlendi; fiş yüklemeden de mesai sorunsuz tamamlanabilir.
+- **Vatandaş Şikayet Kaydı Yetkilendirmesi:**
+  - Vatandaş şikayeti bildirme formu (`ComplaintPanel`) ve backend mutasyonu (`complaints.create`) yalnızca `yönetim` rolüne tahsis edildi; şoförler için bildirim formu gizlendi ve sadece harita & çözüm akışı aktif bırakıldı.
+
 ### [v2.4.12] - 2026-08-21
 - **Operasyonel Listelerde Yalnızca Aktif ve Bekleyen Kayıtların Listelenmesi:**
   - **Damperli Atık Listesi:** Saha çözümü ve yönetim sekmelerinde çözülen (`toplandı`) atıklar filtrelenerek yalnızca toplanma bekleyen (`status: 'bekliyor'`) damperlik atıklar listelenir.
@@ -416,6 +427,6 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
     5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
 
 ---
-*Doküman Sürümü: v2.4.12 (Canlı Şema & Operasyonel Devir Standardı)*  
+*Doküman Sürümü: v2.4.13 (Canlı Şema & Operasyonel Devir Standardı)*  
 *Son Güncelleme: 2026-08-21*
 

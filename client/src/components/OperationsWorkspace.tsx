@@ -786,7 +786,7 @@ function ShiftPanel({
           <CardTitle className="font-display text-base">Yeni Mesai Başlat</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitDriverStart}>
+          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitDriverStart}>
             <Field label="Görev Mahallesi">
               <select
                 required
@@ -815,10 +815,6 @@ function ShiftPanel({
                   </option>
                 ))}
               </select>
-            </Field>
-
-            <Field label="Bölge">
-              <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} />
             </Field>
 
             <Field label="Araç Tipi">
@@ -855,7 +851,7 @@ function ShiftPanel({
             </Field>
 
             {selectedVehicle?.nextOilMaintenanceKm && (
-              <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 flex items-center gap-3 text-amber-950 text-xs shadow-xs animate-fadeIn">
+              <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 flex items-center gap-3 text-amber-950 text-xs shadow-xs animate-fadeIn">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-xl">
                   🛢️
                 </div>
@@ -869,7 +865,7 @@ function ShiftPanel({
               </div>
             )}
 
-            <div className="sm:col-span-2 lg:col-span-4 pt-1">
+            <div className="sm:col-span-2 lg:col-span-3 pt-1">
               <Button disabled={start.isPending || Boolean(current.data)} className="w-full bg-emerald-700 hover:bg-emerald-800">
                 {current.data ? "Açık mesainiz bulunuyor" : start.isPending ? "Kaydediliyor..." : "Mesaiyi Başlat"}
               </Button>
@@ -906,10 +902,10 @@ function ShiftPanel({
                   <option value="dolu">dolu</option>
                 </select>
               </Field>
-              <Field label="Tonaj">
+              <Field label="Tonaj (İsteğe Bağlı)">
                 <Input value={endForm.tonnage} onChange={e => setEndForm({ ...endForm, tonnage: e.target.value })} placeholder="Örn. 4,25" />
               </Field>
-              <Field label="Tonaj Fişi (Kamera / Galeri)">
+              <Field label="Tonaj Fişi (İsteğe Bağlı)">
                 <Input
                   type="file"
                   accept="image/*"

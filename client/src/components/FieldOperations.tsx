@@ -827,130 +827,132 @@ function ComplaintPanel({
         />
       </Card>
 
-      {/* 2. Yeni Vatandaş Şikayeti Kayıt Formu */}
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="font-display flex items-center gap-2 text-base">
-            <Plus className="h-5 w-5 text-emerald-700" />
-            Yeni Vatandaş Şikayeti Kaydet
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitComplaint}>
-            <Field label="Mahalle">
-              <select
-                value={complaintForm.neighborhood}
-                onChange={e => {
-                  const matched = neighborhoodsList.find(n => n.name === e.target.value);
-                  setComplaintForm({ ...complaintForm, neighborhood: e.target.value, region: matched?.region || complaintForm.region });
-                }}
-                className="input-native"
-              >
-                <option value="">Mahalle seçin</option>
-                {neighborhoodsList.map(n => (
-                  <option key={n.id} value={n.name}>
-                    {n.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Bölge">
-              <Input required value={complaintForm.region} onChange={e => setComplaintForm({ ...complaintForm, region: e.target.value })} />
-            </Field>
-
-            {/* Konum Arama & GPS Buton Alanı */}
-            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Batıkent)..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        searchAddressLocation();
-                      }
-                    }}
-                    className="bg-white pl-9 text-xs h-9"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={isSearching}
-                  onClick={searchAddressLocation}
-                  className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
+      {/* 2. Yeni Vatandaş Şikayeti Kayıt Formu - SADECE YÖNETİM İÇİN */}
+      {role === "yönetim" && (
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display flex items-center gap-2 text-base">
+              <Plus className="h-5 w-5 text-emerald-700" />
+              Yeni Vatandaş Şikayeti Kaydet
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitComplaint}>
+              <Field label="Mahalle">
+                <select
+                  value={complaintForm.neighborhood}
+                  onChange={e => {
+                    const matched = neighborhoodsList.find(n => n.name === e.target.value);
+                    setComplaintForm({ ...complaintForm, neighborhood: e.target.value, region: matched?.region || complaintForm.region });
+                  }}
+                  className="input-native"
                 >
-                  <Search className="mr-1.5 h-3.5 w-3.5" />
-                  {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={locationState === "loading"}
-                  onClick={useCurrentLocation}
-                  className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
-                >
-                  <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                  {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
-                </Button>
-              </div>
-              {resolvedAddress && (
-                <p className="text-[11px] text-emerald-800 font-medium truncate">
-                  📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
-                </p>
-              )}
-            </div>
+                  <option value="">Mahalle seçin</option>
+                  {neighborhoodsList.map(n => (
+                    <option key={n.id} value={n.name}>
+                      {n.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-            <Field label="Enlem">
-              <Input required type="number" step="any" value={complaintForm.latitude} onChange={e => setComplaintForm({ ...complaintForm, latitude: e.target.value })} />
-            </Field>
-            <Field label="Boylam">
-              <Input required type="number" step="any" value={complaintForm.longitude} onChange={e => setComplaintForm({ ...complaintForm, longitude: e.target.value })} />
-            </Field>
+              <Field label="Bölge">
+                <Input required value={complaintForm.region} onChange={e => setComplaintForm({ ...complaintForm, region: e.target.value })} />
+              </Field>
 
-            <Field label="Fotoğraf (İsteğe Bağlı)">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoUpload}
-                  className="text-xs"
-                />
-                {complaintForm.photo && (
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setComplaintForm({ ...complaintForm, photo: "" })} className="text-red-600 px-2 h-8">
-                    <Trash2 className="h-4 w-4" />
+              {/* Konum Arama & GPS Buton Alanı */}
+              <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Batıkent)..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          searchAddressLocation();
+                        }
+                      }}
+                      className="bg-white pl-9 text-xs h-9"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isSearching}
+                    onClick={searchAddressLocation}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
+                  >
+                    <Search className="mr-1.5 h-3.5 w-3.5" />
+                    {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
                   </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={locationState === "loading"}
+                    onClick={useCurrentLocation}
+                    className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
+                  >
+                    <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                    {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
+                  </Button>
+                </div>
+                {resolvedAddress && (
+                  <p className="text-[11px] text-emerald-800 font-medium truncate">
+                    📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
+                  </p>
                 )}
               </div>
-            </Field>
 
-            {complaintForm.photo && (
-              <div className="sm:col-span-2 lg:col-span-3">
-                <img src={complaintForm.photo} alt="Önizleme" className="h-20 w-28 rounded-lg object-cover border border-slate-200" />
-              </div>
-            )}
-
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Field label="Şikayet Açıklaması & Sokak Tarifi">
-                <Textarea required value={complaintForm.description} onChange={e => setComplaintForm({ ...complaintForm, description: e.target.value })} placeholder="Vatandaşın bildirdiği durum ve adres tarifi..." />
+              <Field label="Enlem">
+                <Input required type="number" step="any" value={complaintForm.latitude} onChange={e => setComplaintForm({ ...complaintForm, latitude: e.target.value })} />
               </Field>
-            </div>
+              <Field label="Boylam">
+                <Input required type="number" step="any" value={complaintForm.longitude} onChange={e => setComplaintForm({ ...complaintForm, longitude: e.target.value })} />
+              </Field>
 
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Button disabled={createComplaint.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                <Plus className="mr-2 h-4 w-4" />
-                {createComplaint.isPending ? "Kaydediliyor..." : "Şikayeti Kaydet"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <Field label="Fotoğraf (İsteğe Bağlı)">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoUpload}
+                    className="text-xs"
+                  />
+                  {complaintForm.photo && (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setComplaintForm({ ...complaintForm, photo: "" })} className="text-red-600 px-2 h-8">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </Field>
+
+              {complaintForm.photo && (
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <img src={complaintForm.photo} alt="Önizleme" className="h-20 w-28 rounded-lg object-cover border border-slate-200" />
+                </div>
+              )}
+
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Field label="Şikayet Açıklaması & Sokak Tarifi">
+                  <Textarea required value={complaintForm.description} onChange={e => setComplaintForm({ ...complaintForm, description: e.target.value })} placeholder="Vatandaşın bildirdiği durum ve adres tarifi..." />
+                </Field>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Button disabled={createComplaint.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {createComplaint.isPending ? "Kaydediliyor..." : "Şikayeti Kaydet"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 3. Şikayetler Listesi */}
       <Card className="border-0 bg-white shadow-sm">

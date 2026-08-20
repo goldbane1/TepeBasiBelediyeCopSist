@@ -446,7 +446,7 @@ export const operationsRouter = router({
         photo: z.string().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
-      requireRole(ctx.user.role, ["şoför", "yönetim"]);
+      requireRole(ctx.user.role, ["yönetim"]);
       const photoUrl = await uploadImage(input.photo, `complaints/${ctx.user.id}`);
       const autoDueAt = input.dueAt ?? new Date(Date.now() + 48 * 60 * 60 * 1000);
       await db.createCitizenComplaint({
