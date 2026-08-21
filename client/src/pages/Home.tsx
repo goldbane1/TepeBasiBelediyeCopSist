@@ -11,7 +11,14 @@ import tepebasiLogo from "../../Logo/TepeBasi.png";
 
 export type Role = "şoför" | "kademe personeli" | "kaynak personeli" | "yönetim";
 
-const navItems: { id: AppView; label: string; icon: typeof LayoutDashboard; roles: Role[] }[] = [
+interface NavItem {
+  id: AppView;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles: Role[];
+}
+
+const allNavItems: NavItem[] = [
   { id: "dashboard", label: "Operasyon Özeti", icon: LayoutDashboard, roles: ["şoför", "kademe personeli", "kaynak personeli", "yönetim"] },
   { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["şoför", "yönetim"] },
   { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["şoför", "kademe personeli", "kaynak personeli", "yönetim"] },
@@ -25,6 +32,37 @@ const navItems: { id: AppView; label: string; icon: typeof LayoutDashboard; role
   { id: "personel", label: "Personel Hesapları", icon: UserCog, roles: ["yönetim"] },
 ];
 
+function getNavItemsForRole(role: Role): NavItem[] {
+  if (role === "şoför") {
+    // Şoför için mesai en üstte
+    return [
+      { id: "dashboard", label: "Operasyon Özeti", icon: LayoutDashboard, roles: ["şoför"] },
+      { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["şoför"] },
+      { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["şoför"] },
+      { id: "damperlik-çözüm", label: "Damperlik Atık Çözümü", icon: Archive, roles: ["şoför"] },
+      { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["şoför"] },
+      { id: "şikayetler", label: "Vatandaş Şikayetleri", icon: AlertTriangle, roles: ["şoför"] },
+      { id: "araçlar", label: "Araçlar", icon: Truck, roles: ["şoför"] },
+      { id: "araç-arızaları", label: "Araç Arızaları", icon: Wrench, roles: ["şoför"] },
+    ];
+  }
+
+  // Yönetim ve diğer roller için nizamlı menü düzeni
+  return [
+    { id: "dashboard", label: "Operasyon Özeti", icon: LayoutDashboard, roles: ["kademe personeli", "kaynak personeli", "yönetim"] },
+    { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["kademe personeli", "kaynak personeli", "yönetim"] },
+    { id: "damperlik-çözüm", label: "Damperlik Atık Çözümü", icon: Archive, roles: ["yönetim"] },
+    { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["kaynak personeli", "yönetim"] },
+    { id: "şikayetler", label: "Vatandaş Şikayetleri", icon: AlertTriangle, roles: ["yönetim"] },
+    { id: "araçlar", label: "Araçlar", icon: Truck, roles: ["kademe personeli", "yönetim"] },
+    { id: "araç-arızaları", label: "Araç Arızaları", icon: Wrench, roles: ["kademe personeli", "yönetim"] },
+    { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["yönetim"] },
+    { id: "mahalleler", label: "Mahalle Yönetimi", icon: MapPin, roles: ["yönetim"] },
+    { id: "raporlar", label: "Yönetim Raporları & Analiz", icon: FileBarChart, roles: ["yönetim"] },
+    { id: "personel", label: "Personel Hesapları", icon: UserCog, roles: ["yönetim"] },
+  ];
+}
+
 const roleClass: Record<Role, string> = {
   "şoför": "bg-sky-50 text-sky-700 border-sky-100",
   "kademe personeli": "bg-amber-50 text-amber-700 border-amber-100",
@@ -36,10 +74,11 @@ export default function Home() {
   const { user, loading, logout } = useAuth();
   const [view, setView] = useState<AppView>(() => {
     const requested = new URLSearchParams(window.location.search).get("view") as AppView | null;
-    return requested && navItems.some(item => item.id === requested) ? requested : "dashboard";
+    return requested && allNavItems.some(item => item.id === requested) ? requested : "dashboard";
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const role = user?.role as Role | undefined;
+
 
   if (loading) {
     return (
@@ -50,7 +89,8 @@ export default function Home() {
   }
 
   if (!user || !role) return <LoginLanding />;
-  const current = navItems.find(item => item.id === view) ?? navItems[0];
+  const roleNavItems = getNavItemsForRole(role);
+  const current = roleNavItems.find(item => item.id === view) ?? allNavItems.find(item => item.id === view) ?? allNavItems[0];
 
   return (
     <div className="min-h-screen bg-[#f7fbf8] app-grid">
@@ -87,9 +127,10 @@ export default function Home() {
 
           {/* Navigasyon Listesi */}
           <nav className="space-y-1.5 overflow-y-auto flex-1 pr-1">
-            {navItems
+            {roleNavItems
               .filter(item => item.roles.includes(role))
               .map(item => {
+
                 const Icon = item.icon;
                 const active = item.id === view;
                 return (
