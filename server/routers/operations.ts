@@ -423,11 +423,12 @@ export const operationsRouter = router({
     repair: protectedProcedure.input(
       z.object({ id: z.number().int().positive(), note: z.string().optional() })
     ).mutation(async ({ ctx, input }) => {
-      requireRole(ctx.user.role, ["kaynak personeli", "yönetim", "şoför"]);
+      requireRole(ctx.user.role, ["kaynak personeli", "yönetim"]);
       await db.repairContainerFault(input.id, ctx.user.id, input.note);
       await audit(ctx.user.id, "KONTEYNER_ONARILDI", "konteyner_arızası", input.id, input.note);
       return { success: true };
     }),
+
     update: protectedProcedure.input(
       z.object({
         id: z.number().int().positive(),

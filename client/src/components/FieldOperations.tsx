@@ -82,7 +82,7 @@ function ContainerPanel({
   refresh: () => void;
   onFocusOnMap: (id: number) => void;
 }) {
-  const canRepair = role === "kaynak personeli" || role === "yönetim" || role === "kademe personeli" || role === "şoför";
+  const canRepair = role === "kaynak personeli" || role === "yönetim";
   const [repairNotes, setRepairNotes] = useState<Record<number, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
