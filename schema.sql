@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS `shifts` (
   `endKm` int DEFAULT NULL,
   `endFullness` varchar(64) DEFAULT NULL,
   `tonnage` varchar(24) DEFAULT NULL,
-  `tonnageReceiptUrl` text DEFAULT NULL,
+  `tonnageReceiptUrl` LONGTEXT DEFAULT NULL,
   `faultReported` boolean NOT NULL DEFAULT false,
   `status` varchar(64) NOT NULL DEFAULT 'açık',
   `startedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `bulkWasteReports` (
   `neighborhood` varchar(100) NOT NULL,
   `wasteType` varchar(100) NOT NULL,
   `description` text NOT NULL,
-  `photoUrl` text DEFAULT NULL,
+  `photoUrl` LONGTEXT DEFAULT NULL,
   `latitude` varchar(32) NOT NULL,
   `longitude` varchar(32) NOT NULL,
   `dueAt` timestamp NOT NULL,
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `containerFaults` (
   `neighborhood` varchar(100) NOT NULL,
   `faultType` varchar(64) NOT NULL,
   `description` text NOT NULL,
-  `photoUrl` text DEFAULT NULL,
+  `photoUrl` LONGTEXT DEFAULT NULL,
   `latitude` varchar(32) NOT NULL,
   `longitude` varchar(32) NOT NULL,
   `status` varchar(64) NOT NULL DEFAULT 'bekliyor',
@@ -140,16 +140,17 @@ CREATE TABLE IF NOT EXISTS `citizenComplaints` (
   `description` text NOT NULL,
   `latitude` varchar(32) NOT NULL,
   `longitude` varchar(32) NOT NULL,
-  `photoUrl` text DEFAULT NULL,
+  `photoUrl` LONGTEXT DEFAULT NULL,
   `dueAt` timestamp NOT NULL,
   `status` varchar(64) NOT NULL DEFAULT 'açık',
-  `resolutionPhotoUrl` text DEFAULT NULL,
+  `resolutionPhotoUrl` LONGTEXT DEFAULT NULL,
   `resolvedBy` int DEFAULT NULL,
   `resolvedAt` timestamp NULL DEFAULT NULL,
   `acknowledgedBy` int DEFAULT NULL,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `acknowledgedAt` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- ------------------------------------------------------------------------------
 -- 9. Denetim İzi Logları Tablosu (auditLogs)

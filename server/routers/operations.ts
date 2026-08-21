@@ -28,30 +28,35 @@ async function uploadImage(dataUrl: string | undefined, prefix: string) {
 
     const rawBuffer = Buffer.from(encoded, "base64");
     let finalBuffer: Buffer = rawBuffer;
-    let mime = "image/jpeg";
-    let extension = "jpg";
 
     try {
       finalBuffer = await sharp(rawBuffer)
         .rotate()
-        .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-        .jpeg({ quality: 80, progressive: true })
+        .resize(1400, 1400, { fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 75, progressive: true })
         .toBuffer();
     } catch (sharpErr) {
-      console.warn("Sharp image compression skipped, saving raw image:", sharpErr);
+      console.warn("Sharp image compression skipped:", sharpErr);
       finalBuffer = rawBuffer;
-      const detectedMime = metadata.match(/data:(.*?);base64/)?.[1] ?? "image/jpeg";
-      mime = detectedMime;
-      extension = detectedMime.split("/")[1] ?? "jpg";
     }
 
-    const uploaded = await storagePut(`${prefix}/${Date.now()}.${extension}`, finalBuffer, mime);
-    return uploaded.url;
+    // TiDB / veritabanında kalıcı saklamak için optimize edilmiş dataURL
+    const optimizedDataUrl = `data:image/jpeg;base64,${finalBuffer.toString("base64")}`;
+
+    // İsteğe bağlı yerel/bulut depolama kaydı (arka planda)
+    try {
+      await storagePut(`${prefix}/${Date.now()}.jpg`, finalBuffer, "image/jpeg");
+    } catch {
+      // ignore
+    }
+
+    return optimizedDataUrl;
   } catch (err) {
     console.warn("Image upload storage error, fallback to data URL:", err);
     return dataUrl;
   }
 }
+
 
 
 async function audit(userId: number, action: string, entityType: string, entityId?: number, details?: string) {

@@ -1,4 +1,4 @@
-import { boolean, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, int, longtext, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -42,6 +42,9 @@ export const vehicles = mysqlTable("vehicles", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export type Vehicle = typeof vehicles.$inferSelect;
+export type InsertVehicle = typeof vehicles.$inferInsert;
+
 export const shifts = mysqlTable("shifts", {
   id: int("id").autoincrement().primaryKey(),
   driverId: int("driverId").notNull(),
@@ -55,12 +58,15 @@ export const shifts = mysqlTable("shifts", {
   endKm: int("endKm"),
   endFullness: mysqlEnum("endFullness", ["boş", "dolu"]),
   tonnage: varchar("tonnage", { length: 24 }),
-  tonnageReceiptUrl: text("tonnageReceiptUrl"),
+  tonnageReceiptUrl: longtext("tonnageReceiptUrl"),
   faultReported: boolean("faultReported").default(false).notNull(),
   status: mysqlEnum("status", ["açık", "tamamlandı"]).default("açık").notNull(),
   startedAt: timestamp("startedAt").defaultNow().notNull(),
   endedAt: timestamp("endedAt"),
 });
+
+export type Shift = typeof shifts.$inferSelect;
+export type InsertShift = typeof shifts.$inferInsert;
 
 export const vehicleFaults = mysqlTable("vehicleFaults", {
   id: int("id").autoincrement().primaryKey(),
@@ -75,6 +81,9 @@ export const vehicleFaults = mysqlTable("vehicleFaults", {
   approvedAt: timestamp("approvedAt"),
 });
 
+export type VehicleFault = typeof vehicleFaults.$inferSelect;
+export type InsertVehicleFault = typeof vehicleFaults.$inferInsert;
+
 export const bulkWasteReports = mysqlTable("bulkWasteReports", {
   id: int("id").autoincrement().primaryKey(),
   reportedBy: int("reportedBy").notNull(),
@@ -82,7 +91,7 @@ export const bulkWasteReports = mysqlTable("bulkWasteReports", {
   neighborhood: varchar("neighborhood", { length: 100 }).notNull(),
   wasteType: varchar("wasteType", { length: 100 }).notNull(),
   description: text("description").notNull(),
-  photoUrl: text("photoUrl"),
+  photoUrl: longtext("photoUrl"),
   latitude: varchar("latitude", { length: 32 }).notNull(),
   longitude: varchar("longitude", { length: 32 }).notNull(),
   dueAt: timestamp("dueAt").notNull(),
@@ -94,6 +103,9 @@ export const bulkWasteReports = mysqlTable("bulkWasteReports", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export type BulkWasteReport = typeof bulkWasteReports.$inferSelect;
+export type InsertBulkWasteReport = typeof bulkWasteReports.$inferInsert;
+
 export const containerFaults = mysqlTable("containerFaults", {
   id: int("id").autoincrement().primaryKey(),
   reportedBy: int("reportedBy").notNull(),
@@ -101,7 +113,7 @@ export const containerFaults = mysqlTable("containerFaults", {
   neighborhood: varchar("neighborhood", { length: 100 }).notNull(),
   faultType: mysqlEnum("faultType", ["kol", "ayak", "gövde", "kapak", "diğer"]).notNull(),
   description: text("description").notNull(),
-  photoUrl: text("photoUrl"),
+  photoUrl: longtext("photoUrl"),
   latitude: varchar("latitude", { length: 32 }).notNull(),
   longitude: varchar("longitude", { length: 32 }).notNull(),
   status: mysqlEnum("status", ["bekliyor", "onarım_tamamlandı"]).default("bekliyor").notNull(),
@@ -111,6 +123,9 @@ export const containerFaults = mysqlTable("containerFaults", {
   repairedAt: timestamp("repairedAt"),
 });
 
+export type ContainerFault = typeof containerFaults.$inferSelect;
+export type InsertContainerFault = typeof containerFaults.$inferInsert;
+
 export const citizenComplaints = mysqlTable("citizenComplaints", {
   id: int("id").autoincrement().primaryKey(),
   reportedBy: int("reportedBy").notNull(),
@@ -119,16 +134,19 @@ export const citizenComplaints = mysqlTable("citizenComplaints", {
   description: text("description").notNull(),
   latitude: varchar("latitude", { length: 32 }).notNull(),
   longitude: varchar("longitude", { length: 32 }).notNull(),
-  photoUrl: text("photoUrl"),
+  photoUrl: longtext("photoUrl"),
   dueAt: timestamp("dueAt").notNull(),
   status: mysqlEnum("status", ["açık", "onay_bekliyor", "onaylandı"]).default("açık").notNull(),
-  resolutionPhotoUrl: text("resolutionPhotoUrl"),
+  resolutionPhotoUrl: longtext("resolutionPhotoUrl"),
   resolvedBy: int("resolvedBy"),
   resolvedAt: timestamp("resolvedAt"),
   acknowledgedBy: int("acknowledgedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   acknowledgedAt: timestamp("acknowledgedAt"),
 });
+
+export type CitizenComplaint = typeof citizenComplaints.$inferSelect;
+export type InsertCitizenComplaint = typeof citizenComplaints.$inferInsert;
 
 export const auditLogs = mysqlTable("auditLogs", {
   id: int("id").autoincrement().primaryKey(),
