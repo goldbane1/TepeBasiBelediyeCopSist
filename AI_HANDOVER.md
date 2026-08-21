@@ -403,7 +403,29 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu" ve üstündeki tüm KPI kartlarına takvimden özel gün (`[🎯 Belirli Gün Seç]`) ve tarih aralığı (`[↔️ Tarih Aralığı]`) seçme özellikleri eklendi.
   - Seçilen günün tarihi (Örn: *20 Ağustos 2026 Perşembe*) rozette gösterilir ve tüm mahallelerin sefer sayıları, tonajları, atık/arıza/şikayet sayıları ve vardiya dağılımları seçilen tarihe göre anında yeniden hesaplanıp listelenir.
 
+### [v2.5.0] - 2026-08-21
+- **Rol Bazlı Operasyonel Yetki Ayrımı (Role Security & Access Hardening):**
+  - **Konteyner Arızası Kapatma:** Yalnızca `kaynak personeli` ve `yönetim` rolleri konteyner arızalarını onarıp kapatabilir. Şoförler ve kademe personeli arıza kaydı açabilir ancak kapatamaz.
+  - **Damperlik Atık Toplama:** Yalnızca `yönetim` ve **aktif olarak damperli kamyon ile mesaiye çıkmış olan şoförler** toplayıp kapatabilir. Çöp kamyonu şoförleri ve kademe personeli atığı toplayamaz; harita pin kartında "Atığı Topla" butonu çöp kamyonu şoförlerine gösterilmez.
+  - **Harita Pin Senkronizasyonu:** Başarısız işlem durumunda pinin haritadan kaybolması (premature optimistic removal) engellendi; pinler yalnızca backend mutasyonu başarıyla tamamlandığında güncellenir.
+- **Operasyon Özeti (Dashboard) Aktif Vatandaş Şikayetleri Bölümü:**
+  - Operasyon Özeti sayfasının altına tüm aktif/onay bekleyen vatandaş şikayetlerini gösteren **"Aktif Vatandaş Şikayetleri"** özet kartı eklendi.
+  - "Haritada Gör / İncele" butonuna tıklandığında kullanıcıyı doğrudan detaylı şikayet yönetimi olan **"Vatandaş Şikayetleri"** sekmesine taşır.
+- **Mobil Uyumluluk & Konum/GPS Arayüz Düzenlemeleri:**
+  - Anlık GPS konumu alındığında gelen uzun adres dizesinin mobil ekranlarda taşması ve sayfayı genişletmesi engellendi (`truncate max-w-full overflow-hidden`).
+  - "Adresi Bul" ve "Anlık Konum" butonları mobil ekranlarda yatayda esnek hizalandı.
+  - Enlem ve Boylam kutuları mobilde alt alta kaba durmak yerine yan yana 2 sütunlu kompakt bir alana alındı.
+- **Fotoğraf İnceleme Lightbox Z-Index & Portal Optimizasyonu:**
+  - Harita pin kartlarından ve listelerden açılan fotoğraf Lightbox pencereleri `createPortal(..., document.body)` ile en üst DOM katmanına (`z-[99999]`) taşındı.
+  - Fotoğraf kapatıldığında pin detay kartı arkada bozulmadan açık kalmaya devam eder.
+- **Bildirim Mesajları (Sonner Toasts) %100 Mat ve Yüksek Kontrast:**
+  - Saydam/transparan zemin yerine %100 opak/mat zeminler ve yüksek kontrastlı renkler (`#064e3b` yeşil, `#7f1d1d` kırmızı, `#78350f` kehribar, `#0c4a6e` mavi) uygulandı.
+  - `z-index: 999999` ve derin gölge (`shadow-2xl`) ile tüm harita, menü ve form pencerelerinin en üstünde net okunurluk sağlandı.
+- **İstemci Taraflı Görsel Ön Sıkıştırma (HTML5 Canvas Compression):**
+  - Mobil kamera çekimleri (10-15MB) istemcide canvas ile 1280px / ~120KB seviyesine sıkıştırılarak mobil veri tasarrufu ve hızlı yükleme sağlandı.
+
 ### [v2.4.15] - 2026-08-21
+
 - **Yönetim Raporları ve Analiz Sayfasına Kapsamlı "Sistem Denetim Logları" Sekmesi Eklendi:**
   - `ManagementOperations.tsx` içerisine **`📜 Sistem Denetim Logları`** sekmesi ve üst navigasyon rozeti eklendi.
   - **4 Boyutlu KPI İstatistik Kartları:**
@@ -474,6 +496,7 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
     5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
 
 ---
-*Doküman Sürümü: v2.4.13 (Canlı Şema & Operasyonel Devir Standardı)*  
+*Doküman Sürümü: v2.5.0 (Canlı Şema & Operasyonel Devir Standardı)*  
 *Son Güncelleme: 2026-08-21*
+
 
