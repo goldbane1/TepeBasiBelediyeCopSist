@@ -540,24 +540,44 @@ function ContainerPanel({
         </CardContent>
       </Card>
 
-      {/* Lightbox modal */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-2">
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
+      {/* Lightbox modal - Top level portal with z-[99999] */}
+      {previewImage &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+            onClick={() => setPreviewImage(null)}
+          >
+            <div
+              className="relative max-h-[92vh] max-w-3xl overflow-hidden rounded-2xl bg-white p-3 shadow-2xl flex flex-col"
+              onClick={e => e.stopPropagation()}
             >
-              <X className="h-5 w-5" />
-            </button>
-            <img src={previewImage} alt="Fotoğraf" className="max-h-[80vh] w-auto rounded-xl object-contain" />
-          </div>
-        </div>
-      )}
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <ImageIcon className="h-4 w-4 text-emerald-700" />
+                  Konteyner Görseli
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 h-8 w-8 text-slate-700 flex items-center justify-center transition shadow-2xs active:scale-95"
+                  title="Kapat"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="overflow-auto max-h-[80vh] flex items-center justify-center bg-slate-950/5 rounded-xl p-1">
+                <img src={previewImage} alt="Fotoğraf" className="max-h-[78vh] w-auto max-w-full rounded-lg object-contain shadow-xs" />
+              </div>
+              <div className="mt-2.5 flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => setPreviewImage(null)} className="h-8 text-xs font-semibold px-4">
+                  Kapat
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -1216,24 +1236,44 @@ function ComplaintPanel({
         document.body
       )}
 
-      {/* Lightbox modal */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-2">
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
+      {/* Lightbox modal - Top level portal with z-[99999] */}
+      {previewImage &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+            onClick={() => setPreviewImage(null)}
+          >
+            <div
+              className="relative max-h-[92vh] max-w-3xl overflow-hidden rounded-2xl bg-white p-3 shadow-2xl flex flex-col"
+              onClick={e => e.stopPropagation()}
             >
-              <X className="h-5 w-5" />
-            </button>
-            <img src={previewImage} alt="Fotoğraf" className="max-h-[80vh] w-auto rounded-xl object-contain" />
-          </div>
-        </div>
-      )}
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <ImageIcon className="h-4 w-4 text-emerald-700" />
+                  Şikayet Görseli
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage(null)}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 h-8 w-8 text-slate-700 flex items-center justify-center transition shadow-2xs active:scale-95"
+                  title="Kapat"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="overflow-auto max-h-[80vh] flex items-center justify-center bg-slate-950/5 rounded-xl p-1">
+                <img src={previewImage} alt="Fotoğraf" className="max-h-[78vh] w-auto max-w-full rounded-lg object-contain shadow-xs" />
+              </div>
+              <div className="mt-2.5 flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => setPreviewImage(null)} className="h-8 text-xs font-semibold px-4">
+                  Kapat
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
