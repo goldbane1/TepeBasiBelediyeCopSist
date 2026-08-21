@@ -207,8 +207,14 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
 
   const handleResolveFromMap = (op: MapOperation) => {
     if (op.category === "Damperlik atık") {
-      const activeDamper = (vehicles.data ?? []).find(v => v.type === "damperli kamyon");
       const currentShiftData = currentShift.data as any;
+      if (role === "şoför") {
+        if (!currentShiftData || currentShiftData.vehicleType !== "damperli kamyon") {
+          toast.error("Damperlik atık toplamak için aktif bir damperli kamyon mesainiz olmalıdır.");
+          return;
+        }
+      }
+      const activeDamper = (vehicles.data ?? []).find(v => v.type === "damperli kamyon");
       const vehicleId = currentShiftData?.vehicleId || activeDamper?.id;
       if (!vehicleId) {
         toast.error("Toplama için aktif bir damperli kamyon mesaisi gereklidir.");
@@ -221,6 +227,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
       resolveAcknowledgeComplaint.mutate({ id: op.id });
     }
   };
+
 
   if (view === "dashboard")
     return (
@@ -251,6 +258,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
     return (
       <MapPanel
         role={role}
+        activeVehicleType={(currentShift.data as any)?.vehicleType}
         operations={mapOperations}
         vehicles={vehicles.data ?? []}
         refresh={refresh}
@@ -259,6 +267,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
         onResolveOperation={handleResolveFromMap}
       />
     );
+
 
   if (view === "damperlik-çözüm")
     return (
@@ -1110,6 +1119,7 @@ function ShiftPanel({
 
 function MapPanel({
   role,
+  activeVehicleType,
   operations,
   vehicles,
   refresh,
@@ -1118,6 +1128,7 @@ function MapPanel({
   onResolveOperation,
 }: {
   role: Role;
+  activeVehicleType?: "çöp kamyonu" | "damperli kamyon" | null;
   operations: MapOperation[];
   vehicles: any[];
   refresh: () => void;
@@ -1134,9 +1145,11 @@ function MapPanel({
         operations={operations}
         initialCategoryFilter={filterCategory}
         role={role}
+        activeVehicleType={activeVehicleType}
         selectedOperationId={selectedPinId}
         onResolveOperation={onResolveOperation}
       />
+
 
       {/* 2. Harita Altındaki Genel Şikayetler & Bildirimler Listesi */}
       <Card className="border-0 bg-white shadow-sm overflow-hidden">
@@ -1456,9 +1469,14 @@ function BulkWasteSolutionPanel({
           initialCategoryFilter="Damperlik atık"
           showCategoryTabs={false}
           role={role}
+          activeVehicleType={(currentShift.data as any)?.vehicleType}
           selectedOperationId={selectedPinId}
           onResolveOperation={op => {
-            const damperId = activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
+            if (role === "şoför" && (currentShift.data as any)?.vehicleType !== "damperli kamyon") {
+              toast.error("Damperlik atık toplamak için aktif bir damperli kamyon mesainiz olmalıdır.");
+              return;
+            }
+            const damperId = (currentShift.data as any)?.vehicleId ?? activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
             if (damperId) {
               collect.mutate({ id: op.id, vehicleId: damperId });
             } else {
@@ -1466,6 +1484,7 @@ function BulkWasteSolutionPanel({
             }
           }}
         />
+
       </Card>
 
       {/* 2. Damperlik Atık Bildirim Formu */}

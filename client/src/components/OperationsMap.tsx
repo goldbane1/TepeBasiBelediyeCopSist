@@ -43,6 +43,7 @@ export default function OperationsMap({
   initialCategoryFilter = "tümü",
   showCategoryTabs = true,
   role,
+  activeVehicleType,
   selectedOperationId,
   onResolveOperation,
 }: {
@@ -51,6 +52,7 @@ export default function OperationsMap({
   initialCategoryFilter?: "tümü" | MapOperationCategory;
   showCategoryTabs?: boolean;
   role?: Role;
+  activeVehicleType?: "çöp kamyonu" | "damperli kamyon" | null;
   selectedOperationId?: number | null;
   onResolveOperation?: (op: MapOperation) => void;
 }) {
@@ -59,15 +61,14 @@ export default function OperationsMap({
   const [selected, setSelected] = useState<MapOperation | null>(null);
   const [activeCategory, setActiveCategory] = useState<"tümü" | MapOperationCategory>(initialCategoryFilter);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [optimisticResolvedKeys, setOptimisticResolvedKeys] = useState<Set<string>>(new Set());
   const markersRef = useRef<L.Marker[]>([]);
 
-  // Filter items by category if selected and exclude optimistically resolved items
+  // Filter items by category if selected
   const filteredOperations = useMemo(() => {
-    const activeList = operations.filter(op => !optimisticResolvedKeys.has(`${op.category}-${op.id}`));
-    if (activeCategory === "tümü") return activeList;
-    return activeList.filter(op => op.category === activeCategory);
-  }, [operations, activeCategory, optimisticResolvedKeys]);
+    if (activeCategory === "tümü") return operations;
+    return operations.filter(op => op.category === activeCategory);
+  }, [operations, activeCategory]);
+
 
   const items = useMemo(
     () =>
@@ -82,13 +83,14 @@ export default function OperationsMap({
   // Sync selectedOperationId prop: Center map on coordinates without auto-opening popup
   useEffect(() => {
     if (selectedOperationId) {
-      const match = operations.find(o => o.id === selectedOperationId && !optimisticResolvedKeys.has(`${o.category}-${o.id}`));
+      const match = operations.find(o => o.id === selectedOperationId);
       if (match && map && Number.isFinite(Number(match.latitude)) && Number.isFinite(Number(match.longitude))) {
         setSelected(null);
         map.setView([Number(match.latitude), Number(match.longitude)], 16, { animate: true });
       }
     }
-  }, [selectedOperationId, operations, map, optimisticResolvedKeys]);
+  }, [selectedOperationId, operations, map]);
+
 
 
   // Haritadaki boş alana dokunulduğunda açık olan detay kartını kapat
@@ -183,13 +185,16 @@ export default function OperationsMap({
     const isPending = !["toplandı", "onarım_tamamlandı", "onaylandı"].includes(selected.status);
     if (!isPending) return false;
     if (role === "yönetim") return true;
-    if (selected.category === "Damperlik atık" && role === "şoför") return true;
+    if (selected.category === "Damperlik atık") {
+      return role === "şoför" && activeVehicleType === "damperli kamyon";
+    }
     if (selected.category === "Konteyner arızası" && role === "kaynak personeli") return true;
     if (selected.category === "Vatandaş şikayeti") {
       if (selected.status === "açık" && role === "şoför") return true;
     }
     return false;
-  }, [selected, role]);
+  }, [selected, role, activeVehicleType]);
+
 
 
 
@@ -416,11 +421,11 @@ export default function OperationsMap({
                     onClick={() => {
                       const target = selected;
                       setSelected(null);
-                      setOptimisticResolvedKeys(prev => new Set(prev).add(`${target.category}-${target.id}`));
                       onResolveOperation(target);
                     }}
                     className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm text-xs h-8"
                   >
+
                     <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                     {selected.category === "Damperlik atık"
                       ? "Atığı Topla"
