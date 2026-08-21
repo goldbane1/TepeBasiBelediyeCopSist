@@ -80,10 +80,12 @@ export default function OperationsMap({
     if (selectedOperationId) {
       const match = operations.find(o => o.id === selectedOperationId && !optimisticResolvedKeys.has(`${o.category}-${o.id}`));
       if (match && map && Number.isFinite(Number(match.latitude)) && Number.isFinite(Number(match.longitude))) {
+        setSelected(null);
         map.setView([Number(match.latitude), Number(match.longitude)], 16, { animate: true });
       }
     }
   }, [selectedOperationId, operations, map, optimisticResolvedKeys]);
+
 
   // Haritadaki boş alana dokunulduğunda açık olan detay kartını kapat
   useEffect(() => {
@@ -259,166 +261,177 @@ export default function OperationsMap({
         </div>
 
         {selected && (
-          <aside className="popup-transition absolute bottom-2 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-[400] max-w-md rounded-2xl border border-white/90 bg-white/95 p-3.5 sm:p-4 shadow-2xl backdrop-blur md:left-auto max-h-[58vh] sm:max-h-[75vh] overflow-y-auto">
-            {/* Mobil Kapatma Tutamağı */}
-            <div
-              onClick={() => setSelected(null)}
-              className="w-12 h-1 bg-slate-300 hover:bg-slate-400 rounded-full mx-auto mb-2.5 sm:hidden cursor-pointer active:scale-95 transition"
-              title="Kapatmak için dokunun"
-            />
-            <button
-              type="button"
-              onClick={() => setSelected(null)}
-              className="absolute right-3 top-3 h-8 w-8 rounded-full bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 flex items-center justify-center transition shadow-2xs active:scale-90"
-              aria-label="Detayı kapat"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <div className="mb-2 flex items-center gap-2 pr-9">
-
-              <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
-                {selected.category}
-              </Badge>
-              <span className="text-xs text-slate-400">Kayıt #{selected.id}</span>
-              {selected.category === "Damperlik atık" ? (
-                <span
-                  className={cn(
-                    "text-[11px] font-bold px-2 py-0.5 rounded-full",
-                    isOverdue(selected) ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
-                  )}
-                >
-                  {isOverdue(selected) ? "Günü Geçmiş (Acil)" : "İşlem Bekliyor"}
-                </span>
-              ) : selected.category === "Vatandaş şikayeti" ? (
-                <span
-                  className={cn(
-                    "text-[11px] font-bold px-2 py-0.5 rounded-full",
-                    selected.status === "onay_bekliyor"
-                      ? "bg-purple-100 text-purple-900 border border-purple-300 animate-pulse"
+          <aside className="popup-transition absolute bottom-2 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-[400] max-w-md rounded-2xl border border-white/90 bg-white/98 shadow-2xl backdrop-blur-md md:left-auto max-h-[58vh] sm:max-h-[75vh] flex flex-col overflow-hidden">
+            {/* 1. Sabit Üst Başlık & Kapatma Butonu (Asla Kaybolmaz ve Kaymaz) */}
+            <div className="flex items-center justify-between p-3.5 pb-2.5 border-b border-slate-100/90 bg-white shrink-0">
+              <div className="flex items-center gap-2 flex-wrap min-w-0 pr-2">
+                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+                  {selected.category}
+                </Badge>
+                <span className="text-xs text-slate-400">#{selected.id}</span>
+                {selected.category === "Damperlik atık" ? (
+                  <span
+                    className={cn(
+                      "text-[11px] font-bold px-2 py-0.5 rounded-full",
+                      isOverdue(selected) ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
+                    )}
+                  >
+                    {isOverdue(selected) ? "Günü Geçmiş" : "İşlem Bekliyor"}
+                  </span>
+                ) : selected.category === "Vatandaş şikayeti" ? (
+                  <span
+                    className={cn(
+                      "text-[11px] font-bold px-2 py-0.5 rounded-full",
+                      selected.status === "onay_bekliyor"
+                        ? "bg-purple-100 text-purple-900 border border-purple-300 animate-pulse"
+                        : isOverdue(selected)
+                        ? "bg-red-100 text-red-700"
+                        : "bg-sky-100 text-sky-800"
+                    )}
+                  >
+                    {selected.status === "onay_bekliyor"
+                      ? "⏳ Onay Bekliyor"
                       : isOverdue(selected)
-                      ? "bg-red-100 text-red-700"
-                      : "bg-sky-100 text-sky-800"
-                  )}
-                >
-                  {selected.status === "onay_bekliyor"
-                    ? "⏳ Yönetici Onayı Bekliyor"
-                    : isOverdue(selected)
-                    ? "Günü Geçmiş (Acil)"
-                    : "Müdahale Bekliyor"}
-                </span>
-              ) : (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                  İşlem Bekliyor
-                </span>
-              )}
+                      ? "Acil"
+                      : "Müdahale Bekliyor"}
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                    İşlem Bekliyor
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="h-8 w-8 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 flex items-center justify-center transition shadow-2xs active:scale-90"
+                aria-label="Detayı kapat"
+                title="Pini Kapat"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
+            {/* 2. Kaydırılabilir İçerik Alanı */}
+            <div className="p-3.5 sm:p-4 overflow-y-auto flex-1 space-y-3">
+              <h3 className="text-base font-bold text-slate-900 leading-snug">{selected.title}</h3>
+              <p className="text-sm leading-5 text-slate-600 break-words line-clamp-3">
+                {selected.description}
+              </p>
 
-            <h3 className="text-base font-bold text-slate-900">{selected.title}</h3>
-            <p className="mt-1 text-sm leading-5 text-slate-600">
-              {selected.description}
-            </p>
-
-            {/* Bildiren Şoför / Personel & Kepçe Rozeti & Çözen Bilgisi */}
-            {(selectedReporter || selectedNeedsExcavator || selectedResolver) && (
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                {selectedReporter && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 border border-slate-200/80">
-                    👤 Bildiren: {selectedReporter}
-                  </span>
-                )}
-                {selectedNeedsExcavator && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 font-bold text-amber-900 border border-amber-300">
-                    🚜 Kepçe Gerekli
-                  </span>
-                )}
-                {selectedResolver && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 border border-emerald-300">
-                    🧹 Çözen: {selectedResolver}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Photo previews if available */}
-            {(selected.photoUrl || selectedResolutionPhoto) && (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {selected.photoUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setPreviewImage(selected.photoUrl || null)}
-                    className="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left"
-                  >
-                    <img
-                      src={selected.photoUrl}
-                      alt={selected.title}
-                      className="h-28 w-full object-cover transition group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
-                      <span className="flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white">
-                        <ImageIcon className="h-3 w-3" /> Şikayet Foto
-                      </span>
-                    </div>
-                  </button>
-                )}
-                {selectedResolutionPhoto && (
-                  <button
-                    type="button"
-                    onClick={() => setPreviewImage(selectedResolutionPhoto || null)}
-                    className="group relative block w-full overflow-hidden rounded-xl border border-emerald-300 bg-emerald-50 text-left"
-                  >
-                    <img
-                      src={selectedResolutionPhoto}
-                      alt="Çözüm Fotoğrafı"
-                      className="h-28 w-full object-cover transition group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
-                      <span className="flex items-center gap-1.5 rounded-lg bg-emerald-900/80 px-2 py-1 text-[11px] font-bold text-white">
-                        📸 Çözüm Foto
-                      </span>
-                    </div>
-                  </button>
-                )}
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={openRoute}
-                className="text-slate-700 hover:bg-slate-100"
-              >
-                <Navigation className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-                Navigasyon Rota
-              </Button>
-
-              {canCloseSelected && onResolveOperation && (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    const target = selected;
-                    setSelected(null);
-                    setOptimisticResolvedKeys(prev => new Set(prev).add(`${target.category}-${target.id}`));
-                    onResolveOperation(target);
-                  }}
-                  className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm"
-                >
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                  {selected.category === "Damperlik atık"
-                    ? "Atığı Topla & Kapat"
-                    : selected.category === "Konteyner arızası"
-                    ? "Onarımı Tamamla"
-                    : selected.status === "onay_bekliyor"
-                    ? "Onayla & Kapat"
-                    : role === "şoför"
-                    ? "Çözüm Fotoğrafı Yükle"
-                    : "Şikayeti Kapat"}
-                </Button>
+              {/* Bildiren Şoför / Personel & Kepçe Rozeti & Çözen Bilgisi */}
+              {(selectedReporter || selectedNeedsExcavator || selectedResolver) && (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {selectedReporter && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 border border-slate-200/80">
+                      👤 Bildiren: {selectedReporter}
+                    </span>
+                  )}
+                  {selectedNeedsExcavator && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 font-bold text-amber-900 border border-amber-300">
+                      🚜 Kepçe Gerekli
+                    </span>
+                  )}
+                  {selectedResolver && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-bold text-emerald-900 border border-emerald-300">
+                      🧹 Çözen: {selectedResolver}
+                    </span>
+                  )}
+                </div>
               )}
+
+              {/* Photo previews if available */}
+              {(selected.photoUrl || selectedResolutionPhoto) && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {selected.photoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage(selected.photoUrl || null)}
+                      className="group relative block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left"
+                    >
+                      <img
+                        src={selected.photoUrl}
+                        alt={selected.title}
+                        className="h-28 w-full object-cover transition group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                        <span className="flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white">
+                          <ImageIcon className="h-3 w-3" /> Fotoğrafı Aç
+                        </span>
+                      </div>
+                    </button>
+                  )}
+                  {selectedResolutionPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage(selectedResolutionPhoto || null)}
+                      className="group relative block w-full overflow-hidden rounded-xl border border-emerald-300 bg-emerald-50 text-left"
+                    >
+                      <img
+                        src={selectedResolutionPhoto}
+                        alt="Çözüm Fotoğrafı"
+                        className="h-28 w-full object-cover transition group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                        <span className="flex items-center gap-1.5 rounded-lg bg-emerald-900/80 px-2 py-1 text-[11px] font-bold text-white">
+                          📸 Çözüm Foto
+                        </span>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Alt Aksiyon Butonları */}
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={openRoute}
+                    className="text-slate-700 hover:bg-slate-100 text-xs h-8"
+                  >
+                    <Navigation className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                    Navigasyon
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelected(null)}
+                    className="text-slate-500 hover:bg-slate-100 text-xs h-8 px-2"
+                  >
+                    Kapat
+                  </Button>
+                </div>
+
+                {canCloseSelected && onResolveOperation && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const target = selected;
+                      setSelected(null);
+                      setOptimisticResolvedKeys(prev => new Set(prev).add(`${target.category}-${target.id}`));
+                      onResolveOperation(target);
+                    }}
+                    className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm text-xs h-8"
+                  >
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    {selected.category === "Damperlik atık"
+                      ? "Atığı Topla"
+                      : selected.category === "Konteyner arızası"
+                      ? "Onarımı Tamamla"
+                      : selected.status === "onay_bekliyor"
+                      ? "Onayla & Kapat"
+                      : role === "şoför"
+                      ? "Çözüm Fotoğrafı Yükle"
+                      : "Şikayeti Kapat"}
+                  </Button>
+                )}
+              </div>
             </div>
           </aside>
         )}
+
 
         {/* Lightbox photo modal */}
         {previewImage && (
