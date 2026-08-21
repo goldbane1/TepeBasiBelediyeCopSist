@@ -39,7 +39,7 @@ class AppTheme {
           letterSpacing: -0.3,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: bgCard,
         elevation: 1,
         shadowColor: Colors.black.withOpacity(0.06),
@@ -48,6 +48,7 @@ class AppTheme {
           side: const BorderSide(color: borderSubtle, width: 1),
         ),
       ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryGreen,

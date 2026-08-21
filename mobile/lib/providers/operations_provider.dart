@@ -84,6 +84,58 @@ class OperationsProvider with ChangeNotifier {
     }
   }
 
+  // Yeni Damperlik Atık Bildir
+  Future<bool> reportBulkWaste({
+    required String region,
+    required String neighborhood,
+    required String wasteType,
+    required String description,
+    required double latitude,
+    required double longitude,
+    required bool requiresExcavator,
+    String? photoBase64,
+  }) async {
+    final ok = await _service.reportBulkWaste(
+      region: region,
+      neighborhood: neighborhood,
+      wasteType: wasteType,
+      description: description,
+      latitude: latitude,
+      longitude: longitude,
+      requiresExcavator: requiresExcavator,
+      photoBase64: photoBase64,
+    );
+    if (ok) {
+      await fetchAllOperations();
+    }
+    return ok;
+  }
+
+  // Yeni Konteyner Arızası Bildir
+  Future<bool> reportContainerFault({
+    required String region,
+    required String neighborhood,
+    required String faultType,
+    required String description,
+    required double latitude,
+    required double longitude,
+    String? photoBase64,
+  }) async {
+    final ok = await _service.reportContainerFault(
+      region: region,
+      neighborhood: neighborhood,
+      faultType: faultType,
+      description: description,
+      latitude: latitude,
+      longitude: longitude,
+      photoBase64: photoBase64,
+    );
+    if (ok) {
+      await fetchAllOperations();
+    }
+    return ok;
+  }
+
   // Damper Atığı Topla
   Future<bool> collectBulkWaste(int id) async {
     try {
@@ -97,6 +149,7 @@ class OperationsProvider with ChangeNotifier {
       return false;
     }
   }
+
 
   // Konteyner Arızası Onar
   Future<bool> repairContainerFault(int id, {String? note, String? photoBase64}) async {

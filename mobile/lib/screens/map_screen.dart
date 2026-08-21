@@ -179,13 +179,14 @@ class _MapScreenState extends State<MapScreen> {
                 else
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: Colors.slate.shade100, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
                     child: const Text(
                       "ℹ️ Konteyner arızalarını yalnızca Kaynak Personeli ve Yönetim kapatabilir.",
                       style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                       textAlign: TextAlign.center,
                     ),
                   ),
+
               ],
 
               const SizedBox(height: 8),
