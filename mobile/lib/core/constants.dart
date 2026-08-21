@@ -1,7 +1,7 @@
 class AppConstants {
-  // Varsayılan API URL'i (Android Emülatör için 10.0.2.2:3000, Fiziksel cihaz için yerel IP)
+  // Sunucu Bağlantı Ayarları (Android Emülatör için 10.0.2.2)
   static const String defaultLocalHost = "10.0.2.2";
-  static const int defaultPort = 3000;
+  static const int defaultPort = 3001;
   static const String defaultBaseUrl = "http://$defaultLocalHost:$defaultPort/api";
 
   // Tepebaşı Merkez Koordinatları (Eskişehir)
