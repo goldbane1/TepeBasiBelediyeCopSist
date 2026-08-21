@@ -16,8 +16,8 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 20),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -30,15 +30,30 @@ class ApiClient {
         onRequest: (options, handler) async {
           final prefs = await SharedPreferences.getInstance();
           final token = prefs.getString('auth_token');
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
+          if (token != null && token.isNotEmpty) {
             options.headers['Cookie'] = 'auth_token=$token';
+            options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
-          print("[API Error] ${e.requestOptions.path}: ${e.message}");
-          return handler.next(e);
+        onResponse: (response, handler) async {
+          // Gelen Set-Cookie başlığından auth_token'ı yakala ve kaydet
+          final setCookieHeaders = response.headers['set-cookie'];
+          if (setCookieHeaders != null) {
+            for (final cookie in setCookieHeaders) {
+              if (cookie.contains('auth_token=')) {
+                final match = RegExp(r'auth_token=([^;]+)').firstMatch(cookie);
+                if (match != null) {
+                  final token = match.group(1);
+                  if (token != null) {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('auth_token', token);
+                  }
+                }
+              }
+            }
+          }
+          return handler.next(response);
         },
       ),
     );
@@ -59,34 +74,27 @@ class ApiClient {
     _dio.options.baseUrl = newUrl;
   }
 
-  Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) {
-    return _dio.get(path, queryParameters: queryParameters);
-  }
-
-  Future<Response> post(String path, {dynamic data}) {
-    return _dio.post(path, data: data);
-  }
-
-  Future<Response> put(String path, {dynamic data}) {
-    return _dio.put(path, data: data);
-  }
-
-  Future<Response> delete(String path) {
-    return _dio.delete(path);
-  }
-
-  // tRPC Batch Query / Mutation Çağrıcı Yardımcısı
+  // tRPC Query (SuperJSON uyumlu GET)
   Future<dynamic> trpcQuery(String procedure, {Map<String, dynamic>? input}) async {
     final path = "/trpc/$procedure";
-    final queryParams = input != null ? {'input': jsonEncode(input)} : null;
+    final queryParams = {'input': jsonEncode({'json': input ?? {}})};
     final response = await _dio.get(path, queryParameters: queryParams);
-    return response.data?['result']?['data'];
+    final data = response.data?['result']?['data'];
+    if (data is Map && data.containsKey('json')) {
+      return data['json'];
+    }
+    return data;
   }
 
+  // tRPC Mutation (SuperJSON uyumlu POST)
   Future<dynamic> trpcMutate(String procedure, dynamic input) async {
     final path = "/trpc/$procedure";
-    final response = await _dio.post(path, data: input);
-    return response.data?['result']?['data'];
+    final payload = {'json': input ?? {}};
+    final response = await _dio.post(path, data: payload);
+    final data = response.data?['result']?['data'];
+    if (data is Map && data.containsKey('json')) {
+      return data['json'];
+    }
+    return data;
   }
-
 }
