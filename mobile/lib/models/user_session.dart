@@ -37,8 +37,24 @@ class UserSession {
     };
   }
 
+  String get name => fullName;
   bool get isDriver => role == "şoför";
   bool get isWelder => role == "kaynak personeli";
-  bool get isWorkshop => role == "kademe personeli";
+  bool get isMechanic => role == "kademe personeli";
   bool get isManager => role == "yönetim";
+
+  String get roleFormatted {
+    switch (role) {
+      case "şoför":
+        return "Çöp / Damper Şoförü";
+      case "kaynak personeli":
+        return "Kaynak & Konteyner Personeli";
+      case "kademe personeli":
+        return "Kademe & Bakım Personeli";
+      case "yönetim":
+        return "Sistem Yöneticisi";
+      default:
+        return role;
+    }
+  }
 }

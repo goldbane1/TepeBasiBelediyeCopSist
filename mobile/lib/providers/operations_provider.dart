@@ -13,6 +13,7 @@ class OperationsProvider with ChangeNotifier {
   bool _isLoading = false;
   String _selectedNeighborhood = "Tümü";
   String _selectedFilterType = "tümü"; // "tümü", "damper", "arıza", "şikayet"
+  String _searchQuery = "";
 
   List<BulkWasteReport> get bulkWasteList => _bulkWasteList;
   List<ContainerFault> get containerFaultsList => _containerFaultsList;
@@ -21,12 +22,20 @@ class OperationsProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String get selectedNeighborhood => _selectedNeighborhood;
   String get selectedFilterType => _selectedFilterType;
+  String get searchQuery => _searchQuery;
 
   // Filtrelenmiş Liste Getiricileri
   List<BulkWasteReport> get filteredBulkWaste {
     var list = _bulkWasteList.where((item) => item.isPending).toList();
     if (_selectedNeighborhood != "Tümü") {
       list = list.where((item) => item.neighborhood == _selectedNeighborhood).toList();
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((item) =>
+          item.description.toLowerCase().contains(q) ||
+          item.neighborhood.toLowerCase().contains(q) ||
+          item.wasteType.toLowerCase().contains(q)).toList();
     }
     return list;
   }
@@ -36,6 +45,13 @@ class OperationsProvider with ChangeNotifier {
     if (_selectedNeighborhood != "Tümü") {
       list = list.where((item) => item.neighborhood == _selectedNeighborhood).toList();
     }
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((item) =>
+          item.description.toLowerCase().contains(q) ||
+          item.neighborhood.toLowerCase().contains(q) ||
+          item.faultType.toLowerCase().contains(q)).toList();
+    }
     return list;
   }
 
@@ -43,6 +59,12 @@ class OperationsProvider with ChangeNotifier {
     var list = _complaintsList.where((item) => item.isOpen || item.isPendingApproval).toList();
     if (_selectedNeighborhood != "Tümü") {
       list = list.where((item) => item.neighborhood == _selectedNeighborhood).toList();
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((item) =>
+          item.description.toLowerCase().contains(q) ||
+          item.neighborhood.toLowerCase().contains(q)).toList();
     }
     return list;
   }
@@ -57,6 +79,11 @@ class OperationsProvider with ChangeNotifier {
 
   void setFilterType(String type) {
     _selectedFilterType = type;
+    notifyListeners();
+  }
+
+  void setSearchQuery(String query) {
+    _searchQuery = query;
     notifyListeners();
   }
 
@@ -77,7 +104,7 @@ class OperationsProvider with ChangeNotifier {
       _complaintsList = results[2] as List<CitizenComplaint>;
       _activeShift = results[3] as DriverShift?;
     } catch (e) {
-      print("[Operations Provider] Fetch error: $e");
+      // ignore
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -149,7 +176,6 @@ class OperationsProvider with ChangeNotifier {
       return false;
     }
   }
-
 
   // Konteyner Arızası Onar
   Future<bool> repairContainerFault(int id, {String? note, String? photoBase64}) async {

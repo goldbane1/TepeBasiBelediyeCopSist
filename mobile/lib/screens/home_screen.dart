@@ -3,7 +3,11 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/operations_provider.dart';
+import '../widgets/custom_widgets.dart';
+import 'bulk_waste_screen.dart';
 import 'complaints_screen.dart';
+import 'container_faults_screen.dart';
+import 'login_screen.dart';
 import 'map_screen.dart';
 import 'report_fault_screen.dart';
 import 'report_waste_screen.dart';
@@ -18,33 +22,62 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const _DashboardTab(),
-    const MapScreen(),
-    const ComplaintsScreen(),
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<OperationsProvider>(context, listen: false).fetchAllOperations();
+    });
+  }
+
+  final List<Widget> _tabs = const [
+    _DashboardTab(),
+    MapScreen(),
+    BulkWasteScreen(),
+    ContainerFaultsScreen(),
+    ComplaintsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _tabs,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        backgroundColor: Colors.white,
+        indicatorColor: AppTheme.primaryGreen.withValues(alpha: 0.15),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard, color: AppTheme.primaryGreen),
-            label: "Operasyon",
+            selectedIcon: Icon(Icons.dashboard_rounded, color: AppTheme.primaryGreen),
+            label: "Özet",
           ),
           NavigationDestination(
             icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map, color: AppTheme.primaryGreen),
+            selectedIcon: Icon(Icons.map_rounded, color: AppTheme.primaryGreen),
             label: "Harita",
           ),
           NavigationDestination(
-            icon: Icon(Icons.notifications_active_outlined),
-            selectedIcon: Icon(Icons.notifications_active, color: AppTheme.primaryGreen),
+            icon: Icon(Icons.inventory_2_outlined),
+            selectedIcon: Icon(Icons.inventory_2_rounded, color: AppTheme.accentAmber),
+            label: "Damper",
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.delete_outline_rounded),
+            selectedIcon: Icon(Icons.delete_rounded, color: AppTheme.accentRed),
+            label: "Konteyner",
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.record_voice_over_outlined),
+            selectedIcon: Icon(Icons.record_voice_over_rounded, color: Color(0xFF7C3AED)),
             label: "Şikayetler",
           ),
         ],
@@ -64,142 +97,190 @@ class _DashboardTab extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Tepebaşı Temizlik Saha"),
+        title: const Text("Tepebaşı Temizlik Sahası"),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ops.fetchAllOperations(),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout_rounded),
-            tooltip: "Çıkış Yap",
-            onPressed: () => auth.logout(),
+            onPressed: () async {
+              await auth.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              }
+            },
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () => ops.fetchAllOperations(),
+        color: AppTheme.primaryGreen,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Kullanıcı Hoşgeldin Kartı
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primaryGreenDark, AppTheme.primaryGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: AppTheme.primaryGreen.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Colors.white24,
-                    child: Text(
-                      user?.fullName.isNotEmpty == true ? user!.fullName[0].toUpperCase() : 'P',
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            // Kullanıcı Bilgi Kartı
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: AppTheme.primaryGreen.withValues(alpha: 0.15),
+                      child: const Icon(Icons.person_rounded, color: AppTheme.primaryGreen, size: 28),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?.fullName ?? "Saha Personeli",
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 2),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(6)),
-                          child: Text(
-                            user?.role.toUpperCase() ?? "ŞOFÖR",
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user?.name ?? "Personel",
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textMain),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          OperationBadge(
+                            label: user?.roleFormatted ?? "Personel",
+                            color: AppTheme.primaryGreen,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-
             const SizedBox(height: 16),
 
-            // Özet Sayaçlar
+            // Canlı Saha İstatistik Kartları (KPI)
+            const Text(
+              "Canlı Saha Durumu",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textMain),
+            ),
+            const SizedBox(height: 10),
+
             Row(
               children: [
                 Expanded(
-                  child: _SummaryBox(
-                    label: "Damperlik Atık",
-                    count: ops.bulkWasteList.length,
+                  child: _KpiCard(
+                    title: "Damperlik Atık",
+                    count: ops.bulkWasteList.length.toString(),
                     icon: Icons.inventory_2_rounded,
                     color: AppTheme.accentAmber,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: _SummaryBox(
-                    label: "Konteyner Arıza",
-                    count: ops.containerFaultsList.length,
+                  child: _KpiCard(
+                    title: "Konteyner Arızası",
+                    count: ops.containerFaultsList.length.toString(),
                     icon: Icons.delete_outline_rounded,
                     color: AppTheme.accentRed,
                   ),
                 ),
-                const SizedBox(width: 10),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
                 Expanded(
-                  child: _SummaryBox(
-                    label: "Vatandaş Şikayet",
-                    count: ops.complaintsList.length,
+                  child: _KpiCard(
+                    title: "Açık Şikayet",
+                    count: ops.complaintsList.length.toString(),
                     icon: Icons.record_voice_over_rounded,
                     color: const Color(0xFF7C3AED),
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _KpiCard(
+                    title: "Toplam Nokta",
+                    count: (ops.bulkWasteList.length + ops.containerFaultsList.length + ops.complaintsList.length).toString(),
+                    icon: Icons.map_rounded,
+                    color: AppTheme.primaryGreen,
+                  ),
+                ),
               ],
             ),
-
             const SizedBox(height: 20),
 
-            const Text("Hızlı Saha İşlemleri", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textMain)),
-            const SizedBox(height: 12),
-
-            // Hızlı Butonlar
-            _ActionButtonCard(
-              title: "Damperlik Atık Bildir",
-              subtitle: "Yol kenarı, moloz veya bahçe atığı kaydı oluştur",
-              icon: Icons.add_circle_outline_rounded,
-              color: AppTheme.accentAmber,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportWasteScreen()));
-              },
+            // Hızlı Bildirim İşlemleri
+            const Text(
+              "Hızlı Saha İşlemleri",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textMain),
             ),
             const SizedBox(height: 10),
 
-            _ActionButtonCard(
-              title: "Konteyner Arızası Bildir",
-              subtitle: "Kırık kol, ayak, kapak veya gövde arızası kaydet",
-              icon: Icons.report_problem_outlined,
-              color: AppTheme.accentRed,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportFaultScreen()));
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    text: "Atık Bildir",
+                    icon: Icons.camera_alt_rounded,
+                    backgroundColor: AppTheme.accentAmber,
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportWasteScreen()));
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomButton(
+                    text: "Arıza Bildir",
+                    icon: Icons.build_circle_rounded,
+                    backgroundColor: AppTheme.accentRed,
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportFaultScreen()));
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-
-            _ActionButtonCard(
-              title: "Vatandaş Şikayetleri & Çözüm",
-              subtitle: "Bölgenizdeki açık şikayetleri çöz ve fotoğrafla",
-              icon: Icons.assignment_outlined,
-              color: const Color(0xFF7C3AED),
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplaintsScreen()));
-              },
-            ),
-
             const SizedBox(height: 24),
+
+            // Son Bekleyen Damperlik Atıklar Önizlemesi
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Bekleyen Damper Atıklar",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textMain),
+                ),
+                Text(
+                  "${ops.bulkWasteList.length} Nokta",
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            if (ops.isLoading)
+              const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: AppTheme.primaryGreen)))
+            else if (ops.bulkWasteList.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text("Bekleyen atık kaydı bulunmuyor.", style: TextStyle(color: AppTheme.textMuted)),
+              )
+            else
+              ...ops.bulkWasteList.take(5).map((item) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.amber,
+                      child: Icon(Icons.inventory_2_rounded, color: Colors.white, size: 20),
+                    ),
+                    title: Text(item.neighborhood, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: Text(item.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                    trailing: OperationBadge(label: item.wasteType, color: AppTheme.accentAmber),
+                  ),
+                );
+              }),
           ],
         ),
       ),
@@ -207,83 +288,38 @@ class _DashboardTab extends StatelessWidget {
   }
 }
 
-class _SummaryBox extends StatelessWidget {
-  final String label;
-  final int count;
-  final IconData icon;
-  final Color color;
-
-  const _SummaryBox({required this.label, required this.count, required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderSubtle),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 22, color: color),
-          const SizedBox(height: 6),
-          Text(count.toString(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 2),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionButtonCard extends StatelessWidget {
+class _KpiCard extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String count;
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
 
-  const _ActionButtonCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
+  const _KpiCard({required this.title, required this.count, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, color: color, size: 24),
+                Text(
+                  count,
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
                 ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textMain)),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
-            ],
-          ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
+            ),
+          ],
         ),
       ),
     );
