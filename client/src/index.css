@@ -42,7 +42,8 @@
 .operations-map-pin--konteyner{background:#059669}
 .operations-map-pin--ariza{background:#d97706}
 .operations-map-pin--sikayet{background:#0284c7}
-.operations-map-pin--pending-approval{background:#d97706;animation:statusPulse 1.8s ease-in-out infinite}
+.operations-map-pin--pending-approval{background:#9333ea;animation:statusPulse 1.6s ease-in-out infinite}
+
 
 .legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px}.legend-dot--green{background:#14965a}.legend-dot--red{background:#dc2626;animation:statusPulse 1.35s ease-in-out infinite}
 .app-grid{background-image:linear-gradient(rgba(20,150,90,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(20,150,90,.04) 1px,transparent 1px);background-size:34px 34px}

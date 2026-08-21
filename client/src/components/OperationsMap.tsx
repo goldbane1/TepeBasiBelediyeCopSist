@@ -244,7 +244,10 @@ export default function OperationsMap({
               <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">K</span> Konteyner Arızası
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">V</span> Vatandaş Şikayeti
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">V</span> Vatandaş Şikayeti (Açık)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white animate-pulse">V</span> Onay Sürecinde
             </span>
           </div>
         </div>
@@ -278,10 +281,10 @@ export default function OperationsMap({
                   className={cn(
                     "text-[11px] font-bold px-2 py-0.5 rounded-full",
                     selected.status === "onay_bekliyor"
-                      ? "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                      ? "bg-purple-100 text-purple-900 border border-purple-300 animate-pulse"
                       : isOverdue(selected)
                       ? "bg-red-100 text-red-700"
-                      : "bg-slate-100 text-slate-700"
+                      : "bg-sky-100 text-sky-800"
                   )}
                 >
                   {selected.status === "onay_bekliyor"
@@ -291,11 +294,12 @@ export default function OperationsMap({
                     : "Müdahale Bekliyor"}
                 </span>
               ) : (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
                   İşlem Bekliyor
                 </span>
               )}
             </div>
+
 
             <h3 className="text-base font-bold text-slate-900">{selected.title}</h3>
             <p className="mt-1 text-sm leading-5 text-slate-600">
