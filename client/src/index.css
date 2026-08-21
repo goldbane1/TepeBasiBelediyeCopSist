@@ -76,5 +76,41 @@
 .custom-leaflet-marker{background:transparent!important;border:none!important}
 .input-native{height:2.75rem;width:100%;border:1px solid oklch(0.90 0.02 155);border-radius:.65rem;background:#fff;padding:0 .75rem;color:oklch(0.24 0.02 155);outline:none;transition:border-color 0.15s ease, box-shadow 0.15s ease}.input-native:focus{border-color:#14965a;box-shadow:0 0 0 3px rgba(20,150,90,.13)}
 
+/* 100% Mat, Opak ve Yüksek Kontrastlı Bildirim (Toast) Mesajları */
+[data-sonner-toaster] {
+  z-index: 999999 !important;
+}
 
+[data-sonner-toast] {
+  opacity: 1 !important;
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border: 1.5px solid #334155 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3) !important;
+  font-weight: 600 !important;
+  backdrop-filter: none !important;
+}
 
+[data-sonner-toast][data-type="success"] {
+  background-color: #064e3b !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  background-color: #7f1d1d !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+}
+
+[data-sonner-toast][data-type="warning"] {
+  background-color: #78350f !important;
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+}
+
+[data-sonner-toast][data-type="info"] {
+  background-color: #0c4a6e !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+}
