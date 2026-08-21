@@ -1030,7 +1030,7 @@ function ComplaintPanel({
                             <ImageIcon className="h-3 w-3 text-emerald-700" /> Şikayet Fotoğrafı
                           </button>
                         )}
-                        {complaint.resolutionPhotoUrl && (
+                        {!isOpen && complaint.resolutionPhotoUrl && (
                           <button
                             type="button"
                             onClick={() => setPreviewImage(complaint.resolutionPhotoUrl)}
@@ -1039,6 +1039,7 @@ function ComplaintPanel({
                             <Camera className="h-3 w-3 text-emerald-700" /> 📸 Çözüm Fotoğrafı
                           </button>
                         )}
+
                       </div>
                       <p className="text-xs text-slate-600">{complaint.description}</p>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">

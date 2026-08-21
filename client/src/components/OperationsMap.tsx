@@ -176,8 +176,9 @@ export default function OperationsMap({
 
   const selectedReporter = selected?.reporterName || selected?.extra?.reporterName;
   const selectedNeedsExcavator = selected?.requiresExcavator || selected?.extra?.requiresExcavator;
-  const selectedResolver = selected?.extra?.resolverName;
-  const selectedResolutionPhoto = selected?.extra?.resolutionPhotoUrl;
+  const selectedResolver = selected?.status !== "açık" ? selected?.extra?.resolverName : undefined;
+  const selectedResolutionPhoto = selected?.status !== "açık" ? selected?.extra?.resolutionPhotoUrl : undefined;
+
 
   return (
     <div className={cn("space-y-3", className)}>

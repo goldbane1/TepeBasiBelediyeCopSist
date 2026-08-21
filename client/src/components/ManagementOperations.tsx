@@ -400,7 +400,13 @@ function ReportsAndManagement({
   const [editingWaste, setEditingWaste] = useState<any | null>(null);
   const [editingContainer, setEditingContainer] = useState<any | null>(null);
   const [editingComplaint, setEditingComplaint] = useState<any | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{
+    url: string;
+    title?: string;
+    entityType?: "shift" | "waste" | "container" | "complaint";
+    entityId?: number;
+    photoField?: "photoUrl" | "repairPhotoUrl" | "resolutionPhotoUrl";
+  } | null>(null);
 
   const [purgeOptions, setPurgeOptions] = useState({
     shifts: false,
@@ -409,6 +415,7 @@ function ReportsAndManagement({
     complaints: false,
     faults: false,
     auditLogs: false,
+    photos: false,
   });
   const [confirmPurgeText, setConfirmPurgeText] = useState("");
   const [showPurgeModal, setShowPurgeModal] = useState(false);
@@ -465,16 +472,41 @@ function ReportsAndManagement({
     onError: e => toast.error(e.message),
   });
 
+  const deletePhotoMutation = trpc.operations.photos.deleteSingle.useMutation({
+    onSuccess: (_, vars) => {
+      toast.success("Görsel başarıyla silindi.");
+      if (vars.entityType === "shift" && receiptModal) {
+        setReceiptModal(prev => {
+          if (!prev) return null;
+          const updated = prev.receipts.filter(r => r !== vars.photoUrl);
+          if (updated.length === 0) return null;
+          return { ...prev, receipts: updated };
+        });
+      }
+      setPreviewImage(null);
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
+  const purgePhotosMutation = trpc.operations.photos.purge.useMutation({
+    onSuccess: data => {
+      toast.success(`${data.deletedCount} adet görsel sistemden ve diskten başarıyla temizlendi.`);
+      refresh();
+    },
+    onError: e => toast.error(e.message),
+  });
+
   const activeWasteList = useMemo(() => wasteList.filter(w => w.status === "bekliyor"), [wasteList]);
   const activeContainers = useMemo(() => containers.filter(c => c.status === "bekliyor"), [containers]);
   const activeComplaints = useMemo(() => complaints.filter(c => c.status === "açık" || c.status === "onay_bekliyor"), [complaints]);
 
   const resetDataMutation = trpc.operations.reports.resetData.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Seçilen analiz ve operasyon verileri sıfırlandı.");
       setShowPurgeModal(false);
       setConfirmPurgeText("");
-      setPurgeOptions({ shifts: false, waste: false, containers: false, complaints: false, faults: false, auditLogs: false });
+      setPurgeOptions({ shifts: false, waste: false, containers: false, complaints: false, faults: false, auditLogs: false, photos: false });
       refresh();
     },
     onError: e => toast.error(e.message),
@@ -486,8 +518,13 @@ function ReportsAndManagement({
       toast.error("Onaylamak için kutuya 'SIFIRLA' yazın.");
       return;
     }
-    resetDataMutation.mutate(purgeOptions);
+    const { photos, ...rest } = purgeOptions;
+    resetDataMutation.mutate({
+      ...rest,
+      photosScope: photos ? "all" : undefined,
+    });
   };
+
 
   // --- ANALİZ VE DENETİM HESAPLAMALARI ---
   const isDateInPeriod = (dateStr: string | Date | null | undefined) => {
@@ -1539,7 +1576,24 @@ function ReportsAndManagement({
                         <td className="px-5 py-3 font-semibold text-slate-900">
                           {waste.wasteType} · {waste.neighborhood}
                         </td>
-                        <td className="px-5 py-3 text-slate-600 text-xs max-w-xs truncate">{waste.description}</td>
+                        <td className="px-5 py-3 text-slate-600 text-xs max-w-xs">
+                          <div className="truncate">{waste.description}</div>
+                          {waste.photoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage({
+                                url: waste.photoUrl,
+                                title: `Damperlik Atık #${waste.id} Fotoğrafı`,
+                                entityType: "waste",
+                                entityId: waste.id,
+                                photoField: "photoUrl",
+                              })}
+                              className="mt-1 inline-flex items-center gap-1 bg-slate-100 text-slate-700 hover:bg-slate-200 px-2 py-0.5 rounded text-[11px] font-semibold border border-slate-200"
+                            >
+                              <ImageIcon className="h-3 w-3 text-slate-600" /> Fotoğrafı İncele
+                            </button>
+                          )}
+                        </td>
                         <td className="px-5 py-3 text-xs">
                           {waste.reporterName ? (
                             <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/70">
@@ -1623,7 +1677,41 @@ function ReportsAndManagement({
                     activeContainers.map(cont => (
                       <tr key={cont.id} className="border-t border-slate-100 hover:bg-slate-50/50">
                         <td className="px-5 py-3 font-semibold text-slate-900">{cont.faultType} · {cont.neighborhood}</td>
-                        <td className="px-5 py-3 text-slate-600 text-xs max-w-md truncate">{cont.description}</td>
+                        <td className="px-5 py-3 text-slate-600 text-xs max-w-md">
+                          <div className="truncate">{cont.description}</div>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {cont.photoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImage({
+                                  url: cont.photoUrl,
+                                  title: `Konteyner #${cont.id} Arıza Fotoğrafı`,
+                                  entityType: "container",
+                                  entityId: cont.id,
+                                  photoField: "photoUrl",
+                                })}
+                                className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 hover:bg-slate-200 px-2 py-0.5 rounded text-[11px] font-semibold border border-slate-200"
+                              >
+                                <ImageIcon className="h-3 w-3 text-slate-600" /> Arıza Foto
+                              </button>
+                            )}
+                            {cont.repairPhotoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImage({
+                                  url: cont.repairPhotoUrl,
+                                  title: `Konteyner #${cont.id} Onarım Fotoğrafı`,
+                                  entityType: "container",
+                                  entityId: cont.id,
+                                  photoField: "repairPhotoUrl",
+                                })}
+                                className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 px-2 py-0.5 rounded text-[11px] font-bold border border-emerald-300 shadow-2xs"
+                              >
+                                <Camera className="h-3 w-3 text-emerald-700" /> Onarım Foto
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-5 py-3">
                           <Badge variant="outline" className="bg-amber-50 text-amber-700 text-[10px] font-bold">
                             Onarım Bekliyor
@@ -1710,7 +1798,13 @@ function ReportsAndManagement({
                           {comp.photoUrl && (
                             <button
                               type="button"
-                              onClick={() => setPreviewImage(comp.photoUrl)}
+                              onClick={() => setPreviewImage({
+                                url: comp.photoUrl,
+                                title: `Şikayet #${comp.id} Fotoğrafı`,
+                                entityType: "complaint",
+                                entityId: comp.id,
+                                photoField: "photoUrl",
+                              })}
                               className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 hover:bg-slate-200 px-2 py-0.5 rounded text-[11px] font-semibold border border-slate-200"
                             >
                               <ImageIcon className="h-3 w-3 text-slate-600" /> Şikayet Foto
@@ -1719,7 +1813,13 @@ function ReportsAndManagement({
                           {comp.resolutionPhotoUrl && (
                             <button
                               type="button"
-                              onClick={() => setPreviewImage(comp.resolutionPhotoUrl)}
+                              onClick={() => setPreviewImage({
+                                url: comp.resolutionPhotoUrl,
+                                title: `Şikayet #${comp.id} Çözüm Fotoğrafı`,
+                                entityType: "complaint",
+                                entityId: comp.id,
+                                photoField: "resolutionPhotoUrl",
+                              })}
                               className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 px-2 py-0.5 rounded text-[11px] font-bold border border-emerald-300 shadow-2xs"
                             >
                               <Camera className="h-3 w-3 text-emerald-700" /> 📸 Çözüm Foto
@@ -1751,6 +1851,7 @@ function ReportsAndManagement({
                         </Badge>
                       </td>
                       <td className="px-5 py-3 text-right">
+
                         <div className="flex items-center justify-end gap-1.5">
                           {comp.status === "onay_bekliyor" && (
                             <>
@@ -2216,60 +2317,168 @@ function ReportsAndManagement({
         </div>
       )}
 
-      {/* 7. ANALİZ VERİLERİNİ SIFIRLAMA */}
+      {/* 7. ANALİZ VE DEPOLAMA VERİLERİNİ SIFIRLAMA */}
       {activeTab === "sifirla" && (
-        <Card className="border border-red-200 bg-red-50/20 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display flex items-center gap-2 text-red-900 text-base">
-              <ShieldAlert className="h-5 w-5 text-red-600" />
-              Operasyon Verilerini Sıfırlama
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                { key: "shifts", label: "Tüm Mesai Kayıtları", count: shifts.length },
-                { key: "waste", label: "Damperlik Atık Kayıtları", count: wasteList.length },
-                { key: "containers", label: "Konteyner Arıza Kayıtları", count: containers.length },
-                { key: "complaints", label: "Vatandaş Şikayetleri", count: complaints.length },
-                { key: "faults", label: "Araç Arıza Kayıtları", count: 0 },
-                { key: "auditLogs", label: "Denetim Logları", count: logs.length },
-              ].map(opt => (
-                <label
-                  key={opt.key}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-red-200 bg-white hover:bg-red-50/50 cursor-pointer shadow-2xs"
-                >
-                  <input
-                    type="checkbox"
-                    checked={(purgeOptions as any)[opt.key]}
-                    onChange={e => setPurgeOptions({ ...purgeOptions, [opt.key]: e.target.checked })}
-                    className="h-4 w-4 rounded text-red-600 focus:ring-red-500"
-                  />
+        <div className="space-y-6">
+          {/* Sunucu Görsel & Depolama Temizleme Kartı */}
+          <Card className="border border-slate-200 bg-white shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display flex items-center gap-2 text-slate-900 text-base">
+                <Camera className="h-5 w-5 text-emerald-700" />
+                Sunucu Depolama & Görsel / Fotoğraf Temizleme
+              </CardTitle>
+              <p className="text-xs text-slate-500">
+                Sunucuda disk doluluğunu önlemek için tonaj fişleri, atık, konteyner ve şikayet fotoğraflarını periyodik olarak temizleyebilirsiniz.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between space-y-3 shadow-2xs">
                   <div>
-                    <p className="text-xs font-bold text-slate-800">{opt.label}</p>
-                    <p className="text-[11px] text-slate-500">{opt.count} kayıt</p>
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>📅</span> Bugünkü Görseller
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">Bugün yüklenen tüm operasyon fotoğraflarını temizler.</p>
                   </div>
-                </label>
-              ))}
-            </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={purgePhotosMutation.isPending}
+                    onClick={() => {
+                      if (confirm("Bugün yüklenen fotoğrafları kalıcı olarak silmek istediğinizden emin misiniz?")) {
+                        purgePhotosMutation.mutate({ scope: "today" });
+                      }
+                    }}
+                    className="text-xs font-bold text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    {purgePhotosMutation.isPending ? "Siliniyor..." : "Bugünlük Görselleri Sil"}
+                  </Button>
+                </div>
 
-            <div>
-              <Button
-                type="button"
-                onClick={() => {
-                  const anySelected = Object.values(purgeOptions).some(Boolean);
-                  if (!anySelected) return toast.error("Lütfen en az bir kategori seçin.");
-                  setShowPurgeModal(true);
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Seçilenleri Sıfırla...
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between space-y-3 shadow-2xs">
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>⏱️</span> 7 Günlükten Eski
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">1 haftadan eski tüm fotoğrafları diskten siler.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={purgePhotosMutation.isPending}
+                    onClick={() => {
+                      if (confirm("7 günden eski tüm fotoğrafları kalıcı olarak silmek istediğinizden emin misiniz?")) {
+                        purgePhotosMutation.mutate({ scope: "7days" });
+                      }
+                    }}
+                    className="text-xs font-bold text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    {purgePhotosMutation.isPending ? "Siliniyor..." : "7+ Günlük Görselleri Sil"}
+                  </Button>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col justify-between space-y-3 shadow-2xs">
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>🗓️</span> 30 Günlükten Eski
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">1 aydan eski arşiv fotoğraflarını temizler.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={purgePhotosMutation.isPending}
+                    onClick={() => {
+                      if (confirm("30 günden eski arşiv fotoğraflarını kalıcı olarak silmek istediğinizden emin misiniz?")) {
+                        purgePhotosMutation.mutate({ scope: "30days" });
+                      }
+                    }}
+                    className="text-xs font-bold text-amber-700 border-amber-300 hover:bg-amber-50"
+                  >
+                    {purgePhotosMutation.isPending ? "Siliniyor..." : "30+ Günlük Görselleri Sil"}
+                  </Button>
+                </div>
+
+                <div className="p-4 rounded-xl border border-red-200 bg-red-50/40 flex flex-col justify-between space-y-3 shadow-2xs">
+                  <div>
+                    <p className="text-xs font-bold text-red-900 flex items-center gap-1.5">
+                      <span>⚠️</span> Tüm Görselleri Sıfırla
+                    </p>
+                    <p className="text-[11px] text-red-700 mt-1">Sistemdeki ve diskteki TÜM fotoğrafları kalıcı olarak siler.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={purgePhotosMutation.isPending}
+                    onClick={() => {
+                      if (confirm("DİKKAT: Sistemdeki TÜM fotoğraflar sunucu diskinden silinecektir. Devam etmek istiyor musunuz?")) {
+                        purgePhotosMutation.mutate({ scope: "all" });
+                      }
+                    }}
+                    className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {purgePhotosMutation.isPending ? "Siliniyor..." : "Tüm Görselleri Temizle"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Operasyon Verilerini Sıfırlama Kartı */}
+          <Card className="border border-red-200 bg-red-50/20 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display flex items-center gap-2 text-red-900 text-base">
+                <ShieldAlert className="h-5 w-5 text-red-600" />
+                Operasyon & Analiz Verilerini Sıfırlama
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  { key: "shifts", label: "Tüm Mesai Kayıtları", count: `${shifts.length} kayıt` },
+                  { key: "waste", label: "Damperlik Atık Kayıtları", count: `${wasteList.length} kayıt` },
+                  { key: "containers", label: "Konteyner Arıza Kayıtları", count: `${containers.length} kayıt` },
+                  { key: "complaints", label: "Vatandaş Şikayetleri", count: `${complaints.length} kayıt` },
+                  { key: "faults", label: "Araç Arıza Kayıtları", count: "0 kayıt" },
+                  { key: "auditLogs", label: "Denetim Logları", count: `${logs.length} kayıt` },
+                  { key: "photos", label: "Tüm Fotoğraflar & Görseller", count: "Sunucu Diski" },
+                ].map(opt => (
+                  <label
+                    key={opt.key}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-red-200 bg-white hover:bg-red-50/50 cursor-pointer shadow-2xs"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(purgeOptions as any)[opt.key]}
+                      onChange={e => setPurgeOptions({ ...purgeOptions, [opt.key]: e.target.checked })}
+                      className="h-4 w-4 rounded text-red-600 focus:ring-red-500"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{opt.label}</p>
+                      <p className="text-[11px] text-slate-500">{opt.count}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const anySelected = Object.values(purgeOptions).some(Boolean);
+                    if (!anySelected) return toast.error("Lütfen en az bir kategori seçin.");
+                    setShowPurgeModal(true);
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Seçilenleri Sıfırla...
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
+
 
       {/* SIFIRLAMA ONAY MODALI */}
       {showPurgeModal && typeof document !== "undefined" && createPortal(
@@ -2575,15 +2784,60 @@ function ReportsAndManagement({
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
           onClick={() => setPreviewImage(null)}
         >
-          <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-2">
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <img src={previewImage} alt="Fotoğraf" className="max-h-[80vh] w-auto rounded-xl object-contain" />
+          <div className="relative max-h-[92vh] max-w-2xl overflow-hidden rounded-2xl bg-white p-3 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <ImageIcon className="h-4 w-4 text-emerald-700" />
+                {previewImage.title || "Görsel Önizleme"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] w-full overflow-hidden rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+              <img src={previewImage.url} alt="Fotoğraf" className="max-h-[68vh] w-auto rounded-lg object-contain" />
+            </div>
+            <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-100">
+              <a
+                href={previewImage.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Tam Boyutta Aç
+              </a>
+              <div className="flex items-center gap-2">
+                {previewImage.entityType && previewImage.entityId && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={deletePhotoMutation.isPending}
+                    onClick={() => {
+                      if (confirm("Bu görseli sistemden ve sunucu diskinden kalıcı olarak silmek istediğinizden emin misiniz?")) {
+                        deletePhotoMutation.mutate({
+                          entityType: previewImage.entityType!,
+                          entityId: previewImage.entityId!,
+                          photoUrl: previewImage.url,
+                          photoField: previewImage.photoField,
+                        });
+                      }
+                    }}
+                    className="text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    {deletePhotoMutation.isPending ? "Siliniyor..." : "Görseli Sil"}
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setPreviewImage(null)} className="h-8 text-xs">
+                  Kapat
+                </Button>
+              </div>
+            </div>
           </div>
         </div>,
         document.body
@@ -2647,15 +2901,34 @@ function ReportsAndManagement({
                       <span className="text-[11px] font-bold text-slate-700">
                         📄 Fiş #{idx + 1}
                       </span>
-                      <a
-                        href={imgSrc}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Tam Boyut Aç
-                      </a>
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={imgSrc}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Tam Boyut
+                        </a>
+                        <button
+                          type="button"
+                          disabled={deletePhotoMutation.isPending}
+                          onClick={() => {
+                            if (confirm("Bu tonaj fişi görselini kalıcı olarak silmek istediğinizden emin misiniz?")) {
+                              deletePhotoMutation.mutate({
+                                entityType: "shift",
+                                entityId: receiptModal.shiftId,
+                                photoUrl: imgSrc,
+                              });
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Sil
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2675,6 +2948,7 @@ function ReportsAndManagement({
         </div>,
         document.body
       )}
+
     </div>
   );
 }

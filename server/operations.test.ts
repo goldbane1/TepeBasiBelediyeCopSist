@@ -57,5 +57,8 @@ describe("araç envanteri yetkileri", () => {
     await expect(caller.vehicles.create({ type: "çöp kamyonu", capacityTon: "12", brand: "Mercedes", plate: "26 TB 101", status: "aktif" })).rejects.toThrow("yetkiniz bulunmuyor");
     await expect(caller.vehicles.remove({ id: 1 })).rejects.toThrow("yetkiniz bulunmuyor");
     await expect(caller.users.create({ name: "Yeni Şoför", username: "yeni.sofor", password: "GuvenliSifre2026!", role: "şoför" })).rejects.toThrow("yetkiniz bulunmuyor");
+    await expect(caller.photos.deleteSingle({ entityType: "waste", entityId: 1, photoUrl: "/uploads/test.jpg" })).rejects.toThrow("yetkiniz bulunmuyor");
+    await expect(caller.photos.purge({ scope: "all" })).rejects.toThrow("yetkiniz bulunmuyor");
   });
 });
+

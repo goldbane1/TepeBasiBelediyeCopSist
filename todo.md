@@ -40,3 +40,6 @@
 - [x] Şoförün cihaz anlık konumuyla damperlik malzeme bildirimi oluşturmasını sağlamak
 - [x] Konum güncellenince bölge ve mahalle adresini otomatik doldurmak
 - [x] Açık mesaisi olmayan şoförlerde mesai sorgusunun boş değer hatasını gidermek
+- [x] Sunucu tarafında sharp ile otomatik görsel optimizasyonu (boyutlandırma, döndürme, sıkıştırma)
+- [x] Yönetim panelinde tonaj fişi, atık, konteyner ve şikayet görselleri için tekil silme özelliği
+- [x] Yönetim panelinde veri sıfırlama sekmesine günlük, 7 günlük, 30 günlük ve tüm görselleri temizleme özellikleri

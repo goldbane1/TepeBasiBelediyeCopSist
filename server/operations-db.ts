@@ -1,4 +1,4 @@
-import { and, desc, eq, lte, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lt, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import {
   auditLogs,
@@ -505,16 +505,28 @@ export async function approveCitizenComplaint(id: number, managerId: number) {
     .where(eq(citizenComplaints.id, id));
 }
 
-export async function rejectCitizenComplaint(id: number, managerId: number) {
+export async function rejectCitizenComplaint(id: number, managerId: number): Promise<string | null> {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [complaint] = await db
+    .select({ resolutionPhotoUrl: citizenComplaints.resolutionPhotoUrl })
+    .from(citizenComplaints)
+    .where(eq(citizenComplaints.id, id));
+
   await db
     .update(citizenComplaints)
     .set({
       status: "açık",
+      resolutionPhotoUrl: null,
+      resolvedBy: null,
+      resolvedAt: null,
     })
     .where(eq(citizenComplaints.id, id));
+
+  return complaint?.resolutionPhotoUrl ?? null;
 }
+
 
 export async function acknowledgeCitizenComplaint(id: number, driverId: number) {
   const db = await getDb();
@@ -601,3 +613,134 @@ export async function resetOperationalData(options: {
     await db.delete(auditLogs);
   }
 }
+
+// -----------------------------------------------------------------------------
+// PHOTO MANAGEMENT & CLEANUP HELPERS
+// -----------------------------------------------------------------------------
+export async function removeShiftReceiptPhoto(shiftId: number, photoUrlToDelete: string): Promise<string[]> {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [shift] = await db.select().from(shifts).where(eq(shifts.id, shiftId));
+  if (!shift || !shift.tonnageReceiptUrl) return [];
+
+  let currentReceipts: string[] = [];
+  try {
+    const parsed = JSON.parse(shift.tonnageReceiptUrl);
+    currentReceipts = Array.isArray(parsed) ? parsed : [shift.tonnageReceiptUrl];
+  } catch {
+    currentReceipts = [shift.tonnageReceiptUrl];
+  }
+
+  const remaining = currentReceipts.filter(url => url !== photoUrlToDelete);
+  const updatedValue = remaining.length === 0 ? null : (remaining.length === 1 ? remaining[0] : JSON.stringify(remaining));
+
+  await db.update(shifts).set({ tonnageReceiptUrl: updatedValue }).where(eq(shifts.id, shiftId));
+  return [photoUrlToDelete];
+}
+
+export async function removeBulkWastePhoto(wasteId: number): Promise<string[]> {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [waste] = await db.select().from(bulkWasteReports).where(eq(bulkWasteReports.id, wasteId));
+  if (!waste || !waste.photoUrl) return [];
+
+  const deletedUrl = waste.photoUrl;
+  await db.update(bulkWasteReports).set({ photoUrl: null }).where(eq(bulkWasteReports.id, wasteId));
+  return [deletedUrl];
+}
+
+export async function removeContainerFaultPhoto(containerId: number): Promise<string[]> {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [container] = await db.select().from(containerFaults).where(eq(containerFaults.id, containerId));
+  if (!container || !container.photoUrl) return [];
+
+  const deletedUrl = container.photoUrl;
+  await db.update(containerFaults).set({ photoUrl: null }).where(eq(containerFaults.id, containerId));
+  return [deletedUrl];
+}
+
+export async function removeCitizenComplaintPhoto(complaintId: number, photoField: "photoUrl" | "resolutionPhotoUrl"): Promise<string[]> {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [complaint] = await db.select().from(citizenComplaints).where(eq(citizenComplaints.id, complaintId));
+  if (!complaint) return [];
+
+  const deletedUrl = complaint[photoField];
+  if (!deletedUrl) return [];
+
+  await db.update(citizenComplaints).set({ [photoField]: null }).where(eq(citizenComplaints.id, complaintId));
+  return [deletedUrl];
+}
+
+export async function purgePhotosDb(olderThanDays?: number): Promise<string[]> {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const collectedUrls: string[] = [];
+  const cutoffDate = olderThanDays && olderThanDays > 0 ? new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000) : null;
+
+  // 1. Shifts receipts
+  const shiftsQuery = cutoffDate
+    ? await db.select({ id: shifts.id, tonnageReceiptUrl: shifts.tonnageReceiptUrl }).from(shifts).where(and(isNotNull(shifts.tonnageReceiptUrl), lt(shifts.startedAt, cutoffDate)))
+    : await db.select({ id: shifts.id, tonnageReceiptUrl: shifts.tonnageReceiptUrl }).from(shifts).where(isNotNull(shifts.tonnageReceiptUrl));
+
+  for (const s of shiftsQuery) {
+    if (s.tonnageReceiptUrl) {
+      try {
+        const parsed = JSON.parse(s.tonnageReceiptUrl);
+        if (Array.isArray(parsed)) {
+          collectedUrls.push(...parsed);
+        } else {
+          collectedUrls.push(s.tonnageReceiptUrl);
+        }
+      } catch {
+        collectedUrls.push(s.tonnageReceiptUrl);
+      }
+      await db.update(shifts).set({ tonnageReceiptUrl: null }).where(eq(shifts.id, s.id));
+    }
+  }
+
+  // 2. BulkWaste photos
+  const wasteQuery = cutoffDate
+    ? await db.select({ id: bulkWasteReports.id, photoUrl: bulkWasteReports.photoUrl }).from(bulkWasteReports).where(and(isNotNull(bulkWasteReports.photoUrl), lt(bulkWasteReports.createdAt, cutoffDate)))
+    : await db.select({ id: bulkWasteReports.id, photoUrl: bulkWasteReports.photoUrl }).from(bulkWasteReports).where(isNotNull(bulkWasteReports.photoUrl));
+
+  for (const w of wasteQuery) {
+    if (w.photoUrl) {
+      collectedUrls.push(w.photoUrl);
+      await db.update(bulkWasteReports).set({ photoUrl: null }).where(eq(bulkWasteReports.id, w.id));
+    }
+  }
+
+  // 3. Container photos
+  const containerQuery = cutoffDate
+    ? await db.select({ id: containerFaults.id, photoUrl: containerFaults.photoUrl }).from(containerFaults).where(and(isNotNull(containerFaults.photoUrl), lt(containerFaults.createdAt, cutoffDate)))
+    : await db.select({ id: containerFaults.id, photoUrl: containerFaults.photoUrl }).from(containerFaults).where(isNotNull(containerFaults.photoUrl));
+
+  for (const c of containerQuery) {
+    if (c.photoUrl) {
+      collectedUrls.push(c.photoUrl);
+      await db.update(containerFaults).set({ photoUrl: null }).where(eq(containerFaults.id, c.id));
+    }
+  }
+
+  // 4. Complaint photos
+  const complaintQuery = cutoffDate
+    ? await db.select({ id: citizenComplaints.id, photoUrl: citizenComplaints.photoUrl, resolutionPhotoUrl: citizenComplaints.resolutionPhotoUrl }).from(citizenComplaints).where(and(or(isNotNull(citizenComplaints.photoUrl), isNotNull(citizenComplaints.resolutionPhotoUrl)), lt(citizenComplaints.createdAt, cutoffDate)))
+    : await db.select({ id: citizenComplaints.id, photoUrl: citizenComplaints.photoUrl, resolutionPhotoUrl: citizenComplaints.resolutionPhotoUrl }).from(citizenComplaints).where(or(isNotNull(citizenComplaints.photoUrl), isNotNull(citizenComplaints.resolutionPhotoUrl)));
+
+  for (const comp of complaintQuery) {
+    if (comp.photoUrl) collectedUrls.push(comp.photoUrl);
+    if (comp.resolutionPhotoUrl) collectedUrls.push(comp.resolutionPhotoUrl);
+    await db.update(citizenComplaints).set({ photoUrl: null, resolutionPhotoUrl: null }).where(eq(citizenComplaints.id, comp.id));
+  }
+
+  return collectedUrls;
+}
+
+

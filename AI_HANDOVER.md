@@ -326,8 +326,33 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
 
 ## 9. Değişiklik ve Güncelleme Geçmişi (Changelog & History)
 
-### [v2.4.10] - 2026-08-21 (Son Güncelleme)
+### [v2.4.11] - 2026-08-21 (Son Güncelleme)
+- **Sunucu Tarafında Otomatik Görsel Optimizasyonu (`sharp` Entegrasyonu):**
+  - Akıllı telefon kameralarından gelen büyük çözünürlüklü (12-48 MP / 10+ MB) ham görseller, `server/routers/operations.ts` içindeki `uploadImage` fonksiyonunda `sharp` motorundan geçirilerek otomatik yön düzeltme (`.rotate()`), maksimum 1600x1600px orantılı boyutlandırma (`fit: 'inside', withoutEnlargement: true`) ve %80 JPEG kalitesiyle sıkıştırıldı.
+  - Fotoğraf boyutları ortalama 10 MB'tan ~200-300 KB seviyesine indirildi (%95+ disk tasarrufu); tonaj fişleri, rakamlar ve plakaların kristal netliği korundu.
+  - Olası beklenmeyen dosya/format hatalarında sistemin kesintiye uğramaması için fail-safe fallback mimarisi kuruldu.
+- **Fiziksel Dosya Silme Altyapısı (`storageDelete`):**
+  - `server/storage.ts` içerisine `storageDelete(relKeyOrUrl)` fonksiyonu eklenerek silinen fotoğrafların sadece veritabanından değil, sunucunun `uploads/` disk alanından da fiziki olarak silinmesi ve disk alanının anında geri kazanılması sağlandı.
+- **Yönetim Panelinde Tekil Görsel Silme Desteği:**
+  - Tonaj fişi inceleme modalında her bir fiş kartının yanına 🗑️ *"Sil"* butonu eklendi.
+  - Damperlik atık, konteyner arızası ve vatandaş şikayeti listelerine fotoğraf önizleme butonları ile lightbox modalı içerisine 🗑️ *"Görseli Sil"* aksiyonu eklendi.
+  - Backend tarafında `photos.deleteSingle` prosedürü ve `server/operations-db.ts` üzerinde `removeShiftReceiptPhoto`, `removeBulkWastePhoto`, `removeContainerFaultPhoto`, `removeCitizenComplaintPhoto` fonksiyonları geliştirildi. Silme işlemleri `FOTOĞRAF_SİLİNDİ` denetim loguna bağlandı.
+- **Yönetim Paneli Toplu Görsel ve Depolama Temizleme:**
+  - Yönetim Paneli **⚠️ Veri Sıfırlama** sekmesine **"Sunucu Depolama & Görsel / Fotoğraf Temizleme"** paneli eklendi:
+    - 📅 **Bugünkü Görselleri Sil:** Son 24 saat içinde yüklenen fotoğrafları temizler.
+    - ⏱️ **7+ Günlük Görselleri Sil:** 1 haftadan eski tüm operasyon fotoğraflarını diskten siler.
+    - 🗓️ **30+ Günlük Görselleri Sil:** 1 aydan eski arşiv fotoğraflarını temizler.
+    - ⚠️ **Tüm Görselleri Sıfırla:** Sistemdeki tüm fotoğrafları diskten ve veritabanından kalıcı olarak temizler.
+  - Backend tarafında `photos.purge` prosedürü ve `reports.resetData` içine `photosScope` desteği entegre edildi.
+- **Reddedilen / Tekrar Açılan Şikayetlerde Çözüm Fotoğrafının Sıfırlanması:**
+  - Yönetici tarafından reddedilen veya çözümü onaylanmayıp tekrar "açık" duruma getirilen vatandaş şikayetlerinde, eski çözüm fotoğrafı ve çözücü bilgileri (`resolutionPhotoUrl`, `resolvedBy`, `resolvedAt`) veritabanında otomatik olarak `null` yapıldı ve eski görsel dosyası `storageDelete` ile diskten temizlendi.
+  - `OperationsMap.tsx` ve `FieldOperations.tsx` üzerindeki harita pin detay kartlarında ve saha listelerinde, şikayet "açık" durumdayken eski çözüm fotoğrafının kesinlikle gösterilmemesi kuralı (`status !== "açık"`) güvenceye alındı.
+
+
+
+### [v2.4.10] - 2026-08-21
 - **Damperlik Atık ve Arıza Çözümü Açıklama Alanlarının İsteğe Bağlı Hale Getirilmesi:**
+
   - Damperlik Atık Çözümü (`bulkWasteReports`), Konteyner Arıza Çözümü (`containerFaults`) ve Araç Arıza Çözümü (`vehicleFaults`) bildirim formlarındaki "Açıklama" alanı zorunlu olmaktan çıkarılarak `(İsteğe Bağlı)` formatına getirildi.
   - Backend tRPC mutasyonlarında (`bulkWaste.create`, `containerFaults.create`, `vehicleFaults.create`) `description` alanı `z.string().optional().default("")` olarak revize edildi; boş bırakılması durumunda sistem otomatik olarak `"Açıklama belirtilmedi"` varsayılanını atar.
 

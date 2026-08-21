@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { storagePut } from "../storage";
+import sharp from "sharp";
+import { storageDelete, storagePut } from "../storage";
 import * as db from "../operations-db";
 import { createLocalManagedUser, deleteManagedUser, listManagedUsers, updateLocalManagedUser } from "../db";
 import { hashPassword } from "../local-auth";
@@ -24,15 +25,34 @@ async function uploadImage(dataUrl: string | undefined, prefix: string) {
     if (!encoded || !metadata?.startsWith("data:image/")) {
       return dataUrl;
     }
-    const mime = metadata.match(/data:(.*?);base64/)?.[1] ?? "image/jpeg";
-    const extension = mime.split("/")[1] ?? "jpg";
-    const uploaded = await storagePut(`${prefix}/${Date.now()}.${extension}`, Buffer.from(encoded, "base64"), mime);
+
+    const rawBuffer = Buffer.from(encoded, "base64");
+    let finalBuffer: Buffer = rawBuffer;
+    let mime = "image/jpeg";
+    let extension = "jpg";
+
+    try {
+      finalBuffer = await sharp(rawBuffer)
+        .rotate()
+        .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 80, progressive: true })
+        .toBuffer();
+    } catch (sharpErr) {
+      console.warn("Sharp image compression skipped, saving raw image:", sharpErr);
+      finalBuffer = rawBuffer;
+      const detectedMime = metadata.match(/data:(.*?);base64/)?.[1] ?? "image/jpeg";
+      mime = detectedMime;
+      extension = detectedMime.split("/")[1] ?? "jpg";
+    }
+
+    const uploaded = await storagePut(`${prefix}/${Date.now()}.${extension}`, finalBuffer, mime);
     return uploaded.url;
   } catch (err) {
     console.warn("Image upload storage error, fallback to data URL:", err);
     return dataUrl;
   }
 }
+
 
 async function audit(userId: number, action: string, entityType: string, entityId?: number, details?: string) {
   await db.addAuditLog({ actorId: userId, action, entityType, entityId, details });
@@ -488,10 +508,14 @@ export const operationsRouter = router({
       z.object({ id: z.number().int().positive() })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["yönetim"]);
-      await db.rejectCitizenComplaint(input.id, ctx.user.id);
+      const oldPhotoUrl = await db.rejectCitizenComplaint(input.id, ctx.user.id);
+      if (oldPhotoUrl) {
+        await storageDelete(oldPhotoUrl);
+      }
       await audit(ctx.user.id, "VATANDAŞ_ŞİKAYETİ_YÖNETİCİ_REDDETTİ", "vatandaş_şikayeti", input.id);
       return { success: true };
     }),
+
     acknowledge: protectedProcedure.input(
       z.object({ id: z.number().int().positive(), photo: z.string().optional() })
     ).mutation(async ({ ctx, input }) => {
@@ -549,14 +573,93 @@ export const operationsRouter = router({
         complaints: z.boolean().optional(),
         faults: z.boolean().optional(),
         auditLogs: z.boolean().optional(),
+        photosScope: z.enum(["today", "7days", "30days", "all"]).optional(),
       })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["yönetim"]);
-      await db.resetOperationalData(input);
-      await audit(ctx.user.id, "ANALİZ_VERİLERİ_SIFIRLANDI", "analiz_yönetimi", undefined, JSON.stringify(input));
-      return { success: true };
+      const { photosScope, ...rest } = input;
+      await db.resetOperationalData(rest);
+
+      let deletedPhotosCount = 0;
+      if (photosScope) {
+        let days = 0;
+        if (photosScope === "today") days = 1;
+        else if (photosScope === "7days") days = 7;
+        else if (photosScope === "30days") days = 30;
+        else if (photosScope === "all") days = 0;
+
+        const deletedUrls = await db.purgePhotosDb(days);
+        deletedPhotosCount = deletedUrls.length;
+        for (const url of deletedUrls) {
+          await storageDelete(url);
+        }
+      }
+
+      await audit(ctx.user.id, "ANALİZ_VERİLERİ_SIFIRLANDI", "analiz_yönetimi", undefined, JSON.stringify({ ...input, deletedPhotosCount }));
+      return { success: true, deletedPhotosCount };
     }),
   }),
+
+  // ---------------------------------------------------------------------------
+  // PHOTOS MANAGEMENT (FOTOĞRAF YÖNETİMİ & SİLME)
+  // ---------------------------------------------------------------------------
+  photos: router({
+    deleteSingle: protectedProcedure
+      .input(
+        z.object({
+          entityType: z.enum(["shift", "waste", "container", "complaint"]),
+          entityId: z.number().int().positive(),
+          photoUrl: z.string().min(1),
+          photoField: z.enum(["photoUrl", "repairPhotoUrl", "resolutionPhotoUrl"]).optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireRole(ctx.user.role, ["yönetim"]);
+        let deletedUrls: string[] = [];
+
+        if (input.entityType === "shift") {
+          deletedUrls = await db.removeShiftReceiptPhoto(input.entityId, input.photoUrl);
+        } else if (input.entityType === "waste") {
+          deletedUrls = await db.removeBulkWastePhoto(input.entityId);
+        } else if (input.entityType === "container") {
+          deletedUrls = await db.removeContainerFaultPhoto(input.entityId);
+        } else if (input.entityType === "complaint") {
+          deletedUrls = await db.removeCitizenComplaintPhoto(input.entityId, (input.photoField as any) || "photoUrl");
+        }
+
+
+        for (const url of deletedUrls) {
+          await storageDelete(url);
+        }
+
+        await audit(ctx.user.id, "FOTOĞRAF_SİLİNDİ", input.entityType, input.entityId, input.photoUrl);
+        return { success: true, deletedCount: deletedUrls.length };
+      }),
+
+    purge: protectedProcedure
+      .input(
+        z.object({
+          scope: z.enum(["today", "7days", "30days", "all"]),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        requireRole(ctx.user.role, ["yönetim"]);
+        let days = 0;
+        if (input.scope === "today") days = 1;
+        else if (input.scope === "7days") days = 7;
+        else if (input.scope === "30days") days = 30;
+        else if (input.scope === "all") days = 0;
+
+        const deletedUrls = await db.purgePhotosDb(days);
+        for (const url of deletedUrls) {
+          await storageDelete(url);
+        }
+
+        await audit(ctx.user.id, "GÖRSELLER_TEMİZLENDİ", "depolama_yönetimi", undefined, `Kapsam: ${input.scope}, Silinen Görsel: ${deletedUrls.length}`);
+        return { success: true, deletedCount: deletedUrls.length };
+      }),
+  }),
+
 
   // ---------------------------------------------------------------------------
   // USER MANAGEMENT (KULLANICI YÖNETİMİ)

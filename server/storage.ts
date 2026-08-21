@@ -126,3 +126,28 @@ export async function storageGetSignedUrl(relKey: string): Promise<string> {
   const { url } = (await resp.json()) as { url: string };
   return url;
 }
+
+export async function storageDelete(relKeyOrUrl: string): Promise<boolean> {
+  if (!relKeyOrUrl) return false;
+  try {
+    let cleanKey = relKeyOrUrl;
+    if (cleanKey.startsWith("/uploads/")) {
+      cleanKey = cleanKey.replace(/^\/uploads\//, "");
+    } else if (cleanKey.startsWith("/manus-storage/")) {
+      cleanKey = cleanKey.replace(/^\/manus-storage\//, "");
+    }
+    cleanKey = normalizeKey(cleanKey);
+
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    const filePath = path.join(uploadsDir, cleanKey);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn("Storage delete error:", err);
+    return false;
+  }
+}
+
