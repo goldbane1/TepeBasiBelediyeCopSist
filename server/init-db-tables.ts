@@ -81,10 +81,12 @@ async function initDbTables() {
     neighborhood VARCHAR(100) NOT NULL,
     wasteType VARCHAR(100) NOT NULL,
     description TEXT NOT NULL,
+    photoUrl LONGTEXT,
     latitude VARCHAR(32) NOT NULL,
     longitude VARCHAR(32) NOT NULL,
     dueAt TIMESTAMP NOT NULL,
     status ENUM('bekliyor', 'toplandı') NOT NULL DEFAULT 'bekliyor',
+    requiresExcavator TINYINT(1) NOT NULL DEFAULT 0,
     collectedVehicleId INT,
     collectedDriverId INT,
     collectedAt TIMESTAMP NULL DEFAULT NULL,
@@ -98,6 +100,8 @@ async function initDbTables() {
     neighborhood VARCHAR(100) NOT NULL,
     faultType ENUM('kol', 'ayak', 'gövde', 'kapak', 'diğer') NOT NULL,
     description TEXT NOT NULL,
+    photoUrl LONGTEXT,
+    repairPhotoUrl LONGTEXT,
     latitude VARCHAR(32) NOT NULL,
     longitude VARCHAR(32) NOT NULL,
     status ENUM('bekliyor', 'onarım_tamamlandı') NOT NULL DEFAULT 'bekliyor',
@@ -113,15 +117,17 @@ async function initDbTables() {
     region VARCHAR(100) NOT NULL,
     neighborhood VARCHAR(100) NOT NULL,
     description TEXT NOT NULL,
+    photoUrl LONGTEXT,
+    resolutionPhotoUrl LONGTEXT,
     latitude VARCHAR(32) NOT NULL,
     longitude VARCHAR(32) NOT NULL,
-    photoUrl TEXT,
     dueAt TIMESTAMP NOT NULL,
-    status ENUM('açık', 'onaylandı') NOT NULL DEFAULT 'açık',
+    status ENUM('açık', 'onay_bekliyor', 'onaylandı') NOT NULL DEFAULT 'açık',
     acknowledgedBy INT,
     createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     acknowledgedAt TIMESTAMP NULL DEFAULT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
   CREATE TABLE IF NOT EXISTS auditLogs (
     id INT AUTO_INCREMENT PRIMARY KEY,

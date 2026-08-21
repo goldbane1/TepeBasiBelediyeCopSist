@@ -20,6 +20,44 @@ export function getDatabaseConnectionString(): string | undefined {
   return url;
 }
 
+let _migrationDone = false;
+
+async function runAutoMigrations(pool: mysql.Pool) {
+  if (_migrationDone) return;
+  _migrationDone = true;
+  try {
+    const alterQueries = [
+      "ALTER TABLE `bulkWasteReports` ADD COLUMN IF NOT EXISTS `photoUrl` LONGTEXT DEFAULT NULL AFTER `description`",
+      "ALTER TABLE `bulkWasteReports` MODIFY COLUMN `photoUrl` LONGTEXT DEFAULT NULL",
+      "ALTER TABLE `bulkWasteReports` ADD COLUMN IF NOT EXISTS `requiresExcavator` TINYINT(1) NOT NULL DEFAULT 0",
+      "ALTER TABLE `shifts` MODIFY COLUMN `tonnageReceiptUrl` LONGTEXT DEFAULT NULL",
+      "ALTER TABLE `containerFaults` ADD COLUMN IF NOT EXISTS `photoUrl` LONGTEXT DEFAULT NULL AFTER `description`",
+      "ALTER TABLE `containerFaults` MODIFY COLUMN `photoUrl` LONGTEXT DEFAULT NULL",
+      "ALTER TABLE `containerFaults` ADD COLUMN IF NOT EXISTS `repairPhotoUrl` LONGTEXT DEFAULT NULL",
+      "ALTER TABLE `containerFaults` MODIFY COLUMN `repairPhotoUrl` LONGTEXT DEFAULT NULL",
+      "ALTER TABLE `citizenComplaints` ADD COLUMN IF NOT EXISTS `photoUrl` LONGTEXT DEFAULT NULL AFTER `description`",
+      "ALTER TABLE `citizenComplaints` MODIFY COLUMN `photoUrl` LONGTEXT DEFAULT NULL",
+      "ALTER TABLE `citizenComplaints` ADD COLUMN IF NOT EXISTS `resolutionPhotoUrl` LONGTEXT DEFAULT NULL",
+      "ALTER TABLE `citizenComplaints` MODIFY COLUMN `resolutionPhotoUrl` LONGTEXT DEFAULT NULL",
+      // Clean up any historical corrupt description field that contains base64/CSV leftovers
+      "UPDATE `bulkWasteReports` SET `description` = 'Damperlik atık bildirimi' WHERE `description` LIKE '%data:image%' OR `description` LIKE '%,39.%' OR `description` LIKE '%//9k=%' OR CHAR_LENGTH(`description`) > 400",
+      "UPDATE `containerFaults` SET `description` = 'Konteyner arızası bildirimi' WHERE `description` LIKE '%data:image%' OR `description` LIKE '%,39.%' OR `description` LIKE '%//9k=%' OR CHAR_LENGTH(`description`) > 400",
+      "UPDATE `citizenComplaints` SET `description` = 'Vatandaş şikayeti bildirimi' WHERE `description` LIKE '%data:image%' OR `description` LIKE '%,39.%' OR `description` LIKE '%//9k=%' OR CHAR_LENGTH(`description`) > 400",
+    ];
+
+    for (const sql of alterQueries) {
+      try {
+        await pool.query(sql);
+      } catch {
+        // Safe to ignore if column already exists or syntax variation
+      }
+    }
+    console.log("[Database] Schema check and corrupt data cleanup completed.");
+  } catch (err) {
+    console.warn("[Database] Schema check error:", err);
+  }
+}
+
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   const connectionString = getDatabaseConnectionString();
@@ -41,6 +79,7 @@ export async function getDb() {
       });
       _db = drizzle({ client: _pool as any, schema, mode: "default" }) as any;
       console.log("[Database] Drizzle instance ready.");
+      runAutoMigrations(_pool).catch(() => {});
     } catch (error) {
       console.error("[Database] Failed to connect with SSL options, trying default pool...", error);
       try {
@@ -50,6 +89,7 @@ export async function getDb() {
           connectionLimit: 10,
         });
         _db = drizzle({ client: _pool as any, schema, mode: "default" }) as any;
+        runAutoMigrations(_pool).catch(() => {});
       } catch (err2) {
         console.error("[Database] Connection pool failed completely:", err2);
         _db = null;
@@ -60,8 +100,12 @@ export async function getDb() {
 }
 
 export async function ensureTablesExist() {
+  if (_pool) {
+    await runAutoMigrations(_pool);
+  }
   return true;
 }
+
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
