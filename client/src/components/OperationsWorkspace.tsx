@@ -38,6 +38,8 @@ import type { Role } from "@/pages/Home";
 import FleetOperations from "@/components/FleetOperations";
 import FieldOperations from "@/components/FieldOperations";
 import ManagementOperations from "@/components/ManagementOperations";
+import { compressImageFile } from "@/lib/imageCompress";
+
 
 export type AppView =
   | "dashboard"
@@ -562,27 +564,22 @@ function ShiftPanel({
     });
   };
 
-  const readReceipts = (files: FileList | null) => {
+  const readReceipts = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const fileArray = Array.from(files);
     const validFiles = fileArray.filter(f => f.type.startsWith("image/"));
     if (validFiles.length === 0) return toast.error("Yalnızca görsel dosyası yükleyebilirsiniz.");
 
-    const promises = validFiles.map(file => {
-      return new Promise<string>(resolve => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.readAsDataURL(file);
-      });
-    });
+    const promises = validFiles.map(file => compressImageFile(file, 1280, 0.75));
+    const results = await Promise.all(promises);
+    const validResults = results.filter(Boolean);
 
-    Promise.all(promises).then(results => {
-      setEndForm(currentForm => ({
-        ...currentForm,
-        tonnageReceipts: [...(currentForm.tonnageReceipts || []), ...results],
-      }));
-    });
+    setEndForm(currentForm => ({
+      ...currentForm,
+      tonnageReceipts: [...(currentForm.tonnageReceipts || []), ...validResults],
+    }));
   };
+
 
   const removeReceipt = (index: number) => {
     setEndForm(currentForm => ({
@@ -1324,19 +1321,17 @@ function BulkWasteSolutionPanel({
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error("Lütfen geçerli bir resim seçin.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm(prev => ({ ...prev, photo: String(reader.result) }));
-    };
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file, 1280, 0.75);
+    setForm(prev => ({ ...prev, photo: compressed }));
   };
+
 
   const submitWaste = (event: FormEvent) => {
     event.preventDefault();
@@ -1649,8 +1644,9 @@ function BulkWasteSolutionPanel({
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-slate-600">{waste.description}</p>
+                      <p className="text-xs text-slate-600 break-words line-clamp-3 max-w-full overflow-hidden">{waste.description}</p>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+
                         <span>📍 {waste.region}</span>
                         <span>·</span>
                         <span>📅 {new Date(waste.createdAt).toLocaleDateString("tr-TR")}</span>

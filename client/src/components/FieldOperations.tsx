@@ -28,6 +28,8 @@ import { useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
+import { compressImageFile } from "@/lib/imageCompress";
+
 
 export default function FieldOperations({
   role,
@@ -219,19 +221,17 @@ function ContainerPanel({
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error("Lütfen geçerli bir resim seçin.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setContainerForm(prev => ({ ...prev, photo: String(reader.result) }));
-    };
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file, 1280, 0.75);
+    setContainerForm(prev => ({ ...prev, photo: compressed }));
   };
+
 
   const submitContainer = (event: FormEvent) => {
     event.preventDefault();
@@ -479,8 +479,9 @@ function ContainerPanel({
                           </button>
                         )}
                       </div>
-                      <p className="text-xs text-slate-600">{record.description}</p>
+                      <p className="text-xs text-slate-600 break-words line-clamp-3 max-w-full overflow-hidden">{record.description}</p>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+
                         <span>📍 {record.region}</span>
                         <span>·</span>
                         <span>📅 {new Date(record.createdAt).toLocaleDateString("tr-TR")}</span>
@@ -725,33 +726,28 @@ function ComplaintPanel({
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error("Lütfen geçerli bir resim seçin.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setComplaintForm(prev => ({ ...prev, photo: String(reader.result) }));
-    };
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file, 1280, 0.75);
+    setComplaintForm(prev => ({ ...prev, photo: compressed }));
   };
 
-  const handleResolutionPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResolutionPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error("Lütfen geçerli bir resim seçin.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setResolutionPhoto(String(reader.result));
-    };
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file, 1280, 0.75);
+    setResolutionPhoto(compressed);
   };
+
 
   const submitComplaint = (event: FormEvent) => {
     event.preventDefault();
@@ -1041,7 +1037,7 @@ function ComplaintPanel({
                         )}
 
                       </div>
-                      <p className="text-xs text-slate-600">{complaint.description}</p>
+                      <p className="text-xs text-slate-600 break-words line-clamp-3 max-w-full overflow-hidden">{complaint.description}</p>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                         <span>📍 {complaint.region}</span>
                         <span>·</span>
