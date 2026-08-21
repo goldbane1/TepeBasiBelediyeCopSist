@@ -183,13 +183,14 @@ export default function OperationsMap({
     const isPending = !["toplandı", "onarım_tamamlandı", "onaylandı"].includes(selected.status);
     if (!isPending) return false;
     if (role === "yönetim") return true;
-    if (selected.category === "Damperlik atık" && (role === "şoför" || role === "kademe personeli")) return true;
+    if (selected.category === "Damperlik atık" && role === "şoför") return true;
     if (selected.category === "Konteyner arızası" && role === "kaynak personeli") return true;
     if (selected.category === "Vatandaş şikayeti") {
       if (selected.status === "açık" && role === "şoför") return true;
     }
     return false;
   }, [selected, role]);
+
 
 
   const selectedReporter = selected?.reporterName || selected?.extra?.reporterName;

@@ -418,9 +418,98 @@ function Dashboard({
         <Quick icon={Recycle} label="Konteyner Arıza Çözümü" onClick={() => onNavigate("konteyner")} />
         <Quick icon={AlertTriangle} label="Vatandaş Şikayetleri" onClick={() => onNavigate("şikayetler")} />
       </section>
+
+      {/* Aktif Vatandaş Şikayetleri Genel Özeti */}
+      <Card className="border-0 bg-white shadow-sm overflow-hidden rounded-2xl">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 bg-slate-50/70 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-sky-100 text-sky-700 font-bold">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-bold text-slate-900">Aktif Vatandaş Şikayetleri</CardTitle>
+              <p className="text-xs text-slate-500">İlçe genelinde müdahale ve onay bekleyen bildirimler</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="bg-sky-50 text-sky-800 border-sky-200 font-bold">
+            {complaintsList.filter(c => c.status !== "onaylandı").length} Aktif Şikayet
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          {complaintsList.filter(c => c.status !== "onaylandı").length === 0 ? (
+            <p className="text-center py-6 text-xs text-slate-500 bg-slate-50 rounded-xl">
+              Şu anda bekleyen aktif bir vatandaş şikayeti bulunmuyor.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {complaintsList
+                .filter(c => c.status !== "onaylandı")
+                .map(comp => {
+                  const isOverdue = comp.dueAt && new Date(comp.dueAt).getTime() < Date.now();
+                  const isPendingApproval = comp.status === "onay_bekliyor";
+
+                  return (
+                    <div
+                      key={comp.id}
+                      className={cn(
+                        "rounded-xl border p-3.5 flex flex-col justify-between gap-3 transition",
+                        isOverdue
+                          ? "border-red-200 bg-red-50/40"
+                          : isPendingApproval
+                          ? "border-purple-200 bg-purple-50/40"
+                          : "border-slate-200 bg-white"
+                      )}
+                    >
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900 text-sm truncate">
+                            {comp.neighborhood} Mahallesi
+                          </span>
+                          <Badge
+                            className={cn(
+                              "text-[10px] font-bold shrink-0",
+                              isPendingApproval
+                                ? "bg-purple-100 text-purple-900 border-purple-300"
+                                : isOverdue
+                                ? "bg-red-100 text-red-700 border-red-300"
+                                : "bg-sky-100 text-sky-800 border-sky-200"
+                            )}
+                          >
+                            {isPendingApproval ? "⏳ Onayda" : isOverdue ? "Acil" : "Açık"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-slate-600 line-clamp-2 break-words">
+                          {comp.description}
+                        </p>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-1">
+                          <span>📍 {comp.region}</span>
+                          <span>·</span>
+                          <span>📅 {new Date(comp.createdAt).toLocaleDateString("tr-TR")}</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          onNavigate("şikayetler");
+                        }}
+                        className="w-full h-8 text-xs font-semibold bg-white border-slate-200 text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 shadow-2xs"
+                      >
+                        <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                        Haritada Gör / İncele
+                      </Button>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
 
 function Quick({ icon: Icon, label, onClick, disabled }: { icon: typeof Map; label: string; onClick: () => void; disabled?: boolean }) {
   return (
@@ -1490,12 +1579,12 @@ function BulkWasteSolutionPanel({
               </div>
 
               {/* Konum Arama & GPS Buton Alanı */}
-              <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
+              <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 space-y-2 min-w-0 max-w-full overflow-hidden">
+                <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+                  <div className="relative flex-1 min-w-0">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
-                      placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Batıkent)..."
+                      placeholder="Adres veya sokak yazarak arayın..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       onKeyDown={e => {
@@ -1504,50 +1593,56 @@ function BulkWasteSolutionPanel({
                           searchAddressLocation();
                         }
                       }}
-                      className="pl-9 text-xs bg-white h-9"
+                      className="pl-9 text-xs bg-white h-9 w-full min-w-0"
                     />
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isSearching}
-                    onClick={searchAddressLocation}
-                    className="h-9 text-xs font-semibold bg-white border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-                  >
-                    {isSearching ? "Aranıyor..." : "Adresi Bul"}
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isSearching}
+                      onClick={searchAddressLocation}
+                      className="h-9 text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white flex-1 sm:flex-initial"
+                    >
+                      <Search className="mr-1.5 h-3.5 w-3.5" />
+                      {isSearching ? "Aranıyor..." : "Adresi Bul"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={locationState === "loading"}
+                      onClick={useCurrentLocation}
+                      className="h-9 text-xs bg-white text-emerald-800 hover:bg-emerald-100 border-emerald-300 flex-1 sm:flex-initial shadow-2xs"
+                    >
+                      <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                      {locationState === "loading" ? "Alınıyor..." : "Anlık Konum"}
+                    </Button>
+                  </div>
                 </div>
 
                 {resolvedAddress && (
-                  <p className="text-[11px] font-medium text-emerald-800 bg-white/80 rounded-lg px-2.5 py-1 border border-emerald-200/60 truncate">
-                    📍 {resolvedAddress}
+                  <p className="text-[11px] font-medium text-emerald-800 bg-white/90 rounded-lg px-2.5 py-1 border border-emerald-200/60 truncate max-w-full overflow-hidden">
+                    📍 <strong>Adres:</strong> {resolvedAddress}
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-emerald-200/50 text-xs">
-                  <span className="text-slate-600 font-mono text-[11px]">
-                    📍 Koordinat: {form.latitude}, {form.longitude}
+                <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-emerald-200/50 text-[11px]">
+                  <span className="text-slate-600 font-mono truncate">
+                    📍 {form.latitude}, {form.longitude}
                   </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={useCurrentLocation}
-                    className="h-7 text-xs bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
-                  >
-                    <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                    {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
-                  </Button>
                 </div>
               </div>
 
-              <Field label="Enlem">
-                <Input required type="number" step="any" value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} />
-              </Field>
-              <Field label="Boylam">
-                <Input required type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} />
-              </Field>
+              <div className="grid grid-cols-2 gap-3 min-w-0 w-full sm:col-span-2 lg:col-span-2">
+                <Field label="Enlem">
+                  <Input required type="number" step="any" value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
+                </Field>
+                <Field label="Boylam">
+                  <Input required type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
+                </Field>
+              </div>
+
 
               <div className="sm:col-span-2 lg:col-span-2">
                 <Field label="Fotoğraf (İsteğe Bağlı)">

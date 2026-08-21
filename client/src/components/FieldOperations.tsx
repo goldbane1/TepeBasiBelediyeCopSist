@@ -336,12 +336,12 @@ function ContainerPanel({
             </Field>
 
             {/* Konum Arama & GPS Buton Alanı */}
-            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex-1">
+            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 space-y-2 min-w-0 max-w-full overflow-hidden">
+              <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Şirintepe)..."
+                    placeholder="Adres veya sokak arayın..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     onKeyDown={e => {
@@ -350,44 +350,49 @@ function ContainerPanel({
                         searchAddressLocation();
                       }
                     }}
-                    className="bg-white pl-9 text-xs h-9"
+                    className="bg-white pl-9 text-xs h-9 w-full min-w-0"
                   />
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={isSearching}
-                  onClick={searchAddressLocation}
-                  className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
-                >
-                  <Search className="mr-1.5 h-3.5 w-3.5" />
-                  {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={locationState === "loading"}
-                  onClick={useCurrentLocation}
-                  className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
-                >
-                  <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                  {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isSearching}
+                    onClick={searchAddressLocation}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 font-semibold text-white flex-1 sm:flex-initial"
+                  >
+                    <Search className="mr-1.5 h-3.5 w-3.5" />
+                    {isSearching ? "Aranıyor..." : "Adresi Bul"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={locationState === "loading"}
+                    onClick={useCurrentLocation}
+                    className="border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs h-9 bg-white shadow-2xs flex-1 sm:flex-initial"
+                  >
+                    <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                    {locationState === "loading" ? "Alınıyor..." : "Anlık Konum"}
+                  </Button>
+                </div>
               </div>
               {resolvedAddress && (
-                <p className="text-[11px] text-emerald-800 font-medium truncate">
-                  📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
+                <p className="text-[11px] text-emerald-800 font-medium truncate max-w-full overflow-hidden bg-white/90 px-2.5 py-1 rounded-lg border border-emerald-200/60">
+                  📍 <strong>Adres:</strong> {resolvedAddress}
                 </p>
               )}
             </div>
 
-            <Field label="Enlem">
-              <Input required type="number" step="any" value={containerForm.latitude} onChange={e => setContainerForm({ ...containerForm, latitude: e.target.value })} />
-            </Field>
-            <Field label="Boylam">
-              <Input required type="number" step="any" value={containerForm.longitude} onChange={e => setContainerForm({ ...containerForm, longitude: e.target.value })} />
-            </Field>
+            <div className="grid grid-cols-2 gap-3 min-w-0 w-full sm:col-span-2 lg:col-span-2">
+              <Field label="Enlem">
+                <Input required type="number" step="any" value={containerForm.latitude} onChange={e => setContainerForm({ ...containerForm, latitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
+              </Field>
+              <Field label="Boylam">
+                <Input required type="number" step="any" value={containerForm.longitude} onChange={e => setContainerForm({ ...containerForm, longitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
+              </Field>
+            </div>
+
 
             <Field label="Fotoğraf (İsteğe Bağlı)">
               <div className="flex items-center gap-2">
@@ -877,12 +882,12 @@ function ComplaintPanel({
               </Field>
 
               {/* Konum Arama & GPS Buton Alanı */}
-              <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 space-y-2.5">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
+              <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 space-y-2 min-w-0 max-w-full overflow-hidden">
+                <div className="flex flex-col sm:flex-row gap-2 min-w-0">
+                  <div className="relative flex-1 min-w-0">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
-                      placeholder="Adres, cadde veya sokak yazarak konum arayın (Örn: İsmet İnönü Cad., Batıkent)..."
+                      placeholder="Adres veya sokak arayın..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       onKeyDown={e => {
@@ -891,44 +896,49 @@ function ComplaintPanel({
                           searchAddressLocation();
                         }
                       }}
-                      className="bg-white pl-9 text-xs h-9"
+                      className="bg-white pl-9 text-xs h-9 w-full min-w-0"
                     />
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={isSearching}
-                    onClick={searchAddressLocation}
-                    className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 shrink-0"
-                  >
-                    <Search className="mr-1.5 h-3.5 w-3.5" />
-                    {isSearching ? "Aranıyor..." : "Adresten Konum Bul"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={locationState === "loading"}
-                    onClick={useCurrentLocation}
-                    className="border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs h-9 shrink-0 bg-white"
-                  >
-                    <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                    {locationState === "loading" ? "Alınıyor..." : "Anlık Konum Al"}
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isSearching}
+                      onClick={searchAddressLocation}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 font-semibold text-white flex-1 sm:flex-initial"
+                    >
+                      <Search className="mr-1.5 h-3.5 w-3.5" />
+                      {isSearching ? "Aranıyor..." : "Adresi Bul"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={locationState === "loading"}
+                      onClick={useCurrentLocation}
+                      className="border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs h-9 bg-white shadow-2xs flex-1 sm:flex-initial"
+                    >
+                      <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                      {locationState === "loading" ? "Alınıyor..." : "Anlık Konum"}
+                    </Button>
+                  </div>
                 </div>
                 {resolvedAddress && (
-                  <p className="text-[11px] text-emerald-800 font-medium truncate">
-                    📍 <strong>Tespit Edilen Adres:</strong> {resolvedAddress}
+                  <p className="text-[11px] text-emerald-800 font-medium truncate max-w-full overflow-hidden bg-white/90 px-2.5 py-1 rounded-lg border border-emerald-200/60">
+                    📍 <strong>Adres:</strong> {resolvedAddress}
                   </p>
                 )}
               </div>
 
-              <Field label="Enlem">
-                <Input required type="number" step="any" value={complaintForm.latitude} onChange={e => setComplaintForm({ ...complaintForm, latitude: e.target.value })} />
-              </Field>
-              <Field label="Boylam">
-                <Input required type="number" step="any" value={complaintForm.longitude} onChange={e => setComplaintForm({ ...complaintForm, longitude: e.target.value })} />
-              </Field>
+              <div className="grid grid-cols-2 gap-3 min-w-0 w-full sm:col-span-2 lg:col-span-2">
+                <Field label="Enlem">
+                  <Input required type="number" step="any" value={complaintForm.latitude} onChange={e => setComplaintForm({ ...complaintForm, latitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
+                </Field>
+                <Field label="Boylam">
+                  <Input required type="number" step="any" value={complaintForm.longitude} onChange={e => setComplaintForm({ ...complaintForm, longitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
+                </Field>
+              </div>
+
 
               <Field label="Fotoğraf (İsteğe Bağlı)">
                 <div className="flex items-center gap-2">

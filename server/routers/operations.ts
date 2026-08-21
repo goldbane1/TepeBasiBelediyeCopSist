@@ -350,7 +350,7 @@ export const operationsRouter = router({
     collect: protectedProcedure.input(
       z.object({ id: z.number().int().positive(), vehicleId: z.number().int().positive() })
     ).mutation(async ({ ctx, input }) => {
-      requireRole(ctx.user.role, ["şoför", "yönetim", "kademe personeli"]);
+      requireRole(ctx.user.role, ["şoför", "yönetim"]);
       if (ctx.user.role === "şoför") {
         await db.requireActiveWasteShift(ctx.user.id, "damperli kamyon", input.vehicleId);
       }
@@ -358,6 +358,7 @@ export const operationsRouter = router({
       await audit(ctx.user.id, "DAMPERLİK_ATIK_TOPLANDI", "damperlik_atık", input.id);
       return { success: true };
     }),
+
     update: protectedProcedure.input(
       z.object({
         id: z.number().int().positive(),
