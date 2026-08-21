@@ -44,7 +44,8 @@ class AuthService {
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
     try {
-      await _api.post('/auth/logout');
+      await _api.trpcMutate('auth.logout', {});
     } catch (_) {}
   }
+
 }
