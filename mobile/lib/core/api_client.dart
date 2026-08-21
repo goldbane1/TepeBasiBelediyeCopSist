@@ -31,11 +31,12 @@ class ApiClient {
           final prefs = await SharedPreferences.getInstance();
           final token = prefs.getString('auth_token');
           if (token != null && token.isNotEmpty) {
-            options.headers['Cookie'] = 'auth_token=$token';
+            options.headers['Cookie'] = 'app_session_id=$token; auth_token=$token';
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
+
         onResponse: (response, handler) async {
           // Gelen Set-Cookie başlığından auth_token'ı yakala ve kaydet
           final setCookieHeaders = response.headers['set-cookie'];

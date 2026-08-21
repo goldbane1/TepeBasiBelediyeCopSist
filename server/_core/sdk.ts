@@ -46,14 +46,22 @@ class LocalSessionServer {
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
-    const cookie = parseCookieHeader(req.headers.cookie ?? "")[COOKIE_NAME];
-    const session = await this.verifySession(cookie);
+    const authHeader = req.headers.authorization;
+    let token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+
+    if (!token && req.headers.cookie) {
+      const parsedCookies = parseCookieHeader(req.headers.cookie);
+      token = parsedCookies[COOKIE_NAME] || parsedCookies["auth_token"] || parsedCookies["app_session_id"];
+    }
+
+    const session = await this.verifySession(token);
     if (!session) throw ForbiddenError("Geçerli bir yerel oturum bulunamadı.");
     const user = await db.getUserByOpenId(session.openId);
     if (!user?.isLocalAccount) throw ForbiddenError("Bu uygulama yalnızca yerel hesaplarla kullanılabilir.");
     await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
     return user;
   }
+
 }
 
 export type AuthenticatedUser = User;

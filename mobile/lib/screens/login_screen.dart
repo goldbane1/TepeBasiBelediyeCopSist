@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
-import '../core/constants.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart';
+import '../providers/operations_provider.dart';
 import '../widgets/custom_widgets.dart';
+import 'home_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,15 +45,24 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final success = await authProvider.login(username, password);
 
-    if (!success && mounted) {
+    if (success && mounted) {
+      final ops = Provider.of<OperationsProvider>(context, listen: false);
+      await ops.fetchAllOperations();
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+    } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? "Giriş başarısız."),
+          content: Text(authProvider.errorMessage ?? "Giriş başarısız. Kullanıcı adı veya şifre hatalı."),
           backgroundColor: AppTheme.accentRed,
         ),
       );
     }
   }
+
 
   void _showServerSettingsDialog() {
     final ipController = TextEditingController(text: ApiClient().baseUrl);
@@ -66,9 +77,9 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const Text(
               "Bilgisayarınızdaki yerel Node.js API adresini girin:\n"
-              "• Android Emülatör: http://10.0.2.2:3000/api\n"
-              "• Gerçek Telefon (Wi-Fi): http://192.168.1.X:3000/api\n"
-              "• Masaüstü/Web: http://localhost:3000/api",
+              "• Android Emülatör: http://10.0.2.2:3001/api\n"
+              "• Gerçek Telefon (Wi-Fi): http://192.168.1.X:3001/api\n"
+              "• Masaüstü/Web: http://localhost:3001/api",
               style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 12),
@@ -76,9 +87,10 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: ipController,
               decoration: const InputDecoration(
                 labelText: "API URL",
-                hintText: "http://10.0.2.2:3000/api",
+                hintText: "http://10.0.2.2:3001/api",
               ),
             ),
+
           ],
         ),
         actions: [

@@ -15,10 +15,15 @@ class AuthService {
 
       if (data != null && data['user'] != null) {
         final user = UserSession.fromJson(data['user']);
+        final token = data['token']?.toString() ?? '';
         final prefs = await SharedPreferences.getInstance();
+        if (token.isNotEmpty) {
+          await prefs.setString('auth_token', token);
+        }
         await prefs.setString('user_data', jsonEncode(user.toJson()));
         return user;
       }
+
       return null;
     } catch (e) {
       rethrow;

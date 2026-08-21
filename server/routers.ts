@@ -44,8 +44,9 @@ export const appRouter = router({
       }
       const token = await sdk.createSessionToken(user.openId, { name: user.name ?? input.username });
       ctx.res.cookie(COOKIE_NAME, token, { ...getSessionCookieOptions(ctx.req), maxAge: 1000 * 60 * 60 * 12 });
-      return { user };
+      return { user, token };
     }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
