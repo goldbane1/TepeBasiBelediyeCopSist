@@ -184,7 +184,7 @@ for (let i = 0; i < 50; i++) {
 sql += containerRows.join(",\n") + ";\n\n";
 
 sql += `-- 3. 10 ADET VATANDAŞ ŞİKAYETİ (citizenComplaints)\n`;
-sql += `INSERT INTO \`citizenComplaints\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`description\`, \`latitude\`, \`longitude\`, \`urgency\`, \`status\`, \`dueAt\`, \`createdAt\`) VALUES\n`;
+sql += `INSERT INTO \`citizenComplaints\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`description\`, \`latitude\`, \`longitude\`, \`status\`, \`dueAt\`, \`createdAt\`) VALUES\n`;
 
 const complaintRows = [];
 for (let i = 0; i < COMPLAINT_DATA.length; i++) {
@@ -196,10 +196,11 @@ for (let i = 0; i < COMPLAINT_DATA.length; i++) {
   const dueAtDate = new Date(createdAtDate.getTime() + c.dueHours * 3600 * 1000);
 
   complaintRows.push(
-    `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(c.desc + " (" + n.name + ")")}', '${lat}', '${lon}', '${c.urgency}', 'açık', '${formatDate(dueAtDate)}', '${formatDate(createdAtDate)}')`
+    `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(c.desc + " (" + n.name + ")")}', '${lat}', '${lon}', 'açık', '${formatDate(dueAtDate)}', '${formatDate(createdAtDate)}')`
   );
 }
 sql += complaintRows.join(",\n") + ";\n";
+
 
 fs.writeFileSync(path.join(process.cwd(), "seed_test_data.sql"), sql, "utf-8");
 console.log("✅ 'seed_test_data.sql' dosyası başarıyla oluşturuldu! (Toplam 110 kayıt: 50 Atık + 50 Arıza + 10 Şikayet)");

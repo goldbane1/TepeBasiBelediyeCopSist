@@ -245,11 +245,11 @@ async function seedData() {
       description: `${data.desc} (${neighborhoodObj.name})`,
       latitude: String(lat),
       longitude: String(lon),
-      urgency: data.urgency,
       status: "açık" as const,
       dueAt,
       createdAt,
     });
+
   }
 
   for (const item of complaintInserts) {
