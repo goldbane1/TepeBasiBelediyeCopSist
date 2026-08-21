@@ -1,0 +1,43 @@
+name: tepebasi_temizlik_mobil
+description: "Tepebaşı Belediyesi Temizlik İşleri Saha ve Operasyon Mobil Uygulaması"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Harita ve Konum (OpenStreetMap & GPS)
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+  geolocator: ^11.0.0
+
+  # Ağ ve API İletişimi
+  dio: ^5.4.1
+  shared_preferences: ^2.2.2
+
+  # Görsel ve Kamera
+  image_picker: ^1.0.7
+  flutter_image_compress: ^2.1.0
+  cached_network_image: ^3.3.1
+
+  # Durum Yönetimi & Yardımcılar
+  provider: ^6.1.1
+  intl: ^0.19.0
+  flutter_svg: ^2.0.9
+
+  # İkonlar & Animasyonlar
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
