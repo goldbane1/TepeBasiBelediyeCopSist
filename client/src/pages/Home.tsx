@@ -70,6 +70,45 @@ const roleClass: Record<Role, string> = {
   "yönetim": "bg-emerald-50 text-emerald-800 border-emerald-100",
 };
 
+interface MobileNavItem {
+  id: AppView;
+  shortLabel: string;
+  icon: typeof LayoutDashboard;
+}
+
+function getMobileQuickNav(role: Role): MobileNavItem[] {
+  if (role === "şoför") {
+    return [
+      { id: "dashboard", shortLabel: "Özet", icon: LayoutDashboard },
+      { id: "mesai", shortLabel: "Mesai", icon: ClipboardCheck },
+      { id: "harita", shortLabel: "Harita", icon: Map },
+      { id: "şikayetler", shortLabel: "Şikayet", icon: AlertTriangle },
+    ];
+  }
+  if (role === "kademe personeli") {
+    return [
+      { id: "dashboard", shortLabel: "Özet", icon: LayoutDashboard },
+      { id: "araç-arızaları", shortLabel: "Arıza", icon: Wrench },
+      { id: "araçlar", shortLabel: "Araçlar", icon: Truck },
+      { id: "harita", shortLabel: "Harita", icon: Map },
+    ];
+  }
+  if (role === "kaynak personeli") {
+    return [
+      { id: "dashboard", shortLabel: "Özet", icon: LayoutDashboard },
+      { id: "konteyner", shortLabel: "Konteyner", icon: Recycle },
+      { id: "harita", shortLabel: "Harita", icon: Map },
+    ];
+  }
+  // Yönetim
+  return [
+    { id: "dashboard", shortLabel: "Özet", icon: LayoutDashboard },
+    { id: "harita", shortLabel: "Harita", icon: Map },
+    { id: "mesai", shortLabel: "Mesai", icon: ClipboardCheck },
+    { id: "raporlar", shortLabel: "Raporlar", icon: FileBarChart },
+  ];
+}
+
 export default function Home() {
   const { user, loading, logout } = useAuth();
   const [view, setView] = useState<AppView>(() => {
@@ -78,7 +117,6 @@ export default function Home() {
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const role = user?.role as Role | undefined;
-
 
   if (loading) {
     return (
@@ -98,7 +136,7 @@ export default function Home() {
         {/* Sol Kenar Çubuğu (Sidebar) */}
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 flex w-[300px] flex-col border-r border-emerald-950/10 bg-[#083d2d] p-5 text-white shadow-2xl transition-transform duration-200 lg:sticky lg:translate-x-0",
+            "fixed inset-y-0 left-0 z-50 flex w-[300px] flex-col border-r border-emerald-950/10 bg-[#083d2d] p-5 text-white shadow-2xl transition-transform duration-200 lg:sticky lg:translate-x-0 pt-safe pb-safe",
             menuOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
@@ -130,7 +168,6 @@ export default function Home() {
             {roleNavItems
               .filter(item => item.roles.includes(role))
               .map(item => {
-
                 const Icon = item.icon;
                 const active = item.id === view;
                 return (
@@ -185,25 +222,29 @@ export default function Home() {
           />
         )}
 
+
         {/* Sağ Ana İçerik Alanı */}
-        <main className="min-w-0 flex-1 p-3.5 sm:p-6 lg:p-8">
-          <header className="sticky top-3 z-30 mb-5 flex flex-wrap items-center justify-between gap-3.5 bg-white/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200/70 shadow-sm backdrop-blur-md">
-            <div className="flex items-center gap-3">
+        <main className="min-w-0 flex-1 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8">
+          <header className="sticky top-2 z-30 mb-4 sm:mb-5 flex flex-wrap items-center justify-between gap-2.5 bg-white/85 p-3 sm:p-4 rounded-2xl border border-slate-200/70 shadow-sm backdrop-blur-md">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <Button
                 variant="outline"
                 size="icon"
-                className="bg-white lg:hidden border-slate-200 text-slate-700 h-10 w-10 shrink-0 shadow-2xs"
+                className="bg-white lg:hidden border-slate-200 text-slate-700 h-9 w-9 shrink-0 shadow-2xs"
                 onClick={() => setMenuOpen(true)}
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-4 w-4" />
               </Button>
-              <div className="space-y-0.5 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 truncate max-w-[240px] sm:max-w-none">
-                    TEPEBAŞI BELEDİYESİ · Temizlik İşleri Müdürlüğü
+              <div className="space-y-0.5 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[200px] sm:max-w-none">
+                    TEPEBAŞI BELEDİYESİ
                   </span>
+                  <Badge variant="outline" className={cn("sm:hidden border px-1.5 py-0.2 text-[9px] font-bold rounded-md capitalize", roleClass[role])}>
+                    {role}
+                  </Badge>
                 </div>
-                <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
+                <h1 className="font-display text-lg sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
                   {current.label}
                 </h1>
               </div>
@@ -223,10 +264,51 @@ export default function Home() {
             <OperationsWorkspace role={role} view={view} onNavigate={setView} />
           </div>
         </main>
+
+        {/* Mobil iOS / Android Alt Hızlı Erişim Çubuğu (Bottom Navigation Bar) */}
+        <nav
+          aria-label="Mobil Hızlı Menü"
+          className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 flex items-center justify-around lg:hidden pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
+        >
+          {getMobileQuickNav(role).map(item => {
+            const Icon = item.icon;
+            const active = item.id === view;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setView(item.id);
+                  setMenuOpen(false);
+                }}
+                className={cn(
+                  "flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[54px]",
+                  active ? "text-emerald-700 font-bold" : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                <div className={cn("p-1 rounded-xl transition", active && "bg-emerald-50 text-emerald-700 shadow-2xs")}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <span className="text-[10px] tracking-tight mt-0.5">{item.shortLabel}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all min-w-[54px] text-slate-500 hover:text-slate-900"
+          >
+            <div className="p-1 rounded-xl">
+              <Menu className="h-5 w-5" />
+            </div>
+            <span className="text-[10px] tracking-tight mt-0.5">Tüm Menü</span>
+          </button>
+        </nav>
       </div>
     </div>
   );
 }
+
 
 function LoginLanding() {
   return (

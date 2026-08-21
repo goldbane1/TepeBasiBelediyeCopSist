@@ -227,13 +227,13 @@ export default function OperationsMap({
         <MapView
           initialCenter={{ lat: 39.7767, lng: 30.5206 }}
           initialZoom={13}
-          className="h-[490px]"
+          className="h-[400px] sm:h-[490px]"
           onMapReady={setMap}
           onMapError={() => setMapFailed(true)}
         />
 
-        <div className="absolute left-4 top-4 z-10 rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="absolute left-2 top-2 sm:left-4 sm:top-4 z-10 rounded-xl border border-white/80 bg-white/95 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-medium text-slate-600 shadow-sm backdrop-blur max-w-[calc(100%-1rem)]">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <span className="flex items-center gap-1.5">
               <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">D</span> Damperlik Atık (Aktif)
             </span>
@@ -253,7 +253,7 @@ export default function OperationsMap({
         </div>
 
         {selected && (
-          <aside className="popup-transition absolute bottom-4 left-4 right-4 z-10 max-w-md rounded-2xl border border-white/80 bg-white/95 p-4 shadow-xl backdrop-blur md:left-auto">
+          <aside className="popup-transition absolute bottom-2 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-10 max-w-md rounded-2xl border border-white/80 bg-white/95 p-3.5 sm:p-4 shadow-xl backdrop-blur md:left-auto max-h-[75vh] overflow-y-auto">
             <button
               type="button"
               onClick={() => setSelected(null)}
@@ -263,6 +263,7 @@ export default function OperationsMap({
               <X className="h-4 w-4" />
             </button>
             <div className="mb-2 flex items-center gap-2 pr-7">
+
               <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
                 {selected.category}
               </Badge>

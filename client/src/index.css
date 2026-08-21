@@ -26,7 +26,33 @@
   --radius: 0.9rem;
 }
 
-@layer base { * { @apply border-border; } body { @apply bg-background text-foreground antialiased; } button, input, select, textarea { font: inherit; } }
+@layer base {
+  * {
+    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html, body {
+    @apply bg-background text-foreground antialiased;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  button, input, select, textarea {
+    font: inherit;
+    touch-action: manipulation;
+  }
+  /* Prevent iOS Safari auto-zoom on input focus */
+  @media screen and (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* iOS Safe Area Padding Utilities */
+.pt-safe { padding-top: max(1rem, env(safe-area-inset-top)); }
+.pb-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+
 @keyframes statusPulse { 0%,100%{transform:scale(1);opacity:1;box-shadow:0 0 0 0 rgba(220,38,38,0.7)} 50%{transform:scale(1.12);opacity:.85;box-shadow:0 0 0 10px rgba(220,38,38,0)} }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
@@ -44,10 +70,10 @@
 .operations-map-pin--sikayet{background:#0284c7}
 .operations-map-pin--pending-approval{background:#9333ea;animation:statusPulse 1.6s ease-in-out infinite}
 
-
 .legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px}.legend-dot--green{background:#14965a}.legend-dot--red{background:#dc2626;animation:statusPulse 1.35s ease-in-out infinite}
 .app-grid{background-image:linear-gradient(rgba(20,150,90,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(20,150,90,.04) 1px,transparent 1px);background-size:34px 34px}
 .custom-leaflet-marker{background:transparent!important;border:none!important}
-.input-native{height:2.5rem;width:100%;border:1px solid oklch(0.90 0.02 155);border-radius:.65rem;background:#fff;padding:0 .75rem;color:oklch(0.24 0.02 155);outline:none;transition:border-color 0.15s ease, box-shadow 0.15s ease}.input-native:focus{border-color:#14965a;box-shadow:0 0 0 3px rgba(20,150,90,.13)}
+.input-native{height:2.75rem;width:100%;border:1px solid oklch(0.90 0.02 155);border-radius:.65rem;background:#fff;padding:0 .75rem;color:oklch(0.24 0.02 155);outline:none;transition:border-color 0.15s ease, box-shadow 0.15s ease}.input-native:focus{border-color:#14965a;box-shadow:0 0 0 3px rgba(20,150,90,.13)}
+
 
 
