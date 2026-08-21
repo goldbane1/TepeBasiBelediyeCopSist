@@ -155,10 +155,10 @@ async function seedData() {
 
   console.log(`Kullanıcılar tespit edildi: Toplam ${allUsers.length} kullanıcı, varsayılan atanan ID: ${defaultUserId}`);
 
-  // 2. 50 Tane Damperlik Atık Ekle
-  console.log("\n📦 50 Adet Damperlik Atık oluşturuluyor...");
+  // 2. 65 Tane Damperlik Atık Ekle
+  console.log("\n📦 65 Adet Damperlik Atık oluşturuluyor...");
   const bulkWasteInserts = [];
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 65; i++) {
     const neighborhoodObj = getRandomItem(NEIGHBORHOOD_CENTERS);
     const wasteType = getRandomItem(WASTE_TYPES);
     const desc = getRandomItem(WASTE_DESCRIPTIONS);
@@ -167,9 +167,9 @@ async function seedData() {
     const lon = jitterCoord(neighborhoodObj.lon);
     const randomUser = driverUsers.length > 0 ? getRandomItem(driverUsers).id : defaultUserId;
     
-    // Rastgele son 3 gün içerisinde bir tarih
     const pastMinutes = Math.floor(Math.random() * 4000) + 10;
     const createdAt = new Date(Date.now() - pastMinutes * 60 * 1000);
+    const dueAt = new Date(createdAt.getTime() + 24 * 3600 * 1000);
 
     bulkWasteInserts.push({
       reportedBy: randomUser,
@@ -181,6 +181,7 @@ async function seedData() {
       longitude: String(lon),
       requiresExcavator: requiresExcavator ? 1 : 0,
       photoUrl: null,
+      dueAt,
       status: "bekliyor" as const,
       createdAt,
     });
@@ -189,12 +190,12 @@ async function seedData() {
   for (const item of bulkWasteInserts) {
     await db.insert(bulkWasteReports).values(item as any);
   }
-  console.log("✅ 50 Adet Damperlik Atık başarıyla eklendi.");
+  console.log("✅ 65 Adet Damperlik Atık başarıyla eklendi.");
 
-  // 3. 50 Tane Konteyner Arızası Ekle
-  console.log("\n🏗️ 50 Adet Konteyner Arızası oluşturuluyor...");
+  // 3. 65 Tane Konteyner Arızası Ekle
+  console.log("\n🏗️ 65 Adet Konteyner Arızası oluşturuluyor...");
   const containerInserts = [];
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 65; i++) {
     const neighborhoodObj = getRandomItem(NEIGHBORHOOD_CENTERS);
     const faultType = getRandomItem(FAULT_TYPES);
     const desc = getRandomItem(FAULT_DESCRIPTIONS);
@@ -222,7 +223,8 @@ async function seedData() {
   for (const item of containerInserts) {
     await db.insert(containerFaults).values(item as any);
   }
-  console.log("✅ 50 Adet Konteyner Arızası başarıyla eklendi.");
+  console.log("✅ 65 Adet Konteyner Arızası başarıyla eklendi.");
+
 
   // 4. 10 Tane Vatandaş Şikayeti Ekle
   console.log("\n🚨 10 Adet Vatandaş Şikayeti oluşturuluyor...");

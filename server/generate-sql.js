@@ -50,6 +50,9 @@ const WASTE_DESCRIPTIONS = [
   "Apartman bahçe temizliğinden çıkan büyük hacimli dal ve yaprak yığını.",
   "Yıkım sonrası kalan kırık kiremit ve harç yığını.",
   "Kaldırım kenarını kapatan büyük mobilya atıkları ve süngerler.",
+  "Dükkan tadilatından çıkan beton parçaları, kepçeyle yüklenmeli.",
+  "Site bahçesinden budanan büyük ağaç dalları yola taşmış.",
+  "Konteyner yanına bırakılmış kırık baza, yatak ve masa parçaları.",
 ];
 
 const FAULT_TYPES = ["kol", "ayak", "gövde", "kapak", "diğer"];
@@ -65,6 +68,8 @@ const FAULT_DESCRIPTIONS = [
   "Gövde alt kısmı çürümüş ve yarılmış, kaynakla takviye gerekli.",
   "Kapak sacı ezilmiş ve içeri bükülmüş.",
   "Konteyner kaldırma pimi yerinden çıkmış.",
+  "Kapak yay mekanizması kopmuş, kapak açık kalıyor.",
+  "Tekerlek kilitleme mekanizması arızalı, kayıyor.",
 ];
 
 const COMPLAINT_DESCRIPTIONS = [
@@ -80,7 +85,7 @@ const COMPLAINT_DESCRIPTIONS = [
   { desc: "Çöp konteynerinin kapağı açık kalmış ve koku yayılıyor, temizlenip dezenfekte edilmeli.", dueHours: 3 },
 ];
 
-function jitterCoord(baseCoord, maxOffset = 0.006) {
+function jitterCoord(baseCoord, maxOffset = 0.007) {
   const delta = (Math.random() - 0.5) * 2 * maxOffset;
   return Number((baseCoord + delta).toFixed(6));
 }
@@ -98,14 +103,19 @@ function formatDate(date) {
 }
 
 let sql = `-- =========================================================================\n`;
-sql += `-- TEPEBAŞI BELEDİYESİ - TEST VERİLERİ (50 ATIK + 50 ARIZA + 10 ŞİKAYET)\n`;
+sql += `-- TEPEBAŞI BELEDİYESİ TEMİZLİK İŞLERİ - KAPSAMLI TEST VERİLERİ (SEED DATA)\n`;
+sql += `-- 65 Damperlik Atık + 65 Konteyner Arızası + 10 Vatandaş Şikayeti\n`;
+sql += `-- Oluşturulma Tarihi: ${new Date().toLocaleString("tr-TR")}\n`;
 sql += `-- =========================================================================\n\n`;
 
-// 1. BULK WASTE REPORTS (25'lik gruplar halinde)
-for (let chunk = 0; chunk < 2; chunk++) {
+// 1. 65 ADET DAMPERLİK ATIK (bulkWasteReports) - 3 Grup Halinde (25 + 25 + 15)
+const wasteChunks = [25, 25, 15];
+for (let chunkIdx = 0; chunkIdx < wasteChunks.length; chunkIdx++) {
+  const count = wasteChunks[chunkIdx];
+  sql += `-- 1.${chunkIdx + 1} Damperlik Atık Paketi (${count} Adet)\n`;
   sql += `INSERT INTO \`bulkWasteReports\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`wasteType\`, \`description\`, \`latitude\`, \`longitude\`, \`dueAt\`, \`status\`, \`requiresExcavator\`, \`createdAt\`) VALUES\n`;
   const rows = [];
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < count; i++) {
     const n = getRandomItem(NEIGHBORHOOD_CENTERS);
     const wt = getRandomItem(WASTE_TYPES);
     const desc = getRandomItem(WASTE_DESCRIPTIONS);
@@ -123,11 +133,14 @@ for (let chunk = 0; chunk < 2; chunk++) {
   sql += rows.join(",\n") + ";\n\n";
 }
 
-// 2. CONTAINER FAULTS (25'lik gruplar halinde)
-for (let chunk = 0; chunk < 2; chunk++) {
+// 2. 65 ADET KONTEYNER ARIZASI (containerFaults) - 3 Grup Halinde (25 + 25 + 15)
+const containerChunks = [25, 25, 15];
+for (let chunkIdx = 0; chunkIdx < containerChunks.length; chunkIdx++) {
+  const count = containerChunks[chunkIdx];
+  sql += `-- 2.${chunkIdx + 1} Konteyner Arızası Paketi (${count} Adet)\n`;
   sql += `INSERT INTO \`containerFaults\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`faultType\`, \`description\`, \`latitude\`, \`longitude\`, \`status\`, \`createdAt\`) VALUES\n`;
   const rows = [];
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < count; i++) {
     const n = getRandomItem(NEIGHBORHOOD_CENTERS);
     const ft = getRandomItem(FAULT_TYPES);
     const desc = getRandomItem(FAULT_DESCRIPTIONS);
@@ -143,7 +156,8 @@ for (let chunk = 0; chunk < 2; chunk++) {
   sql += rows.join(",\n") + ";\n\n";
 }
 
-// 3. CITIZEN COMPLAINTS (10 Adet)
+// 3. 10 ADET VATANDAŞ ŞİKAYETİ (citizenComplaints)
+sql += `-- 3. Vatandaş Şikayetleri Paketi (10 Adet)\n`;
 sql += `INSERT INTO \`citizenComplaints\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`description\`, \`latitude\`, \`longitude\`, \`status\`, \`dueAt\`, \`createdAt\`) VALUES\n`;
 const complaintRows = [];
 for (let i = 0; i < COMPLAINT_DESCRIPTIONS.length; i++) {
@@ -161,4 +175,4 @@ for (let i = 0; i < COMPLAINT_DESCRIPTIONS.length; i++) {
 sql += complaintRows.join(",\n") + ";\n";
 
 fs.writeFileSync(path.join(process.cwd(), "seed_test_data.sql"), sql, "utf-8");
-console.log("✅ 'seed_test_data.sql' başarıyla güncellendi!");
+console.log("✅ 'seed_test_data.sql' başarıyla güncellendi! (Toplam 140 Kayıt: 65 Damperlik Atık + 65 Konteyner Arızası + 10 Vatandaş Şikayeti)");
