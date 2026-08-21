@@ -423,8 +423,12 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - `z-index: 999999` ve derin gölge (`shadow-2xl`) ile tüm harita, menü ve form pencerelerinin en üstünde net okunurluk sağlandı.
 - **İstemci Taraflı Görsel Ön Sıkıştırma (HTML5 Canvas Compression):**
   - Mobil kamera çekimleri (10-15MB) istemcide canvas ile 1280px / ~120KB seviyesine sıkıştırılarak mobil veri tasarrufu ve hızlı yükleme sağlandı.
+- **Tepebaşı Kapsamlı Test & Demo Veri Paketi (`seed_test_data.sql` / `server/seed-test-data.ts`):**
+  - Gerçek Tepebaşı mahalleleri ve harita koordinatlarıyla 65 Damperlik Atık, 65 Konteyner Arızası ve 10 Vatandaş Şikayeti (toplam 140 operasyonel kayıt) SQL ve script olarak projeye eklendi.
+  - TiDB Cloud ve MySQL uyumlu 25'şerli optimize edilmiş batch INSERT bloklarıyla hatasız içe aktarma sağlandı.
 
 ### [v2.4.15] - 2026-08-21
+
 
 - **Yönetim Raporları ve Analiz Sayfasına Kapsamlı "Sistem Denetim Logları" Sekmesi Eklendi:**
   - `ManagementOperations.tsx` içerisine **`📜 Sistem Denetim Logları`** sekmesi ve üst navigasyon rozeti eklendi.
