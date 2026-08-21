@@ -8,29 +8,23 @@ class AuthService {
 
   Future<UserSession?> login(String username, String password) async {
     try {
-      final response = await _api.post('/auth/login', data: {
+      final data = await _api.trpcMutate('auth.login', {
         'username': username,
         'password': password,
       });
 
-      if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        final userJson = data['user'] ?? data;
-        final user = UserSession.fromJson(userJson);
-
-        final token = data['token'] ?? data['sessionId'] ?? '';
+      if (data != null && data['user'] != null) {
+        final user = UserSession.fromJson(data['user']);
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', token);
         await prefs.setString('user_data', jsonEncode(user.toJson()));
-
         return user;
       }
       return null;
     } catch (e) {
-      print("[Auth Error] Login failed: $e");
       rethrow;
     }
   }
+
 
   Future<UserSession?> getSavedSession() async {
     try {
