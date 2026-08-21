@@ -67,57 +67,17 @@ const FAULT_DESCRIPTIONS = [
   "Konteyner kaldırma pimi yerinden çıkmış.",
 ];
 
-const COMPLAINT_DATA = [
-  {
-    desc: "Konteyner çevresine çok miktarda evsel atık ve poşet taşmış, sokakta koku yapıyor.",
-    urgency: "yüksek",
-    dueHours: 2,
-  },
-  {
-    desc: "Park kenarındaki çöp kutuları tamamen dolmuş, piknik atıkları çimlere yayılmış.",
-    urgency: "orta",
-    dueHours: 4,
-  },
-  {
-    desc: "Sokak girişinde çöp birikintisi oluşmuş, acil süpürge aracıyla temizlik rica ediyoruz.",
-    urgency: "orta",
-    dueHours: 3,
-  },
-  {
-    desc: "Pazar yeri sonrası kalan sebze ve poşet atıkları rüzgarda çevreye dağılıyor.",
-    urgency: "yüksek",
-    dueHours: 2,
-  },
-  {
-    desc: "Site önündeki çöp konteynerleri yetersiz kalıyor, ilave konteyner konulması veya sık alınması gerek.",
-    urgency: "orta",
-    dueHours: 6,
-  },
-  {
-    desc: "Apartman önüne tadilat molozları dökülmüş, araç geçişini zorlaştırıyor.",
-    urgency: "orta",
-    dueHours: 5,
-  },
-  {
-    desc: "Konteyner arkasında çöp poşetleri patlamış, sokak hayvanları dağıtıyor.",
-    urgency: "yüksek",
-    dueHours: 2,
-  },
-  {
-    desc: "Ağaç budama dalları yola taşmış durumda, süpürge ekibi yönlendirilebilir mi?",
-    urgency: "orta",
-    dueHours: 4,
-  },
-  {
-    desc: "Kaldırım üzerindeki çöp yığını günlerdir alınmamış, sinek ve koku yapıyor.",
-    urgency: "yüksek",
-    dueHours: 1,
-  },
-  {
-    desc: "Çöp konteynerinin kapağı açık kalmış ve koku yayılıyor, temizlenip dezenfekte edilmesi gerek.",
-    urgency: "orta",
-    dueHours: 3,
-  },
+const COMPLAINT_DESCRIPTIONS = [
+  { desc: "Konteyner çevresine çok miktarda evsel atık ve poşet taşmış, sokakta koku yapıyor.", dueHours: 2 },
+  { desc: "Park kenarındaki çöp kutuları tamamen dolmuş, piknik atıkları çimlere yayılmış.", dueHours: 4 },
+  { desc: "Sokak girişinde çöp birikintisi oluşmuş, acil süpürge aracıyla temizlik rica ediyoruz.", dueHours: 3 },
+  { desc: "Pazar yeri sonrası kalan sebze ve poşet atıkları rüzgarda çevreye dağılıyor.", dueHours: 2 },
+  { desc: "Site önündeki çöp konteynerleri yetersiz kalıyor, ilave konteyner konulması gerek.", dueHours: 6 },
+  { desc: "Apartman önüne tadilat molozları dökülmüş, araç geçişini zorlaştırıyor.", dueHours: 5 },
+  { desc: "Konteyner arkasında çöp poşetleri patlamış, sokak hayvanları dağıtıyor.", dueHours: 2 },
+  { desc: "Ağaç budama dalları yola taşmış durumda, süpürge ekibi yönlendirilebilir mi?", dueHours: 4 },
+  { desc: "Kaldırım üzerindeki çöp yığını günlerdir alınmamış, sinek ve koku yapıyor.", dueHours: 1 },
+  { desc: "Çöp konteynerinin kapağı açık kalmış ve koku yayılıyor, temizlenip dezenfekte edilmeli.", dueHours: 3 },
 ];
 
 function jitterCoord(baseCoord, maxOffset = 0.006) {
@@ -137,70 +97,68 @@ function formatDate(date) {
   return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
-let sql = `-- =========================================================================
--- TEPEBAŞI BELEDİYESİ TEMİZLİK İŞLERİ - TEST VERİLERİ (SEED DATA)
--- 50 Damperlik Atık, 50 Konteyner Arızası, 10 Vatandaş Şikayeti
--- Oluşturulma Tarihi: ${new Date().toLocaleString("tr-TR")}
--- =========================================================================
+let sql = `-- =========================================================================\n`;
+sql += `-- TEPEBAŞI BELEDİYESİ - TEST VERİLERİ (50 ATIK + 50 ARIZA + 10 ŞİKAYET)\n`;
+sql += `-- =========================================================================\n\n`;
 
--- 1. 50 ADET DAMPERLİK ATIK (bulkWasteReports)
-INSERT INTO \`bulkWasteReports\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`wasteType\`, \`description\`, \`latitude\`, \`longitude\`, \`requiresExcavator\`, \`photoUrl\`, \`status\`, \`createdAt\`) VALUES
-`;
+// 1. BULK WASTE REPORTS (25'lik gruplar halinde)
+for (let chunk = 0; chunk < 2; chunk++) {
+  sql += `INSERT INTO \`bulkWasteReports\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`wasteType\`, \`description\`, \`latitude\`, \`longitude\`, \`dueAt\`, \`status\`, \`requiresExcavator\`, \`createdAt\`) VALUES\n`;
+  const rows = [];
+  for (let i = 0; i < 25; i++) {
+    const n = getRandomItem(NEIGHBORHOOD_CENTERS);
+    const wt = getRandomItem(WASTE_TYPES);
+    const desc = getRandomItem(WASTE_DESCRIPTIONS);
+    const reqExc = Math.random() < 0.35 ? 1 : 0;
+    const lat = jitterCoord(n.lat);
+    const lon = jitterCoord(n.lon);
+    const pastMinutes = Math.floor(Math.random() * 4000) + 10;
+    const createdAt = new Date(Date.now() - pastMinutes * 60 * 1000);
+    const dueAt = new Date(createdAt.getTime() + 24 * 3600 * 1000);
 
-const wasteRows = [];
-for (let i = 0; i < 50; i++) {
-  const n = getRandomItem(NEIGHBORHOOD_CENTERS);
-  const wt = getRandomItem(WASTE_TYPES);
-  const desc = getRandomItem(WASTE_DESCRIPTIONS);
-  const reqExc = Math.random() < 0.35 ? 1 : 0;
-  const lat = jitterCoord(n.lat);
-  const lon = jitterCoord(n.lon);
-  const pastMinutes = Math.floor(Math.random() * 4000) + 10;
-  const createdAt = formatDate(new Date(Date.now() - pastMinutes * 60 * 1000));
-
-  wasteRows.push(
-    `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(wt)}', '${escapeSql(desc + " (" + n.name + ")")}', '${lat}', '${lon}', ${reqExc}, NULL, 'bekliyor', '${createdAt}')`
-  );
+    rows.push(
+      `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(wt)}', '${escapeSql(desc + " (" + n.name + ")")}', '${lat}', '${lon}', '${formatDate(dueAt)}', 'bekliyor', ${reqExc}, '${formatDate(createdAt)}')`
+    );
+  }
+  sql += rows.join(",\n") + ";\n\n";
 }
-sql += wasteRows.join(",\n") + ";\n\n";
 
-sql += `-- 2. 50 ADET KONTEYNER ARIZASI (containerFaults)\n`;
-sql += `INSERT INTO \`containerFaults\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`faultType\`, \`description\`, \`latitude\`, \`longitude\`, \`photoUrl\`, \`status\`, \`createdAt\`) VALUES\n`;
+// 2. CONTAINER FAULTS (25'lik gruplar halinde)
+for (let chunk = 0; chunk < 2; chunk++) {
+  sql += `INSERT INTO \`containerFaults\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`faultType\`, \`description\`, \`latitude\`, \`longitude\`, \`status\`, \`createdAt\`) VALUES\n`;
+  const rows = [];
+  for (let i = 0; i < 25; i++) {
+    const n = getRandomItem(NEIGHBORHOOD_CENTERS);
+    const ft = getRandomItem(FAULT_TYPES);
+    const desc = getRandomItem(FAULT_DESCRIPTIONS);
+    const lat = jitterCoord(n.lat);
+    const lon = jitterCoord(n.lon);
+    const pastMinutes = Math.floor(Math.random() * 4000) + 10;
+    const createdAt = new Date(Date.now() - pastMinutes * 60 * 1000);
 
-const containerRows = [];
-for (let i = 0; i < 50; i++) {
-  const n = getRandomItem(NEIGHBORHOOD_CENTERS);
-  const ft = getRandomItem(FAULT_TYPES);
-  const desc = getRandomItem(FAULT_DESCRIPTIONS);
-  const lat = jitterCoord(n.lat);
-  const lon = jitterCoord(n.lon);
-  const pastMinutes = Math.floor(Math.random() * 4000) + 10;
-  const createdAt = formatDate(new Date(Date.now() - pastMinutes * 60 * 1000));
-
-  containerRows.push(
-    `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(ft)}', '${escapeSql(desc + " (" + n.name + ")")}', '${lat}', '${lon}', NULL, 'bekliyor', '${createdAt}')`
-  );
+    rows.push(
+      `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(ft)}', '${escapeSql(desc + " (" + n.name + ")")}', '${lat}', '${lon}', 'bekliyor', '${formatDate(createdAt)}')`
+    );
+  }
+  sql += rows.join(",\n") + ";\n\n";
 }
-sql += containerRows.join(",\n") + ";\n\n";
 
-sql += `-- 3. 10 ADET VATANDAŞ ŞİKAYETİ (citizenComplaints)\n`;
+// 3. CITIZEN COMPLAINTS (10 Adet)
 sql += `INSERT INTO \`citizenComplaints\` (\`reportedBy\`, \`region\`, \`neighborhood\`, \`description\`, \`latitude\`, \`longitude\`, \`status\`, \`dueAt\`, \`createdAt\`) VALUES\n`;
-
 const complaintRows = [];
-for (let i = 0; i < COMPLAINT_DATA.length; i++) {
-  const c = COMPLAINT_DATA[i];
+for (let i = 0; i < COMPLAINT_DESCRIPTIONS.length; i++) {
+  const c = COMPLAINT_DESCRIPTIONS[i];
   const n = NEIGHBORHOOD_CENTERS[i % NEIGHBORHOOD_CENTERS.length];
   const lat = jitterCoord(n.lat, 0.004);
   const lon = jitterCoord(n.lon, 0.004);
-  const createdAtDate = new Date(Date.now() - (4 - (i % 3)) * 3600 * 1000);
-  const dueAtDate = new Date(createdAtDate.getTime() + c.dueHours * 3600 * 1000);
+  const createdAt = new Date(Date.now() - (4 - (i % 3)) * 3600 * 1000);
+  const dueAt = new Date(createdAt.getTime() + c.dueHours * 3600 * 1000);
 
   complaintRows.push(
-    `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(c.desc + " (" + n.name + ")")}', '${lat}', '${lon}', 'açık', '${formatDate(dueAtDate)}', '${formatDate(createdAtDate)}')`
+    `  (1, '${escapeSql(n.region)}', '${escapeSql(n.name)}', '${escapeSql(c.desc + " (" + n.name + ")")}', '${lat}', '${lon}', 'açık', '${formatDate(dueAt)}', '${formatDate(createdAt)}')`
   );
 }
 sql += complaintRows.join(",\n") + ";\n";
 
-
 fs.writeFileSync(path.join(process.cwd(), "seed_test_data.sql"), sql, "utf-8");
-console.log("✅ 'seed_test_data.sql' dosyası başarıyla oluşturuldu! (Toplam 110 kayıt: 50 Atık + 50 Arıza + 10 Şikayet)");
+console.log("✅ 'seed_test_data.sql' başarıyla güncellendi!");
