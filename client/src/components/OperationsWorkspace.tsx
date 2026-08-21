@@ -151,7 +151,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
       });
 
     (complaints.data ?? [])
-      .filter(item => item.status === "açık")
+      .filter(item => item.status === "açık" || item.status === "onay_bekliyor")
       .forEach(item => {
         result.push({
           id: item.id,
@@ -167,6 +167,7 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
           extra: item,
         });
       });
+
 
     return result;
   }, [waste.data, containers.data, complaints.data]);

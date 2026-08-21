@@ -110,8 +110,13 @@ export default function OperationsMap({
         pinClass = "operations-map-pin--ariza";
       } else if (operation.category === "Vatandaş şikayeti") {
         categorySymbol = "V";
-        pinClass = "operations-map-pin--sikayet";
+        pinClass = operation.status === "onay_bekliyor"
+          ? "operations-map-pin--pending-approval"
+          : isOverdue(operation)
+          ? "operations-map-pin--overdue"
+          : "operations-map-pin--sikayet";
       }
+
 
       const pinHtml = `<div class="operations-map-pin ${pinClass}">${categorySymbol}</div>`;
 
