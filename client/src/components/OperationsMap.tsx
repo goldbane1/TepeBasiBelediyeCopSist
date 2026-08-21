@@ -75,18 +75,25 @@ export default function OperationsMap({
     [filteredOperations]
   );
 
-  // Sync selectedOperationId prop
+  // Sync selectedOperationId prop: Center map on coordinates without auto-opening popup
   useEffect(() => {
     if (selectedOperationId) {
       const match = operations.find(o => o.id === selectedOperationId && !optimisticResolvedKeys.has(`${o.category}-${o.id}`));
-      if (match) {
-        setSelected(match);
-        if (map && Number.isFinite(Number(match.latitude)) && Number.isFinite(Number(match.longitude))) {
-          map.setView([Number(match.latitude), Number(match.longitude)], 16, { animate: true });
-        }
+      if (match && map && Number.isFinite(Number(match.latitude)) && Number.isFinite(Number(match.longitude))) {
+        map.setView([Number(match.latitude), Number(match.longitude)], 16, { animate: true });
       }
     }
   }, [selectedOperationId, operations, map, optimisticResolvedKeys]);
+
+  // Haritadaki boş alana dokunulduğunda açık olan detay kartını kapat
+  useEffect(() => {
+    if (!map) return;
+    const handleMapClick = () => setSelected(null);
+    map.on("click", handleMapClick);
+    return () => {
+      map.off("click", handleMapClick);
+    };
+  }, [map]);
 
   useEffect(() => {
     if (!map) return;
@@ -117,14 +124,13 @@ export default function OperationsMap({
           : "operations-map-pin--sikayet";
       }
 
-
       const pinHtml = `<div class="operations-map-pin ${pinClass}">${categorySymbol}</div>`;
 
       const customIcon = L.divIcon({
         className: "custom-leaflet-marker",
         html: pinHtml,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17],
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
       });
 
       const marker = L.marker(
@@ -184,9 +190,9 @@ export default function OperationsMap({
   const selectedResolver = selected?.status !== "açık" ? selected?.extra?.resolverName : undefined;
   const selectedResolutionPhoto = selected?.status !== "açık" ? selected?.extra?.resolutionPhotoUrl : undefined;
 
-
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className="space-y-4">
+      {/* Category filter tabs */}
       {showCategoryTabs && (
         <div className="flex flex-wrap items-center gap-2">
           {categories.map(cat => {
@@ -201,18 +207,18 @@ export default function OperationsMap({
                   setSelected(null);
                 }}
                 className={cn(
-                  "flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition shadow-sm border",
+                  "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition shadow-2xs",
                   active
-                    ? "bg-emerald-700 text-white border-emerald-800 shadow-emerald-900/10"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    ? "bg-emerald-700 text-white shadow-emerald-950/20"
+                    : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-4 w-4" />
                 <span>{cat.label}</span>
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                    active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                    "rounded-full px-1.5 py-0.2 text-[10px] font-bold",
+                    active ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"
                   )}
                 >
                   {cat.count}
@@ -253,16 +259,22 @@ export default function OperationsMap({
         </div>
 
         {selected && (
-          <aside className="popup-transition absolute bottom-2 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-10 max-w-md rounded-2xl border border-white/80 bg-white/95 p-3.5 sm:p-4 shadow-xl backdrop-blur md:left-auto max-h-[75vh] overflow-y-auto">
+          <aside className="popup-transition absolute bottom-2 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-[400] max-w-md rounded-2xl border border-white/90 bg-white/95 p-3.5 sm:p-4 shadow-2xl backdrop-blur md:left-auto max-h-[58vh] sm:max-h-[75vh] overflow-y-auto">
+            {/* Mobil Kapatma Tutamağı */}
+            <div
+              onClick={() => setSelected(null)}
+              className="w-12 h-1 bg-slate-300 hover:bg-slate-400 rounded-full mx-auto mb-2.5 sm:hidden cursor-pointer active:scale-95 transition"
+              title="Kapatmak için dokunun"
+            />
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="absolute right-3 top-3 rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+              className="absolute right-3 top-3 h-8 w-8 rounded-full bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 flex items-center justify-center transition shadow-2xs active:scale-90"
               aria-label="Detayı kapat"
             >
               <X className="h-4 w-4" />
             </button>
-            <div className="mb-2 flex items-center gap-2 pr-7">
+            <div className="mb-2 flex items-center gap-2 pr-9">
 
               <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
                 {selected.category}

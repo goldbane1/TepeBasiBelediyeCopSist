@@ -1126,8 +1126,9 @@ function MapPanel({
                             className="text-xs h-8 text-slate-700 hover:bg-slate-100"
                           >
                             <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                            Pini Göster
+                            Haritada Gör
                           </Button>
+
                         </td>
                       </tr>
                     );
