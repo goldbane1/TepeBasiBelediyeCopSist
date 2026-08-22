@@ -22,6 +22,7 @@ import {
   MapPin,
   MessageSquareWarning,
   Plus,
+  RotateCcw,
   Search,
   Truck,
   Wrench,
@@ -32,6 +33,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
@@ -571,6 +573,9 @@ function ShiftPanel({
   });
 
   const [adminEndKmValues, setAdminEndKmValues] = useState<Record<number, string>>({});
+  const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const [switchVehicleId, setSwitchVehicleId] = useState("");
+  const [switchReason, setSwitchReason] = useState("");
 
   const current = trpc.operations.shifts.current.useQuery(undefined, { enabled: role === "şoför" });
   const driverHistory = trpc.operations.shifts.driverHistory.useQuery(undefined, { enabled: role === "şoför" });
@@ -605,6 +610,19 @@ function ShiftPanel({
     },
     onError: error => toast.error(error.message),
   });
+
+  const switchVehicleMut = trpc.operations.shifts.switchVehicle.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Araç başarıyla değiştirildi! Yeni Araç: ${data.vehicle.plate}`);
+      refresh();
+      if (current.refetch) void current.refetch();
+      setShowSwitchModal(false);
+      setSwitchVehicleId("");
+      setSwitchReason("");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
 
   const availableVehicles = vehicles.filter(vehicle => vehicle.type === form.vehicleType);
   const activeShifts = useMemo(() => shifts.filter(shift => shift.status === "açık"), [shifts]);
@@ -977,21 +995,115 @@ function ShiftPanel({
       {Boolean(current.data) && (
         <Card className="border-2 border-emerald-300 bg-white shadow-md">
           <CardHeader className="bg-emerald-50/70 border-b border-emerald-100 py-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle className="font-display text-emerald-950 flex items-center gap-2 text-base">
                   <Gauge className="h-5 w-5 text-emerald-700" />
                   Aktif Mesaiyi Sonlandır
                 </CardTitle>
                 <p className="text-xs text-emerald-800 mt-0.5">
-                  Mesai #{(current.data as any).id} · {(current.data as any).neighborhood} · Başlangıç: {(current.data as any).startKm} km · Vardiya: {(current.data as any).shiftHours || "08:00 - 16:00"}
+                  Mesai #{(current.data as any).id} · {(current.data as any).neighborhood} · Araç: <strong>{(current.data as any).vehiclePlate || `#${(current.data as any).vehicleId}`} ({(current.data as any).vehicleType})</strong> · Başlangıç: {(current.data as any).startKm} km
                 </p>
               </div>
-              <Badge className="bg-emerald-700 text-white text-xs">Devam Ediyor</Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSwitchVehicleId("");
+                    setSwitchReason("");
+                    setShowSwitchModal(true);
+                  }}
+                  className="border-emerald-400 bg-white text-emerald-800 hover:bg-emerald-100 font-bold text-xs shadow-2xs h-8"
+                >
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                  Mesai Sırasında Aracı Değiştir
+                </Button>
+                <Badge className="bg-emerald-700 text-white text-xs">Devam Ediyor</Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-5">
+            {showSwitchModal && (
+              <div className="mb-5 rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-4 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-emerald-800" />
+                    <h4 className="font-bold text-emerald-950 text-sm">Mesai Sırasında Araç Değişikliği</h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSwitchModal(false)}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-emerald-100 hover:text-slate-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 pt-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Yeni Araç Plakası <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={switchVehicleId}
+                      onChange={e => setSwitchVehicleId(e.target.value)}
+                      className="input-native bg-white"
+                    >
+                      <option value="">Yeni araç seçin...</option>
+                      {vehicles
+                        .filter(v => v.id !== (current.data as any)?.vehicleId && v.status === "aktif")
+                        .map(v => (
+                          <option key={v.id} value={v.id}>
+                            {v.plate} · {v.brand} ({v.type})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Değişiklik Nedeni (İsteğe Bağlı)
+                    </label>
+                    <Input
+                      value={switchReason}
+                      onChange={e => setSwitchReason(e.target.value)}
+                      placeholder="Örn: Arıza yaptı, lastik patladı, araç değiştirildi"
+                      className="bg-white text-xs"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 flex justify-end gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowSwitchModal(false)}
+                      className="text-xs"
+                    >
+                      İptal
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!switchVehicleId || switchVehicleMut.isPending}
+                      onClick={() => {
+                        if (!switchVehicleId) return toast.error("Lütfen yeni bir araç seçin.");
+                        switchVehicleMut.mutate({
+                          shiftId: (current.data as any).id,
+                          newVehicleId: Number(switchVehicleId),
+                          reason: switchReason.trim() || undefined,
+                        });
+                      }}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs"
+                    >
+                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                      {switchVehicleMut.isPending ? "Değiştiriliyor..." : "Aracı Değiştir ve Devam Et"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitFinish}>
+
               <Field label="Bitiş Km">
                 <Input required type="number" min={(current.data as any).startKm} value={endForm.endKm} onChange={e => setEndForm({ ...endForm, endKm: e.target.value })} />
               </Field>

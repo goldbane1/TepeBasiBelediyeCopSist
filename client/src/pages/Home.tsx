@@ -312,46 +312,41 @@ export default function Home() {
 
 function LoginLanding() {
   return (
-    <div className="relative grid min-h-screen overflow-hidden bg-[#062f22] px-5 py-8 text-white md:place-items-center">
+    <div className="relative grid min-h-screen overflow-hidden bg-[#062f22] px-4 py-6 text-white md:px-5 md:py-8 md:place-items-center">
       <div className="absolute inset-0 opacity-30 app-grid" />
-      <div className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[.07] shadow-2xl backdrop-blur-md md:grid-cols-[1.1fr_.9fr]">
-        <section className="p-8 md:p-12">
-          <div className="flex items-center gap-4">
-            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-white p-2.5 shadow-xl shadow-emerald-950/40">
+      <div className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-3xl md:rounded-[2.5rem] border border-white/10 bg-white/[.07] shadow-2xl backdrop-blur-md md:grid-cols-[1.1fr_.9fr]">
+        <section className="p-6 sm:p-8 md:p-12">
+          <div className="flex items-center gap-3.5 sm:gap-4">
+            <div className="grid h-16 w-16 sm:h-20 sm:w-20 shrink-0 place-items-center rounded-2xl bg-white p-2 sm:p-2.5 shadow-xl shadow-emerald-950/40">
               <img src={tepebasiLogo} alt="Tepebaşı Belediyesi" className="h-full w-full object-contain" />
             </div>
             <div>
-              <h1 className="font-display text-2xl font-black tracking-wide text-white">TEPEBAŞI BELEDİYESİ</h1>
-              <p className="text-base font-bold text-emerald-200/90 mt-0.5">Temizlik İşleri Müdürlüğü</p>
+              <h1 className="font-display text-xl sm:text-2xl font-black tracking-wide text-white">TEPEBAŞI BELEDİYESİ</h1>
+              <p className="text-sm sm:text-base font-bold text-emerald-200/90 mt-0.5">Temizlik İşleri Müdürlüğü</p>
             </div>
           </div>
-          <div className="mt-14">
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">Kapalı operasyon platformu</p>
-            <h1 className="mt-3 max-w-xl font-display text-4xl font-extrabold leading-[1.1] md:text-5xl">
+          <div className="mt-6 sm:mt-8 md:mt-12">
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-emerald-300">Operasyon Yönetim Sistemi</p>
+            <h2 className="mt-2.5 max-w-xl font-display text-2xl sm:text-3xl md:text-5xl font-extrabold leading-[1.15]">
               Atık yönetiminde görünür, izlenebilir ve koordineli çalışma.
-            </h1>
-            <p className="mt-5 max-w-lg text-base leading-7 text-emerald-50/80">
+            </h2>
+            <p className="mt-3 sm:mt-4 max-w-lg text-xs sm:text-sm md:text-base leading-relaxed text-emerald-50/80">
               Mesai, araç, arıza, damperlik atık, konteyner ve vatandaş şikayeti süreçlerini tek ekranda yönetin.
             </p>
           </div>
-          <div className="mt-10 grid gap-3 sm:grid-cols-3">
-            <LandingItem icon={Truck} text="Araç ve mesai" />
-            <LandingItem icon={Map} text="Canlı harita" />
-            <LandingItem icon={FileBarChart} text="Yönetim raporu" />
-          </div>
         </section>
-        <section className="flex items-center bg-white p-8 text-slate-900 md:p-12">
+        <section className="flex items-center bg-white p-6 sm:p-8 md:p-12 text-slate-900">
           <div className="w-full">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
-              <Settings className="h-6 w-6" />
+            <div className="grid h-11 w-11 sm:h-12 sm:w-12 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
+              <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
-            <h2 className="mt-6 font-display text-2xl font-bold">Güvenli giriş</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <h2 className="mt-4 sm:mt-6 font-display text-xl sm:text-2xl font-bold">Güvenli giriş</h2>
+            <p className="mt-1.5 text-xs sm:text-sm leading-5 sm:leading-6 text-slate-500">
               Harici giriş kullanılmaz. Hesap bilgileriniz yönetim tarafından tanımlanır.
             </p>
             <LocalAuthGate />
-            <p className="mt-5 text-center text-xs leading-5 text-slate-400">
-              Hesap oluşturma, rol atama ve silme yetkisi yalnızca yönetimdedir.
+            <p className="mt-5 text-center text-xs leading-5 text-slate-400 font-medium">
+              Şifrenizi unuttuysanız lütfen sistem yöneticisi ile iletişime geçiniz.
             </p>
           </div>
         </section>
@@ -360,11 +355,3 @@ function LoginLanding() {
   );
 }
 
-function LandingItem({ icon: Icon, text }: { icon: typeof Truck; text: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[.06] p-3 text-sm text-emerald-50">
-      <Icon className="mb-2 h-4 w-4 text-emerald-300" />
-      {text}
-    </div>
-  );
-}

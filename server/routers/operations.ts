@@ -234,7 +234,26 @@ export const operationsRouter = router({
       await audit(ctx.user.id, "MESAİ_SONLANDIRILDI", "mesai", input.shiftId, `${input.endKm} km`);
       return { success: true };
     }),
+    switchVehicle: protectedProcedure.input(
+      z.object({
+        shiftId: z.number().int().positive(),
+        newVehicleId: z.number().int().positive(),
+        reason: z.string().trim().max(255).optional(),
+      })
+    ).mutation(async ({ ctx, input }) => {
+      requireRole(ctx.user.role, ["şoför", "yönetim"]);
+      const res = await db.switchShiftVehicle(input.shiftId, input.newVehicleId, input.reason);
+      await audit(
+        ctx.user.id,
+        "MESAİ_ARAÇ_DEĞİŞTİRİLDİ",
+        "mesai",
+        input.shiftId,
+        `Yeni Araç: ${res.newVehicle.plate} (${res.newVehicle.type}) ${input.reason ? `· Sebep: ${input.reason}` : ""}`
+      );
+      return { success: true, vehicle: res.newVehicle };
+    }),
     update: protectedProcedure.input(
+
       z.object({
         id: z.number().int().positive(),
         region: z.string().optional(),

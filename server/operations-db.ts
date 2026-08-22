@@ -190,11 +190,36 @@ export async function finishShift(id: number, data: Partial<typeof shifts.$infer
   await db.update(shifts).set({ ...data, status: "tamamlandı", endedAt: new Date() }).where(eq(shifts.id, id));
 }
 
+export async function switchShiftVehicle(shiftId: number, newVehicleId: number, reason?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
+
+  const [shift] = await db.select().from(shifts).where(eq(shifts.id, shiftId)).limit(1);
+  if (!shift) throw new Error("Mesai kaydı bulunamadı.");
+  if (shift.status !== "açık") throw new Error("Yalnızca aktif mesailerde araç değişikliği yapılabilir.");
+
+  const eligibility = await getVehicleShiftEligibility(newVehicleId);
+  if (!eligibility.allowed) {
+    throw new Error(eligibility.reason);
+  }
+
+  const [newVehicle] = await db.select().from(vehicles).where(eq(vehicles.id, newVehicleId)).limit(1);
+  if (!newVehicle) throw new Error("Seçilen yeni araç bulunamadı.");
+
+  await db.update(shifts).set({
+    vehicleId: newVehicleId,
+    vehicleType: newVehicle.type,
+  }).where(eq(shifts.id, shiftId));
+
+  return { oldVehicleId: shift.vehicleId, newVehicle };
+}
+
 export async function updateShift(id: number, data: Partial<typeof shifts.$inferInsert>) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.update(shifts).set(data).where(eq(shifts.id, id));
 }
+
 
 export async function deleteShift(id: number) {
   const db = await getDb();
