@@ -387,7 +387,7 @@ export const operationsRouter = router({
         if (input.latitude === undefined || input.longitude === undefined) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Konum bilginiz alınamadı. Atığı toplayabilmek için cihazınızın konum iznini açarak atık noktasına en fazla 100 metre mesafede olmalısınız.",
+            message: "Konum bilginiz alınamadı. Atığı toplayabilmek için cihazınızın konum iznini açarak atık noktasına en fazla 175 metre mesafede olmalısınız.",
           });
         }
 
@@ -396,14 +396,15 @@ export const operationsRouter = router({
 
         if (!isNaN(reportLat) && !isNaN(reportLon)) {
           const distance = db.calculateDistanceMeters(input.latitude, input.longitude, reportLat, reportLon);
-          if (distance > 100) {
+          if (distance > 175) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: `Atığı toplayabilmek için atık noktasına en fazla 100 metre mesafede olmalısınız! (Şu anki mesafeniz: ${distance} metre)`,
+              message: `Atığı toplayabilmek için atık noktasına en fazla 175 metre mesafede olmalısınız! (Şu anki mesafeniz: ${distance} metre)`,
             });
           }
         }
       }
+
 
       await db.collectBulkWaste(input.id, input.vehicleId, ctx.user.id);
       await audit(ctx.user.id, "DAMPERLİK_ATIK_TOPLANDI", "damperlik_atık", input.id);

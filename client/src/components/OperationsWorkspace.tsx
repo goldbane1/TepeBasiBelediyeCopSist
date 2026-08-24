@@ -115,6 +115,36 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
     );
   }, [currentShift.data, complaints.data]);
 
+const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }> = {
+  "Batıkent": { lat: 39.8050, lng: 30.4780 },
+  "Çamlıca": { lat: 39.7920, lng: 30.4850 },
+  "Ertuğrulgazi": { lat: 39.7910, lng: 30.4990 },
+  "Fevziçakmak": { lat: 39.7950, lng: 30.5450 },
+  "Gazi": { lat: 39.7820, lng: 30.5050 },
+  "Gazipaşa": { lat: 39.7900, lng: 30.5350 },
+  "Güllük": { lat: 39.7880, lng: 30.5210 },
+  "Hacı Seyit": { lat: 39.7820, lng: 30.5180 },
+  "Işıklar": { lat: 39.7850, lng: 30.5260 },
+  "İhsaniye": { lat: 39.7800, lng: 30.5120 },
+  "Kumlubel": { lat: 39.7930, lng: 30.5250 },
+  "Mamure": { lat: 39.7810, lng: 30.5280 },
+  "Mustafa Kemal Paşa": { lat: 39.7780, lng: 30.5150 },
+  "Ömerağa": { lat: 39.7890, lng: 30.5400 },
+  "Şeker": { lat: 39.7980, lng: 30.5080 },
+  "Şirintepe": { lat: 39.8020, lng: 30.5020 },
+  "Sütlüce": { lat: 39.7970, lng: 30.5320 },
+  "Tunalı": { lat: 39.7910, lng: 30.5160 },
+  "Uluönder": { lat: 39.7980, lng: 30.4930 },
+  "Yenibağlar": { lat: 39.7890, lng: 30.5080 },
+  "Yeşiltepe": { lat: 39.8000, lng: 30.5190 },
+  "Zafer": { lat: 39.7940, lng: 30.5120 },
+  "Zincirlikuyu": { lat: 39.8250, lng: 30.4750 },
+  "Bahçelievler": { lat: 39.7850, lng: 30.5020 },
+  "Eskibağlar": { lat: 39.7830, lng: 30.5090 },
+  "Çukurhisar": { lat: 39.8150, lng: 30.3450 },
+  "Keskin": { lat: 39.8600, lng: 30.4500 },
+};
+
   const mapOperations = useMemo<MapOperation[]>(() => {
     const result: MapOperation[] = [];
 
@@ -172,9 +202,30 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
         });
       });
 
+    // 4. Aktif Şoför Mesaileri (Yönetici ve ekip için haritada araç konumu)
+    (shifts.data ?? [])
+      .filter(shift => shift.status === "açık")
+      .forEach(shift => {
+        const coords = TEPEBASI_NEIGHBORHOOD_COORDS[shift.neighborhood] || {
+          lat: 39.7850 + (shift.id % 8) * 0.003,
+          lng: 30.5150 + (shift.id % 8) * 0.003,
+        };
+        result.push({
+          id: shift.id,
+          category: "Aktif Şoförler" as any,
+          title: `${shift.driverName || shift.driverUsername || "Şoför"} (${shift.vehiclePlate || "Plakasız"})`,
+          description: `Görev Bölgesi: ${shift.neighborhood} · Vardiya: ${shift.shiftHours || "08:00 - 16:00"} · Başlangıç: ${shift.startKm} km`,
+          latitude: String(coords.lat),
+          longitude: String(coords.lng),
+          status: "aktif_mesai",
+          reporterName: shift.driverName,
+          extra: shift,
+        });
+      });
 
     return result;
-  }, [waste.data, containers.data, complaints.data]);
+  }, [waste.data, containers.data, complaints.data, shifts.data]);
+
 
   const openFaultCount = useMemo(() => (faults.data ?? []).filter(f => f.status === "kademe_onayı_bekliyor").length, [faults.data]);
 
@@ -228,7 +279,8 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
           toast.error("Cihazınız konum servisini desteklemiyor.");
           return;
         }
-        toast.loading("Konum doğrulanıyor (100m kontrolü)...", { id: "map-geo-check" });
+        toast.loading("Konum doğrulanıyor (175m kontrolü)...", { id: "map-geo-check" });
+
         navigator.geolocation.getCurrentPosition(
           pos => {
             toast.dismiss("map-geo-check");
@@ -1460,7 +1512,8 @@ function BulkWasteSolutionPanel({
         toast.error("Cihazınız konum servisini desteklemiyor.");
         return;
       }
-      toast.loading("Konum doğrulanıyor (100m kontrolü)...", { id: "list-geo-check" });
+      toast.loading("Konum doğrulanıyor (175m kontrolü)...", { id: "list-geo-check" });
+
       navigator.geolocation.getCurrentPosition(
         pos => {
           toast.dismiss("list-geo-check");

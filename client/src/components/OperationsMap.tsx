@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import L from "leaflet";
-import { AlertTriangle, Archive, CheckCircle2, Image as ImageIcon, LocateFixed, MapPin, Navigation, Recycle, Wrench, X } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, Image as ImageIcon, LocateFixed, MapPin, Navigation, Recycle, Truck, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -16,7 +16,8 @@ import type { Role } from "@/pages/Home";
 export type MapOperationCategory =
   | "Damperlik atık"
   | "Konteyner arızası"
-  | "Vatandaş şikayeti";
+  | "Vatandaş şikayeti"
+  | "Aktif Şoförler";
 
 export type MapOperation = {
   id: number;
@@ -188,9 +189,16 @@ export default function OperationsMap({
           : isOverdue(operation)
           ? "operations-map-pin--overdue"
           : "operations-map-pin--sikayet";
+      } else if (operation.category === "Aktif Şoförler") {
+        const isDamper = operation.extra?.vehicleType === "damperli kamyon";
+        categorySymbol = isDamper ? "🚛" : "🚚";
+        pinClass = isDamper
+          ? "operations-map-pin--active bg-emerald-600 border-2 border-white text-white shadow-xl scale-110"
+          : "operations-map-pin--active bg-sky-600 border-2 border-white text-white shadow-xl scale-110";
       }
 
       const pinHtml = `<div class="operations-map-pin ${pinClass}">${categorySymbol}</div>`;
+
 
       const customIcon = L.divIcon({
         className: "custom-leaflet-marker",
@@ -231,12 +239,20 @@ export default function OperationsMap({
     );
   };
 
-  const categories = [
-    { key: "tümü", label: "Tüm Harita", count: operations.length, icon: MapPin },
-    { key: "Damperlik atık", label: "Damperlik Atık", count: operations.filter(o => o.category === "Damperlik atık").length, icon: Archive },
-    { key: "Konteyner arızası", label: "Konteyner Arızaları", count: operations.filter(o => o.category === "Konteyner arızası").length, icon: Recycle },
-    { key: "Vatandaş şikayeti", label: "Vatandaş Şikayetleri", count: operations.filter(o => o.category === "Vatandaş şikayeti").length, icon: AlertTriangle },
-  ] as const;
+  const categories = useMemo(() => {
+    const list: Array<{ key: "tümü" | MapOperationCategory; label: string; count: number; icon: any }> = [
+      { key: "tümü", label: "Tüm Harita", count: operations.length, icon: MapPin },
+      { key: "Damperlik atık", label: "Damperlik Atık", count: operations.filter(o => o.category === "Damperlik atık").length, icon: Archive },
+      { key: "Konteyner arızası", label: "Konteyner Arızaları", count: operations.filter(o => o.category === "Konteyner arızası").length, icon: Recycle },
+      { key: "Vatandaş şikayeti", label: "Vatandaş Şikayetleri", count: operations.filter(o => o.category === "Vatandaş şikayeti").length, icon: AlertTriangle },
+    ];
+    const driverCount = operations.filter(o => o.category === "Aktif Şoförler").length;
+    if (driverCount > 0 || role === "yönetim") {
+      list.push({ key: "Aktif Şoförler", label: "Aktif Şoförler", count: driverCount, icon: Truck });
+    }
+    return list;
+  }, [operations, role]);
+
 
   const canCloseSelected = useMemo(() => {
     if (!selected) return false;
@@ -326,8 +342,15 @@ export default function OperationsMap({
             <span className="flex items-center gap-1.5">
               <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white animate-pulse">V</span> Onay Sürecinde
             </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">🚚</span> Çöp Şoförü
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">🚛</span> Damper Şoförü
+            </span>
           </div>
         </div>
+
 
         {selected && (
           <aside className="popup-transition absolute bottom-2 sm:bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-[400] max-w-md rounded-2xl border border-white/90 bg-white/98 shadow-2xl backdrop-blur-md md:left-auto max-h-[58vh] sm:max-h-[75vh] flex flex-col overflow-hidden">
@@ -338,7 +361,11 @@ export default function OperationsMap({
                   {selected.category}
                 </Badge>
                 <span className="text-xs text-slate-400">#{selected.id}</span>
-                {selected.category === "Damperlik atık" ? (
+                {selected.category === "Aktif Şoförler" ? (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                    🟢 Görevde / Aktif Mesai
+                  </span>
+                ) : selected.category === "Damperlik atık" ? (
                   <span
                     className={cn(
                       "text-[11px] font-bold px-2 py-0.5 rounded-full",
@@ -383,10 +410,43 @@ export default function OperationsMap({
 
             {/* 2. Kaydırılabilir İçerik Alanı */}
             <div className="p-3.5 sm:p-4 overflow-y-auto flex-1 space-y-3">
-              <h3 className="text-base font-bold text-slate-900 leading-snug">{selected.title}</h3>
-              <p className="text-sm leading-5 text-slate-600 break-words line-clamp-3">
-                {selected.description}
-              </p>
+              {selected.category === "Aktif Şoförler" ? (
+                <div className="space-y-2.5 pt-1">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] text-slate-400 font-medium block">Şoför</span>
+                      <strong className="text-slate-900 font-bold block">{selected.extra?.driverName || "Şoför"}</strong>
+                      <span className="text-[10px] text-slate-500 block">@{selected.extra?.driverUsername || "sofor"}</span>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] text-slate-400 font-medium block">Araç Plakası</span>
+                      <strong className="text-slate-900 font-bold block">{selected.extra?.vehiclePlate || "Plakasız"}</strong>
+                      <span className="text-[10px] text-emerald-700 font-semibold block">{selected.extra?.vehicleType || "Araç"}</span>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] text-slate-400 font-medium block">Görev Mahallesi</span>
+                      <strong className="text-slate-900 font-bold block">{selected.extra?.neighborhood || "Tepebaşı"}</strong>
+                      <span className="text-[10px] text-slate-500 block">{selected.extra?.region || "Merkez"}</span>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                      <span className="text-[10px] text-slate-400 font-medium block">Vardiya Saatleri</span>
+                      <strong className="text-slate-900 font-bold block">{selected.extra?.shiftHours || "08:00 - 16:00"}</strong>
+                    </div>
+                  </div>
+                  <div className="bg-blue-50/80 p-2.5 rounded-xl border border-blue-100 text-xs text-blue-950 flex items-center justify-between">
+                    <span>🚀 Başlangıç: <strong>{selected.extra?.startKm} km</strong></span>
+                    <span>⏰ Başlama Saati: <strong>{selected.extra?.startedAt ? new Date(selected.extra?.startedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "-"}</strong></span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">{selected.title}</h3>
+                  <p className="text-sm leading-5 text-slate-600 break-words line-clamp-3">
+                    {selected.description}
+                  </p>
+                </>
+              )}
+
 
               {/* Bildiren Şoför / Personel & Kepçe Rozeti & Çözen Bilgisi */}
               {(selectedReporter || selectedNeedsExcavator || selectedResolver) && (
@@ -511,9 +571,10 @@ export default function OperationsMap({
             className="rounded-2xl bg-white hover:bg-emerald-50 text-emerald-800 border border-slate-300/80 shadow-lg px-3 py-2 text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95"
           >
             <LocateFixed className={cn("h-4 w-4 text-emerald-700", isLocating && "animate-spin")} />
-            <span>{isLocating ? "Konum Alınıyor..." : "Konumuma Git"}</span>
+            <span>{isLocating ? "Konum Alınıyor..." : "Şu Anki Konumumu Göster"}</span>
           </Button>
         </div>
+
 
 
 
