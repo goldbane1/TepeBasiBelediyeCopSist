@@ -112,11 +112,28 @@ function getMobileQuickNav(role: Role): MobileNavItem[] {
 export default function Home() {
   const { user, loading, logout } = useAuth();
   const [view, setView] = useState<AppView>(() => {
-    const requested = new URLSearchParams(window.location.search).get("view") as AppView | null;
-    return requested && allNavItems.some(item => item.id === requested) ? requested : "dashboard";
+    if (typeof window !== "undefined") {
+      const requested = new URLSearchParams(window.location.search).get("view") as AppView | null;
+      const stored = localStorage.getItem("tepebasi_app_view") as AppView | null;
+      const initial = requested || stored;
+      if (initial && allNavItems.some(item => item.id === initial)) {
+        return initial;
+      }
+    }
+    return "dashboard";
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const role = user?.role as Role | undefined;
+
+  const handleSetView = (newView: AppView) => {
+    setView(newView);
+    try {
+      localStorage.setItem("tepebasi_app_view", newView);
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", newView);
+      window.history.replaceState({}, "", url.toString());
+    } catch {}
+  };
 
   if (loading) {
     return (
@@ -129,6 +146,7 @@ export default function Home() {
   if (!user || !role) return <LoginLanding />;
   const roleNavItems = getNavItemsForRole(role);
   const current = roleNavItems.find(item => item.id === view) ?? allNavItems.find(item => item.id === view) ?? allNavItems[0];
+
 
   return (
     <div className="min-h-screen bg-[#f7fbf8] app-grid">
@@ -174,7 +192,7 @@ export default function Home() {
                   <button
                     key={item.id}
                     onClick={() => {
-                      setView(item.id);
+                      handleSetView(item.id);
                       setMenuOpen(false);
                     }}
                     className={cn(
@@ -261,7 +279,7 @@ export default function Home() {
           </header>
 
           <div key={view} className="view-transition">
-            <OperationsWorkspace role={role} view={view} onNavigate={setView} />
+            <OperationsWorkspace role={role} view={view} onNavigate={handleSetView} />
           </div>
         </main>
 
@@ -278,7 +296,7 @@ export default function Home() {
                 key={item.id}
                 type="button"
                 onClick={() => {
-                  setView(item.id);
+                  handleSetView(item.id);
                   setMenuOpen(false);
                 }}
                 className={cn(
@@ -293,6 +311,7 @@ export default function Home() {
               </button>
             );
           })}
+
           <button
             type="button"
             onClick={() => setMenuOpen(true)}

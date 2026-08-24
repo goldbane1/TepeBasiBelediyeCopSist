@@ -202,29 +202,9 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
         });
       });
 
-    // 4. Aktif Şoför Mesaileri (Yönetici ve ekip için haritada araç konumu)
-    (shifts.data ?? [])
-      .filter(shift => shift.status === "açık")
-      .forEach(shift => {
-        const coords = TEPEBASI_NEIGHBORHOOD_COORDS[shift.neighborhood] || {
-          lat: 39.7850 + (shift.id % 8) * 0.003,
-          lng: 30.5150 + (shift.id % 8) * 0.003,
-        };
-        result.push({
-          id: shift.id,
-          category: "Aktif Şoförler" as any,
-          title: `${shift.driverName || shift.driverUsername || "Şoför"} (${shift.vehiclePlate || "Plakasız"})`,
-          description: `Görev Bölgesi: ${shift.neighborhood} · Vardiya: ${shift.shiftHours || "08:00 - 16:00"} · Başlangıç: ${shift.startKm} km`,
-          latitude: String(coords.lat),
-          longitude: String(coords.lng),
-          status: "aktif_mesai",
-          reporterName: shift.driverName,
-          extra: shift,
-        });
-      });
-
     return result;
-  }, [waste.data, containers.data, complaints.data, shifts.data]);
+  }, [waste.data, containers.data, complaints.data]);
+
 
 
   const openFaultCount = useMemo(() => (faults.data ?? []).filter(f => f.status === "kademe_onayı_bekliyor").length, [faults.data]);
