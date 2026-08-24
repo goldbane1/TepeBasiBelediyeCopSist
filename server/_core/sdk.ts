@@ -15,23 +15,27 @@ export type SessionPayload = {
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.length > 0;
 
+export const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
 class LocalSessionServer {
   private getSessionSecret() {
     return new TextEncoder().encode(ENV.cookieSecret);
   }
 
   async createSessionToken(openId: string, options: { expiresInMs?: number; name?: string } = {}) {
-    return this.signSession({ openId, appId: ENV.appId, name: options.name || "" }, options);
+    const expiresInMs = options.expiresInMs ?? TWELVE_HOURS_MS;
+    return this.signSession({ openId, appId: ENV.appId, name: options.name || "" }, { ...options, expiresInMs });
   }
 
   async signSession(payload: SessionPayload, options: { expiresInMs?: number } = {}) {
-    const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
+    const expiresInMs = options.expiresInMs ?? TWELVE_HOURS_MS;
     const expirationSeconds = Math.floor((Date.now() + expiresInMs) / 1000);
     return new SignJWT({ openId: payload.openId, appId: payload.appId, name: payload.name })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
       .sign(this.getSessionSecret());
   }
+
 
   async verifySession(cookieValue: string | undefined | null): Promise<SessionPayload | null> {
     if (!cookieValue) return null;
