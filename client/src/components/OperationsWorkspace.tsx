@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { cn, calculateDistanceMetersClient, triggerHaptic } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import {
   Archive,
   AlertTriangle,
+  ArrowUpDown,
   Camera,
   CheckCircle2,
   Clock,
@@ -24,6 +25,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Sparkles,
   Truck,
   Wrench,
   Recycle,
@@ -34,13 +36,14 @@ import {
   X,
 } from "lucide-react";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
 import FleetOperations from "@/components/FleetOperations";
 import FieldOperations from "@/components/FieldOperations";
 import ManagementOperations from "@/components/ManagementOperations";
 import { compressImageFile } from "@/lib/imageCompress";
+
 
 
 export type AppView =
@@ -216,27 +219,40 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
 
   const resolveCollectWaste = trpc.operations.bulkWaste.collect.useMutation({
     onSuccess: () => {
+      triggerHaptic("success");
       toast.success("Damperlik atık toplandı olarak kaydedildi ve kapatıldı.");
       refresh();
     },
-    onError: e => toast.error(e.message),
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
   });
 
   const resolveRepairContainer = trpc.operations.containerFaults.repair.useMutation({
     onSuccess: () => {
+      triggerHaptic("success");
       toast.success("Konteyner onarımı tamamlandı ve kapatıldı.");
       refresh();
     },
-    onError: e => toast.error(e.message),
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
   });
 
   const resolveAcknowledgeComplaint = trpc.operations.complaints.acknowledge.useMutation({
     onSuccess: () => {
+      triggerHaptic("success");
       toast.success("Vatandaş şikayeti çözüldü olarak kapatıldı.");
       refresh();
     },
-    onError: e => toast.error(e.message),
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
   });
+
 
   const handleResolveFromMap = (op: MapOperation) => {
     if (op.category === "Damperlik atık") {
@@ -1433,6 +1449,10 @@ function BulkWasteSolutionPanel({
 }) {
   const currentShift = trpc.operations.shifts.current.useQuery(undefined, { enabled: role === "şoför" });
   const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [sortByNearest, setSortByNearest] = useState(true);
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>("tümü");
+
   const [form, setForm] = useState({
     region: "Tepebaşı",
     neighborhood: "",
@@ -1449,8 +1469,34 @@ function BulkWasteSolutionPanel({
   const [locationState, setLocationState] = useState<"idle" | "loading" | "ready">("idle");
   const [resolvedAddress, setResolvedAddress] = useState("");
 
+  const refreshUserLocation = () => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          toast.success("Mevcut konumunuz güncellendi!");
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    }
+  }, []);
+
   const createWaste = trpc.operations.bulkWaste.create.useMutation({
     onSuccess: () => {
+      triggerHaptic("success");
       toast.success("Damperlik atık bildirimi kaydedildi.");
       refresh();
       setForm({
@@ -1467,11 +1513,15 @@ function BulkWasteSolutionPanel({
       setSearchQuery("");
       setResolvedAddress("");
     },
-    onError: e => toast.error(e.message),
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
   });
 
   const removeWaste = trpc.operations.bulkWaste.remove.useMutation({
     onSuccess: () => {
+      triggerHaptic("warning");
       toast.success("Damperlik atık kaydı silindi.");
       refresh();
     },
@@ -1480,10 +1530,14 @@ function BulkWasteSolutionPanel({
 
   const collect = trpc.operations.bulkWaste.collect.useMutation({
     onSuccess: () => {
+      triggerHaptic("success");
       toast.success("Damperlik atık toplandı.");
       refresh();
     },
-    onError: e => toast.error(e.message),
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
   });
 
   const handleCollectWithGps = (wasteId: number, damperId: number) => {
@@ -1497,6 +1551,7 @@ function BulkWasteSolutionPanel({
       navigator.geolocation.getCurrentPosition(
         pos => {
           toast.dismiss("list-geo-check");
+          setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
           collect.mutate({
             id: wasteId,
             vehicleId: damperId,
@@ -1524,6 +1579,34 @@ function BulkWasteSolutionPanel({
   const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim" || role === "kademe personeli";
   const activeDamper = vehicles.find(vehicle => vehicle.id === (currentShift.data as any)?.vehicleId && vehicle.type === "damperli kamyon");
   const pendingWaste = useMemo(() => wasteList.filter(item => item.status === "bekliyor"), [wasteList]);
+  const activeShiftNeighborhood = (currentShift.data as any)?.neighborhood;
+
+  const getWasteDistance = (waste: any) => {
+    if (!userCoords) return null;
+    const lat = parseFloat(waste.latitude);
+    const lng = parseFloat(waste.longitude);
+    if (isNaN(lat) || isNaN(lng)) return null;
+    return calculateDistanceMetersClient(userCoords.lat, userCoords.lng, lat, lng);
+  };
+
+  const displayedWastes = useMemo(() => {
+    let list = pendingWaste;
+
+    if (neighborhoodFilter !== "tümü") {
+      list = list.filter(item => item.neighborhood === neighborhoodFilter);
+    }
+
+    if (sortByNearest && userCoords) {
+      return [...list].sort((a, b) => {
+        const distA = getWasteDistance(a) ?? 999999;
+        const distB = getWasteDistance(b) ?? 999999;
+        return distA - distB;
+      });
+    }
+
+    return list;
+  }, [pendingWaste, neighborhoodFilter, sortByNearest, userCoords]);
+
 
   const mapOperations = useMemo<MapOperation[]>(
     () =>
@@ -1916,22 +1999,105 @@ function BulkWasteSolutionPanel({
 
       {/* 3. Toplama Kayıtları Listesi */}
       <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="font-display flex items-center gap-2 text-base">
-            <Archive className="h-5 w-5 text-amber-600" />
-            Damperli Atık Listesi
-          </CardTitle>
-          <Badge variant="outline" className="text-slate-600 text-xs font-bold">
-            {pendingWaste.length} Bekleyen Atık
-          </Badge>
+        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="font-display flex items-center gap-2 text-base">
+              <Archive className="h-5 w-5 text-amber-600" />
+              Damperli Atık Listesi
+            </CardTitle>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {displayedWastes.length} bekleyen atık listeleniyor
+              {userCoords && " · Canlı GPS mesafenize göre sıralı"}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Mahalle Filtresi */}
+            <select
+              value={neighborhoodFilter}
+              onChange={e => setNeighborhoodFilter(e.target.value)}
+              className="input-native h-8 text-xs font-semibold max-w-[170px] bg-slate-50 border-slate-200"
+            >
+              <option value="tümü">Tüm Mahalleler ({pendingWaste.length})</option>
+              {neighborhoodsList.map(n => {
+                const count = pendingWaste.filter(w => w.neighborhood === n.name).length;
+                return (
+                  <option key={n.id} value={n.name}>
+                    {n.name} {count > 0 ? `(${count})` : ""}
+                  </option>
+                );
+              })}
+            </select>
+
+            {/* En Yakına Göre Sırala Butonu */}
+            <Button
+              type="button"
+              size="sm"
+              variant={sortByNearest ? "default" : "outline"}
+              onClick={() => {
+                if (!userCoords) refreshUserLocation();
+                setSortByNearest(!sortByNearest);
+              }}
+              className={cn(
+                "h-8 text-xs font-semibold gap-1.5 shadow-2xs",
+                sortByNearest
+                  ? "bg-emerald-700 text-white hover:bg-emerald-800"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+              )}
+              title="Şoförün GPS konumuna göre en yakından en uzağa sırala"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              <span>{sortByNearest ? "En Yakındakiler" : "Normal Sıralama"}</span>
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={refreshUserLocation}
+              className="h-8 text-xs font-semibold bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-2xs"
+              title="Anlık GPS konumunu yenile"
+            >
+              <LocateFixed className="h-3.5 w-3.5 text-emerald-700" />
+            </Button>
+          </div>
         </CardHeader>
+
         <CardContent className="space-y-3">
-          {pendingWaste.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş bekleyen damperlik atık kaydı bulunmuyor.</p>
+          {/* Vardiya Mahallesi Akıllı Bilgilendirme Bandı */}
+          {activeShiftNeighborhood && (
+            <div className="rounded-xl bg-emerald-50/80 border border-emerald-200 p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-950">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Sparkles className="h-4 w-4 text-emerald-700 shrink-0" />
+                Vardiya Mahalleniz: <strong>{activeShiftNeighborhood}</strong>
+                <span className="bg-emerald-200/60 text-emerald-900 px-1.5 py-0.2 rounded text-[11px] font-bold">
+                  {pendingWaste.filter(w => w.neighborhood === activeShiftNeighborhood).length} Bekleyen Atık
+                </span>
+              </span>
+              {neighborhoodFilter !== activeShiftNeighborhood && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setNeighborhoodFilter(activeShiftNeighborhood)}
+                  className="h-7 text-[11px] font-bold bg-white text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs"
+                >
+                  Sadece Mahallemi Göster
+                </Button>
+              )}
+            </div>
+          )}
+
+          {displayedWastes.length === 0 ? (
+            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">
+              {neighborhoodFilter !== "tümü"
+                ? `${neighborhoodFilter} mahallesinde bekleyen damperlik atık bulunmuyor.`
+                : "Henüz bildirilmiş bekleyen damperlik atık kaydı bulunmuyor."}
+            </p>
           ) : (
-            pendingWaste.map(waste => {
+            displayedWastes.map(waste => {
               const isPending = waste.status === "bekliyor";
               const damperId = activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
+              const dist = getWasteDistance(waste);
 
               return (
                 <div
@@ -1946,6 +2112,22 @@ function BulkWasteSolutionPanel({
                         <span className="font-bold text-slate-900 text-sm">
                           {waste.wasteType} · {waste.neighborhood}
                         </span>
+
+                        {/* Canlı GPS Mesafe Rozeti */}
+                        {dist !== null && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-bold border",
+                              dist <= 175
+                                ? "bg-emerald-100 text-emerald-900 border-emerald-300 animate-pulse shadow-2xs"
+                                : "bg-sky-50 text-sky-800 border-sky-200"
+                            )}
+                          >
+                            📍 {dist <= 175 ? `${dist}m (Toplamaya Uygun ✅)` : dist > 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`}
+                          </Badge>
+                        )}
+
                         <Badge
                           variant="outline"
                           className={
@@ -2004,12 +2186,18 @@ function BulkWasteSolutionPanel({
                           size="sm"
                           disabled={!damperId || collect.isPending}
                           onClick={() => damperId && handleCollectWithGps(waste.id, damperId)}
-                          className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
+                          className={cn(
+                            "text-xs h-8 shadow-xs",
+                            dist !== null && dist <= 175
+                              ? "bg-emerald-700 hover:bg-emerald-800 text-white font-bold animate-pulse"
+                              : "bg-emerald-700 hover:bg-emerald-800 text-white"
+                          )}
                         >
                           <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                           Toplandı
                         </Button>
                       )}
+
 
 
                       {role === "yönetim" && (
