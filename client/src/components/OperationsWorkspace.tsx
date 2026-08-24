@@ -1451,7 +1451,6 @@ function BulkWasteSolutionPanel({
   const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [sortByNearest, setSortByNearest] = useState(true);
-  const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>("tümü");
 
   const [form, setForm] = useState({
     region: "Tepebaşı",
@@ -1579,7 +1578,6 @@ function BulkWasteSolutionPanel({
   const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim" || role === "kademe personeli";
   const activeDamper = vehicles.find(vehicle => vehicle.id === (currentShift.data as any)?.vehicleId && vehicle.type === "damperli kamyon");
   const pendingWaste = useMemo(() => wasteList.filter(item => item.status === "bekliyor"), [wasteList]);
-  const activeShiftNeighborhood = (currentShift.data as any)?.neighborhood;
 
   const getWasteDistance = (waste: any) => {
     if (!userCoords) return null;
@@ -1590,22 +1588,16 @@ function BulkWasteSolutionPanel({
   };
 
   const displayedWastes = useMemo(() => {
-    let list = pendingWaste;
-
-    if (neighborhoodFilter !== "tümü") {
-      list = list.filter(item => item.neighborhood === neighborhoodFilter);
-    }
-
     if (sortByNearest && userCoords) {
-      return [...list].sort((a, b) => {
+      return [...pendingWaste].sort((a, b) => {
         const distA = getWasteDistance(a) ?? 999999;
         const distB = getWasteDistance(b) ?? 999999;
         return distA - distB;
       });
     }
+    return pendingWaste;
+  }, [pendingWaste, sortByNearest, userCoords]);
 
-    return list;
-  }, [pendingWaste, neighborhoodFilter, sortByNearest, userCoords]);
 
 
   const mapOperations = useMemo<MapOperation[]>(
@@ -2012,23 +2004,6 @@ function BulkWasteSolutionPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Mahalle Filtresi */}
-            <select
-              value={neighborhoodFilter}
-              onChange={e => setNeighborhoodFilter(e.target.value)}
-              className="input-native h-8 text-xs font-semibold max-w-[170px] bg-slate-50 border-slate-200"
-            >
-              <option value="tümü">Tüm Mahalleler ({pendingWaste.length})</option>
-              {neighborhoodsList.map(n => {
-                const count = pendingWaste.filter(w => w.neighborhood === n.name).length;
-                return (
-                  <option key={n.id} value={n.name}>
-                    {n.name} {count > 0 ? `(${count})` : ""}
-                  </option>
-                );
-              })}
-            </select>
-
             {/* En Yakına Göre Sırala Butonu */}
             <Button
               type="button"
@@ -2064,36 +2039,12 @@ function BulkWasteSolutionPanel({
         </CardHeader>
 
         <CardContent className="space-y-3">
-          {/* Vardiya Mahallesi Akıllı Bilgilendirme Bandı */}
-          {activeShiftNeighborhood && (
-            <div className="rounded-xl bg-emerald-50/80 border border-emerald-200 p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-950">
-              <span className="flex items-center gap-1.5 font-medium">
-                <Sparkles className="h-4 w-4 text-emerald-700 shrink-0" />
-                Vardiya Mahalleniz: <strong>{activeShiftNeighborhood}</strong>
-                <span className="bg-emerald-200/60 text-emerald-900 px-1.5 py-0.2 rounded text-[11px] font-bold">
-                  {pendingWaste.filter(w => w.neighborhood === activeShiftNeighborhood).length} Bekleyen Atık
-                </span>
-              </span>
-              {neighborhoodFilter !== activeShiftNeighborhood && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setNeighborhoodFilter(activeShiftNeighborhood)}
-                  className="h-7 text-[11px] font-bold bg-white text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs"
-                >
-                  Sadece Mahallemi Göster
-                </Button>
-              )}
-            </div>
-          )}
-
           {displayedWastes.length === 0 ? (
             <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">
-              {neighborhoodFilter !== "tümü"
-                ? `${neighborhoodFilter} mahallesinde bekleyen damperlik atık bulunmuyor.`
-                : "Henüz bildirilmiş bekleyen damperlik atık kaydı bulunmuyor."}
+              Henüz bildirilmiş bekleyen damperlik atık kaydı bulunmuyor.
             </p>
           ) : (
+
             displayedWastes.map(waste => {
               const isPending = waste.status === "bekliyor";
               const damperId = activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
