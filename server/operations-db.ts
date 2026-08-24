@@ -387,11 +387,34 @@ export async function deleteBulkWasteReport(id: number) {
   await db.delete(bulkWasteReports).where(eq(bulkWasteReports.id, id));
 }
 
+export async function getBulkWasteReportById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [report] = await db.select().from(bulkWasteReports).where(eq(bulkWasteReports.id, id)).limit(1);
+  return report ?? null;
+}
+
+export function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(R * c);
+}
+
 export async function collectBulkWaste(id: number, vehicleId: number, driverId: number) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.update(bulkWasteReports).set({ status: "toplandı", collectedVehicleId: vehicleId, collectedDriverId: driverId, collectedAt: new Date() }).where(eq(bulkWasteReports.id, id));
 }
+
 
 // -----------------------------------------------------------------------------
 // CONTAINER FAULTS (KONTEYNER ARIZALARI)

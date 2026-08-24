@@ -367,16 +367,49 @@ export const operationsRouter = router({
       return { success: true };
     }),
     collect: protectedProcedure.input(
-      z.object({ id: z.number().int().positive(), vehicleId: z.number().int().positive() })
+      z.object({
+        id: z.number().int().positive(),
+        vehicleId: z.number().int().positive(),
+        latitude: z.number().optional(),
+        longitude: z.number().optional(),
+      })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
+
+      const report = await db.getBulkWasteReportById(input.id);
+      if (!report) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Damperlik atık kaydı bulunamadı." });
+      }
+
       if (ctx.user.role === "şoför") {
         await db.requireActiveWasteShift(ctx.user.id, "damperli kamyon", input.vehicleId);
+
+        if (input.latitude === undefined || input.longitude === undefined) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Konum bilginiz alınamadı. Atığı toplayabilmek için cihazınızın konum iznini açarak atık noktasına en fazla 100 metre mesafede olmalısınız.",
+          });
+        }
+
+        const reportLat = parseFloat(report.latitude);
+        const reportLon = parseFloat(report.longitude);
+
+        if (!isNaN(reportLat) && !isNaN(reportLon)) {
+          const distance = db.calculateDistanceMeters(input.latitude, input.longitude, reportLat, reportLon);
+          if (distance > 100) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Atığı toplayabilmek için atık noktasına en fazla 100 metre mesafede olmalısınız! (Şu anki mesafeniz: ${distance} metre)`,
+            });
+          }
+        }
       }
+
       await db.collectBulkWaste(input.id, input.vehicleId, ctx.user.id);
       await audit(ctx.user.id, "DAMPERLİK_ATIK_TOPLANDI", "damperlik_atık", input.id);
       return { success: true };
     }),
+
 
     update: protectedProcedure.input(
       z.object({

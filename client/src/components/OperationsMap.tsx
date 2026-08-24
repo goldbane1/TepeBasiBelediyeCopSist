@@ -3,10 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import L from "leaflet";
-import { AlertTriangle, Archive, CheckCircle2, Image as ImageIcon, MapPin, Navigation, Recycle, Wrench, X } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, Image as ImageIcon, LocateFixed, MapPin, Navigation, Recycle, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
+
 
 
 
@@ -61,13 +63,69 @@ export default function OperationsMap({
   const [selected, setSelected] = useState<MapOperation | null>(null);
   const [activeCategory, setActiveCategory] = useState<"tümü" | MapOperationCategory>(initialCategoryFilter);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const markersRef = useRef<L.Marker[]>([]);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+
+  const locateUser = () => {
+    if (!navigator.geolocation) {
+      toast.error("Cihazınız konum servisini desteklemiyor.");
+      return;
+    }
+    if (!map) return;
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setIsLocating(false);
+        const { latitude, longitude } = pos.coords;
+
+        if (userMarkerRef.current) {
+          userMarkerRef.current.remove();
+        }
+
+        const userPinHtml = `
+          <div class="relative flex items-center justify-center">
+            <div class="absolute h-8 w-8 rounded-full bg-sky-500/30 animate-ping"></div>
+            <div class="h-6 w-6 rounded-full bg-sky-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-xs font-black">
+              🚚
+            </div>
+          </div>
+        `;
+
+        const userIcon = L.divIcon({
+          className: "custom-user-marker",
+          html: userPinHtml,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const marker = L.marker([latitude, longitude], { icon: userIcon, title: "Sizin Konumunuz" });
+        marker.bindPopup("<div class='text-xs font-bold text-slate-800 p-1'>📍 Şu Anki Konumunuz (Siz)</div>");
+        marker.addTo(map);
+        userMarkerRef.current = marker;
+
+        map.setView([latitude, longitude], 16, { animate: true });
+        toast.success("Konumunuz haritada işaretlendi!");
+      },
+      err => {
+        setIsLocating(false);
+        toast.error(
+          err.code === err.PERMISSION_DENIED
+            ? "Konum izni verilmedi. Lütfen tarayıcı/cihaz konum iznini açın."
+            : "Anlık GPS konumu alınamadı. Lütfen açık alanda tekrar deneyin."
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   // Filter items by category if selected
   const filteredOperations = useMemo(() => {
     if (activeCategory === "tümü") return operations;
     return operations.filter(op => op.category === activeCategory);
   }, [operations, activeCategory]);
+
 
 
   const items = useMemo(
@@ -442,6 +500,21 @@ export default function OperationsMap({
             </div>
           </aside>
         )}
+
+        {/* Floating GPS Button */}
+        <div className="absolute right-3 bottom-3 sm:right-4 sm:bottom-4 z-[400]">
+          <Button
+            type="button"
+            size="sm"
+            disabled={isLocating}
+            onClick={locateUser}
+            className="rounded-2xl bg-white hover:bg-emerald-50 text-emerald-800 border border-slate-300/80 shadow-lg px-3 py-2 text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95"
+          >
+            <LocateFixed className={cn("h-4 w-4 text-emerald-700", isLocating && "animate-spin")} />
+            <span>{isLocating ? "Konum Alınıyor..." : "Konumuma Git"}</span>
+          </Button>
+        </div>
+
 
 
         {/* Lightbox photo modal - Top level portal with z-[99999] above everything */}

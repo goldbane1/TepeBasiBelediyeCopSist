@@ -222,13 +222,43 @@ export default function OperationsWorkspace({ role, view, onNavigate }: Props) {
         toast.error("Toplama için aktif bir damperli kamyon mesaisi gereklidir.");
         return;
       }
-      resolveCollectWaste.mutate({ id: op.id, vehicleId });
+
+      if (role === "şoför") {
+        if (!navigator.geolocation) {
+          toast.error("Cihazınız konum servisini desteklemiyor.");
+          return;
+        }
+        toast.loading("Konum doğrulanıyor (100m kontrolü)...", { id: "map-geo-check" });
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            toast.dismiss("map-geo-check");
+            resolveCollectWaste.mutate({
+              id: op.id,
+              vehicleId,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          },
+          err => {
+            toast.dismiss("map-geo-check");
+            toast.error(
+              err.code === err.PERMISSION_DENIED
+                ? "Konum izni verilmedi. Atığı toplayabilmek için lütfen cihaz konum iznini açın."
+                : "Anlık GPS konumu alınamadı. Lütfen açık alanda tekrar deneyin."
+            );
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      } else {
+        resolveCollectWaste.mutate({ id: op.id, vehicleId });
+      }
     } else if (op.category === "Konteyner arızası") {
       resolveRepairContainer.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarım tamamlandı." });
     } else if (op.category === "Vatandaş şikayeti") {
       resolveAcknowledgeComplaint.mutate({ id: op.id });
     }
   };
+
 
 
   if (view === "dashboard")
@@ -1424,6 +1454,39 @@ function BulkWasteSolutionPanel({
     onError: e => toast.error(e.message),
   });
 
+  const handleCollectWithGps = (wasteId: number, damperId: number) => {
+    if (role === "şoför") {
+      if (!navigator.geolocation) {
+        toast.error("Cihazınız konum servisini desteklemiyor.");
+        return;
+      }
+      toast.loading("Konum doğrulanıyor (100m kontrolü)...", { id: "list-geo-check" });
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          toast.dismiss("list-geo-check");
+          collect.mutate({
+            id: wasteId,
+            vehicleId: damperId,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        },
+        err => {
+          toast.dismiss("list-geo-check");
+          toast.error(
+            err.code === err.PERMISSION_DENIED
+              ? "Konum izni verilmedi. Atığı toplayabilmek için lütfen cihaz konum iznini açın."
+              : "Anlık GPS konumu alınamadı. Lütfen açık alanda tekrar deneyin."
+          );
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      collect.mutate({ id: wasteId, vehicleId: damperId });
+    }
+  };
+
+
   const canReportWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "çöp kamyonu") || role === "yönetim";
   const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim" || role === "kademe personeli";
   const activeDamper = vehicles.find(vehicle => vehicle.id === (currentShift.data as any)?.vehicleId && vehicle.type === "damperli kamyon");
@@ -1590,11 +1653,12 @@ function BulkWasteSolutionPanel({
             }
             const damperId = (currentShift.data as any)?.vehicleId ?? activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
             if (damperId) {
-              collect.mutate({ id: op.id, vehicleId: damperId });
+              handleCollectWithGps(op.id, damperId);
             } else {
               toast.error("Toplama için aktif damperli kamyon tanımlı olmalıdır.");
             }
           }}
+
         />
 
       </Card>
@@ -1906,13 +1970,14 @@ function BulkWasteSolutionPanel({
                         <Button
                           size="sm"
                           disabled={!damperId || collect.isPending}
-                          onClick={() => damperId && collect.mutate({ id: waste.id, vehicleId: damperId })}
+                          onClick={() => damperId && handleCollectWithGps(waste.id, damperId)}
                           className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
                         >
                           <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                           Toplandı
                         </Button>
                       )}
+
 
                       {role === "yönetim" && (
                         <Button
