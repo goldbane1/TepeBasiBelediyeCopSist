@@ -25,7 +25,14 @@ export default function PWAInstallPrompt() {
 
     if (isStandalone) return;
 
-    // Test modu: Her girişte ve yenilemede bildirimi göster
+    // Kullanıcı daha önce "Daha Sonra" dediyse 2 gün boyunca sorma
+    const dismissedAt = localStorage.getItem("tepebasi_pwa_dismissed");
+    if (dismissedAt) {
+      const daysSinceDismiss = (Date.now() - parseInt(dismissedAt, 10)) / (1000 * 60 * 60 * 24);
+      if (daysSinceDismiss < 2) return;
+    }
+
+    // iOS kontrolü
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIos = /iphone|ipad|ipod/.test(userAgent) && !(window as any).MSStream;
     setIsIosDevice(isIos);
@@ -39,14 +46,17 @@ export default function PWAInstallPrompt() {
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
-    // Her girişte test için 600ms sonra bildirimi göster
-    const promptTimer = setTimeout(() => {
-      setShowPrompt(true);
-    }, 600);
+    // iOS cihazlarda 2.5 saniye sonra şık bir davet göster
+    let iosTimer: NodeJS.Timeout;
+    if (isIos) {
+      iosTimer = setTimeout(() => {
+        setShowPrompt(true);
+      }, 2500);
+    }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-      clearTimeout(promptTimer);
+      if (iosTimer) clearTimeout(iosTimer);
     };
   }, []);
 
@@ -70,7 +80,9 @@ export default function PWAInstallPrompt() {
     triggerHaptic("light");
     setShowPrompt(false);
     setShowIosGuide(false);
+    localStorage.setItem("tepebasi_pwa_dismissed", Date.now().toString());
   };
+
 
 
   if (!showPrompt) return null;
