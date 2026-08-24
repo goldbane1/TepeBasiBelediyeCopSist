@@ -451,7 +451,30 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - **Sayfalama (Pagination):** Sayfa başına 25 kayıt, önceki/sonraki sayfa kontrolleri ve sayfa göstergesi.
   - **Backend Log Limiti Artırımı:** `listAuditLogs` sorgusu 100 kayıttan 1000 kayda çıkarılarak yöneticilerin geçmişe dönük geniş hareketleri analiz edebilmesi sağlandı.
 
-### [v2.4.13] - 2026-08-21
+### [v2.6.0] - 2026-08-25
+- **175 Metre Geofencing & Saha Konum Doğrulaması:**
+  - Damperlik atık toplama işleminde (`bulkWaste.collect`), şoförlerin atık koordinatına en fazla **175 metre** yakınlıkta olması zorunluluğu getirildi (Haversine formülü ile sunucuda ve istemcide doğrulanır). Yönetim ve kademe personeli bu kısıtlamadan muaftır.
+  - Damperlik atık toplama işleminde fotoğraf yükleme isteğe bağlıdır.
+- **12 Saatlik Kararlı Vardiya Oturumu (Sessioning) & Mobil Safari/Chrome Çıkış Koruması:**
+  - Sunucu JWT token ömrü ve istemci Session Cookie süresi tam **12 saat** (`12 * 60 * 60 * 1000 ms`) olarak senkronize edildi.
+  - Cookie güvenlik politikası `sameSite: "lax"` olarak güncellenerek iOS Safari (Apple ITP) ve Android Chrome mobil tarayıcılarında oturumun erken düşmesi engellendi.
+  - İstemci `useAuth` hook'unda `retry: 1` eklenerek kırsal alan ve tünellerdeki 1-2 saniyelik geçici mobil ağ kopmalarında kullanıcının sistemden atılması önlendi.
+- **Sayfa Yenileme (F5) ve Sekme Durumunun Korunması (Navigation Persistence):**
+  - Kullanıcının bulunduğu aktif sekme `localStorage` (`tepebasi_app_view`) ve URL sorgu parametresi (`?view=...`) ile senkronize edildi. Sayfa yenilendiğinde (F5) veya veri mutasyonları sonrası kullanıcı bulunduğu sekmede kalır, ana sayfaya atılmaz.
+- **Sol Menü (Sidebar) Ergonomisi & Kullanıcı Profili Üste Taşıma:**
+  - Aktif kullanıcı profili ve `[Çıkış]` butonu, sol menünün en altından alınıp doğrudan **Tepebaşı Belediyesi logosunun hemen altına** yerleştirildi. Böylece uzun menü listelerinde aşağı kaydırma ihtiyacı ortadan kaldırıldı.
+- **Üst Başlıkta Kompakt "Yenile" Butonu (`[🔄 Yenile]`):**
+  - Üst header alanına sayfa ve operasyonel verileri sıfırdan tazeleyen kompakt `[🔄 Yenile]` butonu entegre edildi.
+- **Damperlik Atık Listesinde Canlı GPS Mesafe Rozeti & En Yakındakiler Sıralaması:**
+  - Damperlik atık listesindeki her kaydın üzerine şoförün anlık GPS mesafesi rozet olarak eklendi (`📍 65m Toplamaya Uygun ✅` / `📍 340m` / `📍 1.2 km`).
+  - `[⚡ En Yakındakiler / Normal Sıralama]` butonu ile şoföre en yakın atıklar otomatik ilk sıraya dizilir. Şoför 175 metre içindeyken haritayı açmadan doğrudan listeden atığı toplayabilir.
+- **Titreşimli Geri Bildirim (Haptic Feedback):**
+  - Atık toplama, şikayet kapatma, konteyner tamamlama ve form işlemlerinde mobil cihazlarda dokunsal titreşim (`navigator.vibrate`) desteği devreye alındı.
+- **Operasyon Haritası Sadeleştirmesi:**
+  - Harita üzerindeki gereksiz şoför pinleri ve kılavuz simgeleri kaldırılarak sadece operasyonel atık/arıza/şikayet pinleri bırakıldı. Şoförün kendi telefon GPS konumunu görmesi için `[📍 Şu Anki Konumumu Göster]` butonu aktifleştirildi.
+
+### [v2.4.14] - 2026-08-21
+
 - **Toolbar Navigasyon Düzeni & İsim Sadeleştirmesi:**
   - `Mesai Yönetimi` menü öğesi, şoförler ve yöneticiler için doğrudan `Operasyon Özeti` (Dashboard) öğesinin hemen altına taşındı.
   - Toolbar üzerindeki `Operasyon Haritası & Bildirimler` menü başlığı `Operasyon Haritası` olarak sadeleştirildi.
@@ -500,7 +523,8 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
     5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
 
 ---
-*Doküman Sürümü: v2.5.0 (Canlı Şema & Operasyonel Devir Standardı)*  
-*Son Güncelleme: 2026-08-21*
+*Doküman Sürümü: v2.6.0 (Canlı Şema, Mobil Saha UX & Operasyonel Devir Standardı)*  
+*Son Güncelleme: 2026-08-25*
+
 
 
