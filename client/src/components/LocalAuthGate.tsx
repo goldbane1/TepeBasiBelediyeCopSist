@@ -71,13 +71,44 @@ function LoginForm() {
   };
 
   return (
-    <form className="mt-7 space-y-3" onSubmit={submit}>
-      <Input required value={form.username} onChange={e => setForm({ ...form, username: e.target.value.toLowerCase() })} placeholder="Kullanıcı adı" autoComplete="username" />
-      <Input required type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Şifre" autoComplete="current-password" />
-      <Button type="submit" disabled={login.isPending} size="lg" className="w-full bg-emerald-700 font-semibold hover:bg-emerald-800">
+    <form className="mt-5 sm:mt-6 space-y-3.5" onSubmit={submit}>
+      <div>
+        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
+          Kullanıcı Adı
+        </label>
+        <Input
+          required
+          value={form.username}
+          onChange={e => setForm({ ...form, username: e.target.value.toLowerCase() })}
+          placeholder="Kullanıcı adınızı girin"
+          autoComplete="username"
+          className="h-11 text-sm bg-slate-50 border-slate-200 focus:bg-white transition"
+        />
+      </div>
+      <div>
+        <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
+          Şifre
+        </label>
+        <Input
+          required
+          type="password"
+          value={form.password}
+          onChange={e => setForm({ ...form, password: e.target.value })}
+          placeholder="Şifrenizi girin"
+          autoComplete="current-password"
+          className="h-11 text-sm bg-slate-50 border-slate-200 focus:bg-white transition"
+        />
+      </div>
+      <Button
+        type="submit"
+        disabled={login.isPending}
+        size="lg"
+        className="w-full h-11 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md active:scale-98 transition rounded-xl"
+      >
         <KeyRound className="mr-2 h-4 w-4" />
-        Giriş yap
+        {login.isPending ? "Giriş yapılıyor..." : "Sisteme Giriş Yap"}
       </Button>
     </form>
   );
 }
+

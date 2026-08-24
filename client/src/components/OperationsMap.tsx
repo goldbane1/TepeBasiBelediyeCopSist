@@ -463,16 +463,16 @@ export default function OperationsMap({
                     size="sm"
                     variant="outline"
                     onClick={openRoute}
-                    className="text-slate-700 hover:bg-slate-100 text-xs h-8"
+                    className="text-emerald-950 bg-white hover:bg-emerald-50 hover:text-emerald-900 border-emerald-300 font-bold text-xs h-8.5 shadow-2xs"
                   >
-                    <Navigation className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-                    Navigasyon
+                    <Navigation className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                    Yol Tarifi Al
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setSelected(null)}
-                    className="text-slate-500 hover:bg-slate-100 text-xs h-8 px-2"
+                    className="text-slate-500 hover:bg-slate-100 text-xs h-8.5 px-2.5"
                   >
                     Kapat
                   </Button>
@@ -486,9 +486,8 @@ export default function OperationsMap({
                       setSelected(null);
                       onResolveOperation(target);
                     }}
-                    className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm text-xs h-8"
+                    className="bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm text-xs h-8.5 font-bold"
                   >
-
                     <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                     {selected.category === "Damperlik atık"
                       ? "Atığı Topla"
@@ -506,19 +505,22 @@ export default function OperationsMap({
           </aside>
         )}
 
-        {/* Floating GPS Button */}
-        <div className="absolute right-3 bottom-3 sm:right-4 sm:bottom-4 z-[400]">
-          <Button
-            type="button"
-            size="sm"
-            disabled={isLocating}
-            onClick={locateUser}
-            className="rounded-2xl bg-white hover:bg-emerald-50 text-emerald-800 border border-slate-300/80 shadow-lg px-3 py-2 text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95"
-          >
-            <LocateFixed className={cn("h-4 w-4 text-emerald-700", isLocating && "animate-spin")} />
-            <span>{isLocating ? "Konum Alınıyor..." : "Şu Anki Konumumu Göster"}</span>
-          </Button>
-        </div>
+        {/* Floating GPS Button: Pin açıkken çakışmaması için pin açıkken gizlenir */}
+        {!selected && (
+          <div className="absolute right-3 bottom-3 sm:right-4 sm:bottom-4 z-[400] transition-all">
+            <Button
+              type="button"
+              size="sm"
+              disabled={isLocating}
+              onClick={locateUser}
+              className="rounded-2xl bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300/80 shadow-xl px-3.5 py-2 text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 ring-2 ring-emerald-700/10"
+            >
+              <LocateFixed className={cn("h-4 w-4 text-emerald-700", isLocating && "animate-spin")} />
+              <span>{isLocating ? "Konum Alınıyor..." : "Şu Anki Konumumu Göster"}</span>
+            </Button>
+          </div>
+        )}
+
 
 
 
