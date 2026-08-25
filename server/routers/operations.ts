@@ -457,8 +457,9 @@ export const operationsRouter = router({
         photo: z.string().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
-      requireRole(ctx.user.role, ["şoför", "kaynak personeli", "yönetim"]);
+      requireRole(ctx.user.role, ["kaynak personeli", "yönetim"]);
       const photoUrl = await uploadImage(input.photo, `containers/${ctx.user.id}`);
+
       const desc = input.description?.trim() || "Açıklama belirtilmedi";
       await db.createContainerFault({
         region: input.region,

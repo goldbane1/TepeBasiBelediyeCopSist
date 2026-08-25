@@ -289,14 +289,16 @@ function ContainerPanel({
         />
       </Card>
 
-      {/* 2. Konteyner Arızası Bildirim Formu */}
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="font-display flex items-center gap-2 text-base">
-            <Plus className="h-5 w-5 text-emerald-700" />
-            Yeni Konteyner Arızası Bildir
-          </CardTitle>
-        </CardHeader>
+      {/* 2. Konteyner Arızası Bildirim Formu (Yalnızca Kaynak Personeli ve Yönetim) */}
+      {canRepair && (
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display flex items-center gap-2 text-base">
+              <Plus className="h-5 w-5 text-emerald-700" />
+              Yeni Konteyner Arızası Bildir
+            </CardTitle>
+          </CardHeader>
+
         <CardContent>
           <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitContainer}>
             <Field label="Arıza Türü">
@@ -432,8 +434,10 @@ function ContainerPanel({
           </form>
         </CardContent>
       </Card>
+      )}
 
       {/* 3. Onarım Bekleyen Kayıtlar Listesi */}
+
       <Card className="border-0 bg-white shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="font-display flex items-center gap-2 text-base">

@@ -41,12 +41,12 @@ function getNavItemsForRole(role: Role): NavItem[] {
       { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["şoför"] },
       { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["şoför"] },
       { id: "damperlik-çözüm", label: "Damperlik Atık Çözümü", icon: Archive, roles: ["şoför"] },
-      { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["şoför"] },
       { id: "şikayetler", label: "Vatandaş Şikayetleri", icon: AlertTriangle, roles: ["şoför"] },
       { id: "araçlar", label: "Araçlar", icon: Truck, roles: ["şoför"] },
       { id: "araç-arızaları", label: "Araç Arızaları", icon: Wrench, roles: ["şoför"] },
     ];
   }
+
 
   // Yönetim ve diğer roller için nizamlı menü düzeni
   return [

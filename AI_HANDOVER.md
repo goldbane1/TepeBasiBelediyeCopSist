@@ -465,7 +465,11 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - Detay kartı içindeki buton `[🧭 Yol Tarifi Al]` olarak belirginleştirildi; kart kapatıldığında veya haritada boşluğa dokunulduğunda GPS butonu tekrar görünür hale gelir.
 - **Giriş Ekranı (Login Landing) Mobil Ergonomisi:**
   - Kısayoldan veya mobilden girildiğinde dikey ekran boşlukları optimize edildi, giriş kartı doğrudan odak noktasına getirildi ve form alanları dokunmatik ekranlara uygun hale getirildi.
+- **Konteyner Arıza & Onarım Yetki Sınırlandırması:**
+  - Şoför ve kademe personelinin ekranlarından konteyner arıza bildirme ve kapatma sekmeleri kaldırıldı.
+  - Backend API (`containerFaults.create` ve `containerFaults.repair`) yalnızca **`kaynak personeli`** ve **`yönetim`** rollerine sınırlandırıldı.
 - **175 Metre Geofencing & Saha Konum Doğrulaması:**
+
   - Damperlik atık toplama işleminde (`bulkWaste.collect`), şoförlerin atık koordinatına en fazla **175 metre** yakınlıkta olması zorunluluğu getirildi (Haversine formülü ile sunucuda ve istemcide doğrulanır). Yönetim ve kademe personeli bu kısıtlamadan muaftır.
   - Damperlik atık toplama işleminde fotoğraf yükleme isteğe bağlıdır.
 - **12 Saatlik Kararlı Vardiya Oturumu (Sessioning) & Mobil Safari/Chrome Çıkış Koruması:**
