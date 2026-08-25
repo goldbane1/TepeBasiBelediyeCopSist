@@ -452,6 +452,19 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - **Backend Log Limiti Artırımı:** `listAuditLogs` sorgusu 100 kayıttan 1000 kayda çıkarılarak yöneticilerin geçmişe dönük geniş hareketleri analiz edebilmesi sağlandı.
 
 ### [v2.6.0] - 2026-08-25
+- **PWA (Progressive Web App) & "Ana Ekrana Ekle" Desteği:**
+  - Web uygulamasının hem Android hem iOS (iPhone/iPad) cihazlarda App Store/Play Store'a ihtiyaç duymadan gerçek bir mobil uygulama gibi ana ekrana eklenip **tam ekran (standalone, adres çubuğu olmadan)** çalışması sağlandı.
+  - `client/public/manifest.json` dosyası yapılandırıldı (`display: "standalone"`, `theme_color: "#083d2d"`, `icons: [192x192, 512x512]`).
+  - `PWAInstallPrompt.tsx` bileşeni entegre edildi:
+    - **Android / Chrome:** Doğal `beforeinstallprompt` API'si ile tek tıkla yükleme daveti.
+    - **iOS / Safari:** Safari'nin Paylaş (`⬆️`) ve "Ana Ekrana Ekle" adımlarını gösteren görsel rehber modalı.
+    - **Rahatsız Etmeme:** Kullanıcı "Daha Sonra" dediğinde 2 gün boyunca tekrar sormayan, uygulama zaten standalone açıldığında hiç görünmeyen akıllı kontrol.
+  - `manifest.json` ve arayüzdeki logo kırpılma/yakınlaşma sorunları `purpose: "any"` ve `p-2.5` nefes payı ile tam ölçekli hale getirildi.
+- **Haritada GPS Konumu & Navigasyon Buton Çakışmasının Çözümü:**
+  - Haritada bir pine dokunulup alt detay kartı açıldığında, arka plandaki floating `[📍 Şu Anki Konumumu Göster]` butonu otomatik olarak gizlenerek çakışma sıfırlandı.
+  - Detay kartı içindeki buton `[🧭 Yol Tarifi Al]` olarak belirginleştirildi; kart kapatıldığında veya haritada boşluğa dokunulduğunda GPS butonu tekrar görünür hale gelir.
+- **Giriş Ekranı (Login Landing) Mobil Ergonomisi:**
+  - Kısayoldan veya mobilden girildiğinde dikey ekran boşlukları optimize edildi, giriş kartı doğrudan odak noktasına getirildi ve form alanları dokunmatik ekranlara uygun hale getirildi.
 - **175 Metre Geofencing & Saha Konum Doğrulaması:**
   - Damperlik atık toplama işleminde (`bulkWaste.collect`), şoförlerin atık koordinatına en fazla **175 metre** yakınlıkta olması zorunluluğu getirildi (Haversine formülü ile sunucuda ve istemcide doğrulanır). Yönetim ve kademe personeli bu kısıtlamadan muaftır.
   - Damperlik atık toplama işleminde fotoğraf yükleme isteğe bağlıdır.
@@ -474,6 +487,7 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - Harita üzerindeki gereksiz şoför pinleri ve kılavuz simgeleri kaldırılarak sadece operasyonel atık/arıza/şikayet pinleri bırakıldı. Şoförün kendi telefon GPS konumunu görmesi için `[📍 Şu Anki Konumumu Göster]` butonu aktifleştirildi.
 
 ### [v2.4.14] - 2026-08-21
+
 
 - **Toolbar Navigasyon Düzeni & İsim Sadeleştirmesi:**
   - `Mesai Yönetimi` menü öğesi, şoförler ve yöneticiler için doğrudan `Operasyon Özeti` (Dashboard) öğesinin hemen altına taşındı.
