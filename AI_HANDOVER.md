@@ -469,9 +469,9 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - Şoför ve kademe personelinin ekranlarından konteyner arıza bildirme ve kapatma sekmeleri kaldırıldı.
   - Backend API (`containerFaults.create` ve `containerFaults.repair`) yalnızca **`kaynak personeli`** ve **`yönetim`** rollerine sınırlandırıldı.
 - **175 Metre Geofencing & Saha Konum Doğrulaması:**
-
-  - Damperlik atık toplama işleminde (`bulkWaste.collect`), şoförlerin atık koordinatına en fazla **175 metre** yakınlıkta olması zorunluluğu getirildi (Haversine formülü ile sunucuda ve istemcide doğrulanır). Yönetim ve kademe personeli bu kısıtlamadan muaftır.
+  - Damperlik atık toplama işleminde (`bulkWaste.collect`), yalnızca damperli araçla mesaisi açık olan şoförler ve yöneticiler atık toplayabilir (kademe personeli bu yetkiden çıkarılmıştır). Şoförlerin atık koordinatına en fazla **175 metre** yakınlıkta olması zorunluluğu getirildi (Haversine formülü ile sunucuda ve istemcide doğrulanır). Yönetim personeli konum kısıtlamasından muaftır.
   - Damperlik atık toplama işleminde fotoğraf yükleme isteğe bağlıdır.
+
 - **12 Saatlik Kararlı Vardiya Oturumu (Sessioning) & Mobil Safari/Chrome Çıkış Koruması:**
   - Sunucu JWT token ömrü ve istemci Session Cookie süresi tam **12 saat** (`12 * 60 * 60 * 1000 ms`) olarak senkronize edildi.
   - Cookie güvenlik politikası `sameSite: "lax"` olarak güncellenerek iOS Safari (Apple ITP) ve Android Chrome mobil tarayıcılarında oturumun erken düşmesi engellendi.

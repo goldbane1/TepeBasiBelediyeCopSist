@@ -1575,8 +1575,9 @@ function BulkWasteSolutionPanel({
 
 
   const canReportWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "çöp kamyonu") || role === "yönetim";
-  const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim" || role === "kademe personeli";
+  const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim";
   const activeDamper = vehicles.find(vehicle => vehicle.id === (currentShift.data as any)?.vehicleId && vehicle.type === "damperli kamyon");
+
   const pendingWaste = useMemo(() => wasteList.filter(item => item.status === "bekliyor"), [wasteList]);
 
   const getWasteDistance = (waste: any) => {
