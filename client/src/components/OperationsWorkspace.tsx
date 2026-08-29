@@ -1811,8 +1811,9 @@ function BulkWasteSolutionPanel({
   };
 
 
-  const canReportWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "çöp kamyonu") || role === "yönetim";
+  const canReportWaste = (role === "şoför" && Boolean(currentShift.data)) || role === "yönetim";
   const canCollectWaste = (role === "şoför" && (currentShift.data as any)?.vehicleType === "damperli kamyon") || role === "yönetim";
+
   const activeDamper = vehicles.find(vehicle => vehicle.id === (currentShift.data as any)?.vehicleId && vehicle.type === "damperli kamyon");
 
   const pendingWaste = useMemo(() => wasteList.filter(item => item.status === "bekliyor"), [wasteList]);
@@ -2009,21 +2010,22 @@ function BulkWasteSolutionPanel({
       )}
 
       {/* 2. Aktif Mesai Olmadığında Şoföre Bilgilendirme Kartı */}
-      {role === "şoför" && !canReportWaste && !canCollectWaste && (
+      {role === "şoför" && !currentShift.data && (
         <Card className="border border-amber-200/80 bg-amber-50/80 p-5 rounded-2xl text-amber-900 shadow-xs">
           <div className="flex items-start gap-3">
             <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 shrink-0 mt-0.5">
               <ClipboardCheck className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-display font-bold text-sm text-amber-950">Aktif Çöp Kamyonu Mesaisi Gereklidir</h3>
+              <h3 className="font-display font-bold text-sm text-amber-950">Aktif Mesai Başlatılmamış</h3>
               <p className="text-xs text-amber-900/90 mt-1 leading-relaxed">
-                Damperlik moloz/atık bildiriminde bulunabilmek için lütfen sol menüdeki <strong>Mesai Başla/Bitir</strong> sekmesinden <strong>Çöp Kamyonu</strong> aracınız ile mesainizi başlatın.
+                Damperlik moloz/atık bildiriminde bulunabilmek için lütfen sol menüdeki <strong>Mesai Başla/Bitir</strong> sekmesinden mesainizi başlatın.
               </p>
             </div>
           </div>
         </Card>
       )}
+
 
       {/* 3. Damperlik Atık Bildirim Formu */}
       {canReportWaste && (

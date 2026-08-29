@@ -20,15 +20,17 @@ describe("mesai başlangıç uygunluğu", () => {
     expect(getShiftEligibility("aktif", 1)).toMatchObject({ allowed: false });
   });
 
-  it("damperlik atık bildirimi için yalnızca aktif çöp kamyonu mesaisini kabul eder", () => {
-    expect(getWasteFlowEligibility({ vehicleId: 5, vehicleType: "çöp kamyonu" }, "çöp kamyonu")).toEqual({ allowed: true });
-    expect(getWasteFlowEligibility({ vehicleId: 5, vehicleType: "damperli kamyon" }, "çöp kamyonu")).toMatchObject({ allowed: false });
+  it("damperlik atık bildirimi için aktif mesaiyi (çöp kamyonu veya damperli kamyon) kabul eder", () => {
+    expect(getWasteFlowEligibility({ vehicleId: 5, vehicleType: "çöp kamyonu" }, "herhangi")).toEqual({ allowed: true });
+    expect(getWasteFlowEligibility({ vehicleId: 5, vehicleType: "damperli kamyon" }, "herhangi")).toEqual({ allowed: true });
+    expect(getWasteFlowEligibility(null, "herhangi")).toMatchObject({ allowed: false });
   });
 
   it("toplama kaydını aktif damperli aracına bağlar", () => {
     expect(getWasteFlowEligibility({ vehicleId: 7, vehicleType: "damperli kamyon" }, "damperli kamyon", 7)).toEqual({ allowed: true });
     expect(getWasteFlowEligibility({ vehicleId: 7, vehicleType: "damperli kamyon" }, "damperli kamyon", 6)).toMatchObject({ allowed: false });
   });
+
 });
 
 describe("araç envanteri yetkileri", () => {

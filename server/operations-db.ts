@@ -32,10 +32,13 @@ export function getShiftEligibility(vehicleStatus: string, openFaultCount: numbe
 
 export function getWasteFlowEligibility(
   activeShift: ActiveShiftContext,
-  requiredVehicleType: "çöp kamyonu" | "damperli kamyon",
+  requiredVehicleType?: "çöp kamyonu" | "damperli kamyon" | "herhangi",
   selectedVehicleId?: number,
 ): ShiftEligibility {
-  if (!activeShift || activeShift.vehicleType !== requiredVehicleType) {
+  if (!activeShift) {
+    return { allowed: false, reason: "Bu işlem için aktif bir mesainizin olması gerekmektedir." };
+  }
+  if (requiredVehicleType && requiredVehicleType !== "herhangi" && activeShift.vehicleType !== requiredVehicleType) {
     return { allowed: false, reason: `Bu işlem için aktif ${requiredVehicleType} mesaisi gereklidir.` };
   }
   if (selectedVehicleId !== undefined && activeShift.vehicleId !== selectedVehicleId) {
@@ -43,6 +46,7 @@ export function getWasteFlowEligibility(
   }
   return { allowed: true };
 }
+
 
 export function firstOrNull<T>(rows: T[]): T | null {
   return rows.length > 0 ? rows[0] : null;
@@ -302,7 +306,7 @@ export async function getCurrentShiftForDriver(driverId: number) {
 
 export async function requireActiveWasteShift(
   driverId: number,
-  requiredVehicleType: "çöp kamyonu" | "damperli kamyon",
+  requiredVehicleType?: "çöp kamyonu" | "damperli kamyon" | "herhangi",
   selectedVehicleId?: number,
 ) {
   const currentShift = await getCurrentShiftForDriver(driverId);
@@ -310,6 +314,7 @@ export async function requireActiveWasteShift(
   if (!eligibility.allowed) throw new Error(eligibility.reason);
   return currentShift;
 }
+
 
 // -----------------------------------------------------------------------------
 // VEHICLE FAULTS (ARAÇ ARIZALARI)

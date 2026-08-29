@@ -337,8 +337,9 @@ export const operationsRouter = router({
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["şoför", "yönetim"]);
       if (ctx.user.role === "şoför") {
-        await db.requireActiveWasteShift(ctx.user.id, "çöp kamyonu");
+        await db.requireActiveWasteShift(ctx.user.id, "herhangi");
       }
+
       const photoUrl = await uploadImage(input.photo, `bulkWaste/${ctx.user.id}`);
       const hours = input.durationHours === 24 ? 24 : 48;
       const autoDueAt = new Date(Date.now() + hours * 60 * 60 * 1000);
