@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import OperationsWorkspace, { type AppView } from "@/components/OperationsWorkspace";
 import LocalAuthGate from "@/components/LocalAuthGate";
-import { AlertTriangle, Archive, ClipboardCheck, FileBarChart, LayoutDashboard, LogOut, Map, MapPin, Menu, Recycle, RefreshCw, Settings, Truck, UserCog, Wrench, X } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { AlertTriangle, Archive, ClipboardCheck, Eye, EyeOff, FileBarChart, LayoutDashboard, Lock, LogOut, Map, MapPin, Menu, Recycle, RefreshCw, Settings, ShieldCheck, Truck, User, UserCog, Wrench, X } from "lucide-react";
+import { useState, useEffect, type FormEvent } from "react";
+
 import { cn, triggerHaptic } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -139,6 +140,17 @@ export default function Home() {
       window.history.replaceState({}, "", url.toString());
     } catch {}
   };
+
+  useEffect(() => {
+    if (role) {
+      const allowedNavItems = getNavItemsForRole(role);
+      const isAllowed = allowedNavItems.some(item => item.id === view);
+      if (!isAllowed) {
+        handleSetView("dashboard");
+      }
+    }
+  }, [role, view]);
+
 
   if (loading) {
     return (
@@ -379,13 +391,15 @@ function UserProfileModal({ currentUser, onClose }: { currentUser: any; onClose:
   const [username, setUsername] = useState(currentUser.username || "");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<"profile" | "password">("profile");
 
   const updateProfile = trpc.operations.users.updateMyProfile.useMutation({
     onSuccess: () => {
       triggerHaptic("success");
       toast.success("Profil ve hesap bilgileriniz başarıyla güncellendi.");
       onClose();
-      setTimeout(() => window.location.reload(), 500);
+      setTimeout(() => window.location.reload(), 400);
     },
     onError: e => {
       triggerHaptic("warning");
@@ -396,7 +410,7 @@ function UserProfileModal({ currentUser, onClose }: { currentUser: any; onClose:
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (password && password.length < 3) {
-      return toast.error("Şifre en az 3 karakter olmalıdır.");
+      return toast.error("Yeni şifre en az 3 karakter olmalıdır.");
     }
     if (password && password !== passwordConfirm) {
       return toast.error("Girdiğiniz yeni şifreler birbiriyle eşleşmiyor.");
@@ -408,89 +422,190 @@ function UserProfileModal({ currentUser, onClose }: { currentUser: any; onClose:
     });
   };
 
+  const isPasswordMatch = password && passwordConfirm && password === passwordConfirm;
+  const isPasswordMismatch = password && passwordConfirm && password !== passwordConfirm;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-md bg-white rounded-3xl p-6 text-slate-900 shadow-2xl border border-slate-200 animate-in zoom-in-95">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
-              <UserCog className="h-5 w-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white text-slate-900 shadow-2xl border border-slate-200/80 animate-in zoom-in-95 duration-200">
+        {/* Modal Başlık Kartı */}
+        <div className="relative bg-gradient-to-br from-[#083d2d] to-[#041d16] p-6 text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          <div className="flex items-center gap-3.5">
+            <div className="grid h-13 w-13 place-items-center rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-lg font-bold font-display shadow-inner">
+              {(currentUser.name || currentUser.username || "P").slice(0, 2).toUpperCase()}
             </div>
             <div>
-              <h3 className="font-display text-base font-bold text-slate-900">Profil & Şifre Düzenle</h3>
-              <p className="text-xs text-slate-500">Hesap bilgilerinizi güncelleyin</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-display text-base font-bold text-white tracking-wide">
+                  {currentUser.name || currentUser.username}
+                </h3>
+                <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 capitalize text-[10px] font-bold px-2 py-0.5">
+                  {currentUser.role}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-emerald-200/80 mt-1 flex items-center gap-1 font-medium">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                @{currentUser.username} · Tepebaşı Operasyon Hesabı
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
-            <X className="h-5 w-5" />
-          </button>
+
+          {/* Sekmeler */}
+          <div className="mt-4 grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1 border border-white/10 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setActiveTab("profile")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 py-1.5 rounded-xl transition",
+                activeTab === "profile"
+                  ? "bg-white text-emerald-950 shadow-sm"
+                  : "text-emerald-100/70 hover:text-white hover:bg-white/5"
+              )}
+            >
+              <User className="h-3.5 w-3.5" />
+              Kullanıcı Bilgileri
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("password")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 py-1.5 rounded-xl transition",
+                activeTab === "password"
+                  ? "bg-white text-emerald-950 shadow-sm"
+                  : "text-emerald-100/70 hover:text-white hover:bg-white/5"
+              )}
+            >
+              <Lock className="h-3.5 w-3.5" />
+              Şifre Değiştir
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
-              Ad Soyad
-            </label>
-            <Input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Adınız Soyadınız"
-              className="h-10 text-sm"
-              required
-            />
-          </div>
+        {/* Modal Form */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {activeTab === "profile" ? (
+            <div className="space-y-3 animate-in fade-in duration-150">
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                  Ad Soyad
+                </label>
+                <div className="relative">
+                  <Input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Adınız Soyadınız"
+                    className="h-10 text-sm pl-9 font-medium bg-slate-50 border-slate-200 focus:bg-white transition rounded-xl"
+                    required
+                  />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                </div>
+              </div>
 
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
-              Kullanıcı Adı (Giriş İçin)
-            </label>
-            <Input
-              value={username}
-              onChange={e => setUsername(e.target.value.toLowerCase())}
-              placeholder="kullanıcı adı"
-              className="h-10 text-sm"
-              required
-            />
-          </div>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                  Kullanıcı Adı (Sisteme Giriş İçin)
+                </label>
+                <div className="relative">
+                  <Input
+                    value={username}
+                    onChange={e => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ""))}
+                    placeholder="kullanıcı adı"
+                    className="h-10 text-sm pl-9 font-medium bg-slate-50 border-slate-200 focus:bg-white transition rounded-xl"
+                    required
+                  />
+                  <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">@</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Giriş yaparken bu kullanıcı adını ve şifrenizi kullanacaksınız.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3 animate-in fade-in duration-150">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Yeni Şifre
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1"
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showPassword ? "Gizle" : "Göster"}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Yeni şifrenizi girin..."
+                    minLength={3}
+                    className="h-10 text-sm pl-9 font-medium bg-slate-50 border-slate-200 focus:bg-white transition rounded-xl"
+                  />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                </div>
+              </div>
 
-          <div className="pt-2 border-t border-slate-100">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
-              Yeni Şifre (Değiştirmek İstemiyorsanız Boş Bırakın)
-            </label>
-            <Input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Yeni şifrenizi girin..."
-              className="h-10 text-sm"
-            />
-          </div>
-
-          {password && (
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
-                Yeni Şifre Tekrar
-              </label>
-              <Input
-                type="password"
-                value={passwordConfirm}
-                onChange={e => setPasswordConfirm(e.target.value)}
-                placeholder="Yeni şifreyi tekrar yazın..."
-                className="h-10 text-sm"
-              />
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                  Yeni Şifre Tekrarı
+                </label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={passwordConfirm}
+                    onChange={e => setPasswordConfirm(e.target.value)}
+                    placeholder="Yeni şifreyi tekrar yazın..."
+                    minLength={3}
+                    className={cn(
+                      "h-10 text-sm pl-9 font-medium bg-slate-50 border-slate-200 focus:bg-white transition rounded-xl",
+                      isPasswordMismatch && "border-red-300 bg-red-50/50",
+                      isPasswordMatch && "border-emerald-300 bg-emerald-50/50"
+                    )}
+                  />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                </div>
+                {isPasswordMatch && (
+                  <p className="text-[11px] font-bold text-emerald-700 mt-1 flex items-center gap-1">
+                    ✓ Şifreler birbiriyle eşleşiyor
+                  </p>
+                )}
+                {isPasswordMismatch && (
+                  <p className="text-[11px] font-bold text-red-600 mt-1 flex items-center gap-1">
+                    ✕ Girdiğiniz şifreler eşleşmiyor
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
-          <div className="pt-3 flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={onClose} className="text-xs h-10 px-4">
+          {/* Butonlar */}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
               Vazgeç
             </Button>
             <Button
               type="submit"
-              disabled={updateProfile.isPending}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-10 font-bold px-5"
+              disabled={updateProfile.isPending || Boolean(isPasswordMismatch)}
+              className="h-10 px-5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-md active:scale-98 transition"
             >
-              {updateProfile.isPending ? "Kaydediliyor..." : "Bilgileri Kaydet"}
+              {updateProfile.isPending ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
             </Button>
           </div>
         </form>
@@ -498,6 +613,7 @@ function UserProfileModal({ currentUser, onClose }: { currentUser: any; onClose:
     </div>
   );
 }
+
 
 function LoginLanding() {
   return (

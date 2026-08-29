@@ -425,9 +425,10 @@ function Dashboard({
         {
           id: "mesai" as AppView,
           title: "Mesai Başla / Bitir",
-          sub: activeShift ? "Mesai Açık 🟢" : "Mesai Başlat ⚪",
+          sub: activeShift ? "Mesai Açık 🟢" : "Aktif Mesai Yok ⚪",
           icon: ClipboardCheck,
           accent: activeShift
+
             ? "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-500 ring-2 ring-emerald-400 shadow-md"
             : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-md",
           iconBg: "bg-white/20 text-white",
@@ -686,9 +687,10 @@ function Dashboard({
             </Badge>
             {role === "şoför" && (
               <span className={cn("text-[11px] font-bold px-2.5 py-1 rounded-full border", activeShift ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/40 animate-pulse" : "bg-white/10 text-slate-300 border-white/10")}>
-                {activeShift ? "🟢 Mesai Açık" : "⚪ Mesai Kapalı"}
+                {activeShift ? "🟢 Mesai Açık" : "⚪ Aktif Mesai Yok"}
               </span>
             )}
+
           </div>
         </div>
 

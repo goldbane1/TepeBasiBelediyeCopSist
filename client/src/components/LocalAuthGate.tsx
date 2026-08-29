@@ -60,10 +60,15 @@ function LoginForm() {
   const [form, setForm] = useState({ username: "", password: "" });
   const login = trpc.auth.login.useMutation({
     onSuccess: () => {
-      window.location.reload();
+      try {
+        localStorage.setItem("tepebasi_app_view", "dashboard");
+      } catch {}
+      window.location.href = "/";
     },
     onError: error => toast.error(error.message),
   });
+
+
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
