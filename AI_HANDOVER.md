@@ -164,7 +164,7 @@ Sistemde 4 temel rol tanımlıdır (`users.role`):
 | Yetenek / Ekran | `yönetim` | `şoför` | `kaynak personeli` | `kademe personeli` |
 | :--- | :---: | :---: | :---: | :---: |
 | **Ana Sayfa / Hızlı İşlem Menüsü** | ✅ | ✅ | ✅ | ✅ |
-| **Tüm Operasyonlar Haritası** | ✅ | ✅ | ✅ | ✅ |
+| **Tüm Operasyonlar Haritası** | ✅ | ✅ | ✅ (Yalnızca Konteyner Arızası Pinleri) | ❌ |
 | **Mesai Başlatma / Bitirme (Kendi Adına)** | ❌ | ✅ | ❌ | ❌ |
 | **Şoför Adına Mesai Başlatma & Bitirme** | ✅ | ❌ | ❌ | ❌ |
 | **Şoför Geçmiş 10 Mesai Tablosu** | ❌ | ✅ (Kendi mesaileri) | ❌ | ❌ |
@@ -192,6 +192,7 @@ Sistemde 4 temel rol tanımlıdır (`users.role`):
 - **3 Sabit Vardiya Saati:** `08:00 - 16:00`, `16:00 - 00:00`, `00:00 - 08:00`.
 - **Dinamik Mahalle:** Şoför veya yönetici mesai başlatırken veritabanındaki `neighborhoods` listesinden seçim yapar. Seçilen mahalleye bağlı `region` (bölge) otomatik set edilir.
 - **Tek Aktif Mesai Kuralı:** Bir şoförün aynı anda yalnızca 1 açık mesaisi olabilir.
+- **Aktif Mesai Kartı (Dashboard & Mesai Ekranı En Üstü):** Şoför mesai başlattığında aktif mesai bilgisi ve sonlandırma formu hem Mesai ekranının hem de Ana Sayfa'nın (Dashboard) en tepesinde sabitlenir. Şoför sayfayı kaydırmak zorunda kalmadan doğrudan Ana Sayfa'dan tek tıkla mesai bitirme işlemine erişebilir veya mesai yönetiminde en üstteki formdan bitirebilir.
 - **Mesai Bitirme:** Bitiş kilometresi girilir (`endKm >= startKm`). Zorunlu tonaj bilgisi ve isteğe bağlı kantar fişi fotoğrafları (`tonnageReceipts` Base64 dizisi) kaydedilir.
 
 ### 5.2. Şoför Görev Bölgesi Şikayet Alarmı
@@ -230,10 +231,14 @@ Tüm operasyonel bildirim formlarında iki yönlü OpenStreetMap (Nominatim) ent
 
 
 ### 5.8. Operasyon Haritası ve Pin Özellikleri (`OperationsMap.tsx`)
+- **Rol Bazlı Harita Görünürlüğü:**
+  - `kademe personeli`: Operasyon haritası menüsünden ve arayüzünden kaldırılmıştır.
+  - `kaynak personeli`: Haritada **yalnızca konteyner arızaları** pinleri görünür; damperlik atık ve şikayet sekmeleri kaynakçılar için tamamen gizlenir.
 - **Tekil Harita Filtreleme:** Her operasyon sekmesinde (`Konteyner`, `Damperlik Atık`, `Şikayetler`) sadece o kategoriye ait özel harita gösterilir.
 - **Fotoğraf Önizleme & Lightbox:** Pin tıklandığında yüklenen fotoğrafın küçük önizlemesi çıkar; tıklandığında tam ekran yüksek çözünürlüklü Lightbox açılır.
 - **Doğrudan Pinden Kapatma:** Yetkili personel pin üzerindeki butona basarak listede aramaya gerek kalmadan görevi haritadan kapatabilir.
 - **Kompakt Bildirim Tablosu:** Ana haritanın altında fotoğrafsız, kompakt, doğrudan pine odaklayan (`Pini Göster`) bir özet bildirim listesi bulunur.
+
 
 
 ---
@@ -584,11 +589,15 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
 - **Mobil Alt Navigasyon ve Menü İsimlendirmesi:**
   - Mobil alt gezinme çubuğundaki (Bottom Navigation Bar) ve sol kenar çubuğundaki "Özet" / "Operasyon Özeti" etiketleri tüm roller için **"Ana Sayfa"** olarak güncellendi.
 
+### [v2.9.0] - 2026-08-29
+- **Kademe Personeli Menüsünden Operasyon Haritasının Kaldırılması:**
+  - Kademe personeli yalnızca araç ve kademe arızaları ile ilgilendiğinden, operasyon haritası yan menüden, mobil alt menüden ve ana sayfa Hızlı İşlem Menüsü'nden kaldırıldı.
+- **Kaynak Personeli Harita Filtresi:**
+  - Kaynakçıların operasyon haritasında yalnızca **Konteyner Arızası** pinlerini görmesi sağlandı; gereksiz atık/şikayet kategori sekmeleri kaynakçılar için gizlendi ve harita lejantı sadeleştirildi.
+- **Şoför Aktif Mesai Kartının En Üste Sabitlenmesi & Ana Sayfa Mesai Bitirme Desteği:**
+  - Şoför mesai başlattığında, açık mesai kartı ve mesai sonlandırma formu `Mesai Başla/Bitir` sayfasında en üste alındı (sayfayı kaydırma ihtiyacı ortadan kaldırıldı).
+  - Şoförün açık mesaisi `Ana Sayfa`da (Dashboard) belirgin bir gradient bilgi kartı olarak gösterildi ve tek tıkla `[Mesaiyi Bitir / Sonlandır]` butonuyla mesaiyi hızlıca sonlandırabilmesi sağlandı.
+
 ---
-*Doküman Sürümü: v2.8.0 (Mobil Quick Launcher, Rol Güvenliği, Profesyonel Profil Modalı & Saha İyileştirmeleri)*  
+*Doküman Sürümü: v2.9.0 (Kademe Harita Optimizasyonu, Kaynakçı Özel Haritası & Şoför Aktif Mesai Sabitlemesi)*  
 *Son Güncelleme: 2026-08-29*
-
-
-
-
-

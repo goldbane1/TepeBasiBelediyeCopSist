@@ -266,7 +266,7 @@ export default function OperationsMap({
   return (
     <div className="space-y-4">
       {/* Category filter tabs */}
-      {showCategoryTabs && (
+      {showCategoryTabs && role !== "kaynak personeli" && (
         <div className="flex flex-wrap items-center gap-2">
           {categories.map(cat => {
             const Icon = cat.icon;
@@ -313,23 +313,32 @@ export default function OperationsMap({
 
         <div className="absolute left-2 top-2 sm:left-4 sm:top-4 z-10 rounded-xl border border-white/80 bg-white/95 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-medium text-slate-600 shadow-sm backdrop-blur max-w-[calc(100%-1rem)]">
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">D</span> Damperlik Atık (Aktif)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white animate-pulse">D</span> Damperlik Atık (Günü Geçmiş)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">K</span> Konteyner Arızası
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">V</span> Vatandaş Şikayeti (Açık)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white animate-pulse">V</span> Onay Sürecinde
-            </span>
+            {role === "kaynak personeli" ? (
+              <span className="flex items-center gap-1.5 font-bold text-amber-900">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">K</span> Konteyner Arızası (Onarım Bekliyor)
+              </span>
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">D</span> Damperlik Atık (Aktif)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white animate-pulse">D</span> Damperlik Atık (Günü Geçmiş)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">K</span> Konteyner Arızası
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-600 text-[10px] font-bold text-white">V</span> Vatandaş Şikayeti (Açık)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white animate-pulse">V</span> Onay Sürecinde
+                </span>
+              </>
+            )}
           </div>
         </div>
+
 
 
         {selected && (

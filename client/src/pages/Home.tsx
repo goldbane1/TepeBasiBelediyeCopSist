@@ -26,7 +26,7 @@ interface NavItem {
 const allNavItems: NavItem[] = [
   { id: "dashboard", label: "Ana Sayfa", icon: LayoutDashboard, roles: ["şoför", "kademe personeli", "kaynak personeli", "yönetim"] },
   { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["şoför", "yönetim"] },
-  { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["şoför", "kademe personeli", "kaynak personeli", "yönetim"] },
+  { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["şoför", "kaynak personeli", "yönetim"] },
   { id: "damperlik-çözüm", label: "Damperlik Atık Çözümü", icon: Archive, roles: ["şoför", "yönetim"] },
   { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["şoför", "kaynak personeli", "yönetim"] },
   { id: "şikayetler", label: "Vatandaş Şikayetleri", icon: AlertTriangle, roles: ["şoför", "yönetim"] },
@@ -52,16 +52,31 @@ function getNavItemsForRole(role: Role): NavItem[] {
     ];
   }
 
-  // Yönetim ve diğer roller için nizamlı menü düzeni
-  return [
-    { id: "dashboard", label: "Ana Sayfa", icon: LayoutDashboard, roles: ["kademe personeli", "kaynak personeli", "yönetim"] },
+  if (role === "kademe personeli") {
+    return [
+      { id: "dashboard", label: "Ana Sayfa", icon: LayoutDashboard, roles: ["kademe personeli"] },
+      { id: "araç-arızaları", label: "Araç Arızaları", icon: Wrench, roles: ["kademe personeli"] },
+      { id: "araçlar", label: "Araçlar & Yağ Bakımı", icon: Truck, roles: ["kademe personeli"] },
+    ];
+  }
 
-    { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["kademe personeli", "kaynak personeli", "yönetim"] },
+  if (role === "kaynak personeli") {
+    return [
+      { id: "dashboard", label: "Ana Sayfa", icon: LayoutDashboard, roles: ["kaynak personeli"] },
+      { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["kaynak personeli"] },
+      { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["kaynak personeli"] },
+    ];
+  }
+
+  // Yönetim için nizamlı menü düzeni
+  return [
+    { id: "dashboard", label: "Ana Sayfa", icon: LayoutDashboard, roles: ["yönetim"] },
+    { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["yönetim"] },
     { id: "damperlik-çözüm", label: "Damperlik Atık Çözümü", icon: Archive, roles: ["yönetim"] },
-    { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["kaynak personeli", "yönetim"] },
+    { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["yönetim"] },
     { id: "şikayetler", label: "Vatandaş Şikayetleri", icon: AlertTriangle, roles: ["yönetim"] },
-    { id: "araçlar", label: "Araçlar", icon: Truck, roles: ["kademe personeli", "yönetim"] },
-    { id: "araç-arızaları", label: "Araç Arızaları", icon: Wrench, roles: ["kademe personeli", "yönetim"] },
+    { id: "araçlar", label: "Araçlar", icon: Truck, roles: ["yönetim"] },
+    { id: "araç-arızaları", label: "Araç Arızaları", icon: Wrench, roles: ["yönetim"] },
     { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["yönetim"] },
     { id: "mahalleler", label: "Mahalle Yönetimi", icon: MapPin, roles: ["yönetim"] },
     { id: "raporlar", label: "Yönetim Raporları & Analiz", icon: FileBarChart, roles: ["yönetim"] },
@@ -96,7 +111,6 @@ function getMobileQuickNav(role: Role): MobileNavItem[] {
       { id: "dashboard", shortLabel: "Ana Sayfa", icon: LayoutDashboard },
       { id: "araç-arızaları", shortLabel: "Arıza", icon: Wrench },
       { id: "araçlar", shortLabel: "Araçlar", icon: Truck },
-      { id: "harita", shortLabel: "Harita", icon: Map },
     ];
   }
   if (role === "kaynak personeli") {
@@ -114,6 +128,7 @@ function getMobileQuickNav(role: Role): MobileNavItem[] {
     { id: "raporlar", shortLabel: "Raporlar", icon: FileBarChart },
   ];
 }
+
 
 
 export default function Home() {

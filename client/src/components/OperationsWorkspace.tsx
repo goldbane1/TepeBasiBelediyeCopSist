@@ -335,19 +335,26 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
       />
     );
 
-  if (view === "harita")
+  if (view === "harita") {
+    const isKaynakci = role === "kaynak personeli";
+    const filteredOps = isKaynakci
+      ? mapOperations.filter(op => op.category === "Konteyner arızası")
+      : mapOperations;
+
     return (
       <MapPanel
         role={role}
         activeVehicleType={(currentShift.data as any)?.vehicleType}
-        operations={mapOperations}
+        operations={filteredOps}
         vehicles={vehicles.data ?? []}
         refresh={refresh}
-        filterCategory="tümü"
+        filterCategory={isKaynakci ? "Konteyner arızası" : "tümü"}
         selectedOperationId={focusOpId}
         onResolveOperation={handleResolveFromMap}
       />
     );
+  }
+
 
 
   if (view === "damperlik-çözüm")
@@ -521,16 +528,9 @@ function Dashboard({
           accent: "bg-white text-slate-800 hover:bg-blue-50 border-slate-200 hover:border-blue-300",
           iconBg: "bg-blue-100 text-blue-800",
         },
-        {
-          id: "harita" as AppView,
-          title: "Operasyon Haritası",
-          sub: "Canlı Harita",
-          icon: Map,
-          accent: "bg-white text-slate-800 hover:bg-sky-50 border-slate-200 hover:border-sky-300",
-          iconBg: "bg-sky-100 text-sky-800",
-        },
       ];
     }
+
     // Yönetim
     return [
       {
@@ -667,8 +667,65 @@ function Dashboard({
         </div>
       )}
 
+      {/* Şoför Aktif Mesai Kartı (Doğrudan Ana Sayfadan Görüntüleme ve Sonlandırma) */}
+      {role === "şoför" && activeShift && (
+
+        <div className="rounded-3xl border-2 border-emerald-500/80 bg-gradient-to-br from-emerald-900 via-emerald-800 to-[#073628] p-5 sm:p-6 text-white shadow-xl shadow-emerald-950/20 animate-in fade-in">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex h-3 w-3 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span className="font-display font-bold text-base sm:text-lg text-emerald-100">
+                  Aktif Mesainiz Devam Ediyor
+                </span>
+                <Badge className="bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 text-xs font-bold px-2.5 py-0.5">
+                  #{activeShift.id}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-emerald-100/90 pt-1">
+                <p className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-emerald-300 shrink-0" />
+                  Görev Bölgesi: <strong className="text-white">{activeShift.neighborhood} ({activeShift.region})</strong>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <Truck className="h-4 w-4 text-emerald-300 shrink-0" />
+                  Araç: <strong className="text-white">{activeShift.vehiclePlate || `#${activeShift.vehicleId}`} ({activeShift.vehicleType})</strong>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-emerald-300 shrink-0" />
+                  Vardiya: <strong className="text-white">{activeShift.shiftHours || "08:00 - 16:00"}</strong>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <Gauge className="h-4 w-4 text-emerald-300 shrink-0" />
+                  Başlangıç KM: <strong className="text-white">{activeShift.startKm} KM</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-emerald-700/60">
+              <Button
+                size="lg"
+                onClick={() => {
+                  triggerHaptic("light");
+                  onNavigate("mesai");
+                }}
+                className="w-full md:w-auto bg-white hover:bg-emerald-50 text-emerald-950 font-bold text-sm h-11 px-5 rounded-2xl shadow-md active:scale-95 transition"
+              >
+                <CheckCircle2 className="mr-2 h-5 w-5 text-emerald-700" />
+                Mesaiyi Bitir / Sonlandır
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. Hızlı İşlem Menüsü (Rol Bazlı Mobil-Öncelikli Büyük Dokunmatik Grid) */}
       <section className="rounded-3xl border border-emerald-900/10 bg-gradient-to-b from-[#083d2d] to-[#062c20] p-4 sm:p-6 text-white shadow-xl shadow-emerald-950/20">
+
         <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/10">
           <div>
             <div className="flex items-center gap-2">
@@ -1215,111 +1272,18 @@ function ShiftPanel({
   // ŞOFÖR KULLANICI MESAİ EKRANI
   return (
     <div className="space-y-5">
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="font-display text-base">Yeni Mesai Başlat</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitDriverStart}>
-            <Field label="Görev Mahallesi">
-              <select
-                required
-                value={form.neighborhood}
-                onChange={e => handleNeighborhoodSelect(e.target.value)}
-                className="input-native"
-              >
-                <option value="">Mahalle seçin</option>
-                {neighborhoodsList.map(n => (
-                  <option key={n.id} value={n.name}>
-                    {n.name} ({n.region})
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Vardiya">
-              <select
-                value={form.shiftHours}
-                onChange={e => setForm({ ...form, shiftHours: e.target.value as any })}
-                className="input-native font-semibold text-emerald-900"
-              >
-                {SHIFT_HOURS.map(h => (
-                  <option key={h} value={h}>
-                    ⏰ {h}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Araç Tipi">
-              <select
-                value={form.vehicleType}
-                onChange={e => setForm({ ...form, vehicleType: e.target.value as typeof form.vehicleType, vehicleId: "" })}
-                className="input-native"
-              >
-                <option value="çöp kamyonu">çöp kamyonu</option>
-                <option value="damperli kamyon">damperli kamyon</option>
-              </select>
-            </Field>
-
-            <Field label="Araç Plakası">
-              <select required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} className="input-native">
-                <option value="">Araç seçin</option>
-                {availableVehicles.map(vehicle => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.plate} · {vehicle.brand} ({vehicle.status}){vehicle.nextOilMaintenanceKm ? ` [🛢️ ${Number(vehicle.nextOilMaintenanceKm).toLocaleString('tr-TR')} KM]` : ""}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Başlangıç Km">
-              <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
-            </Field>
-
-            <Field label="Doluluk">
-              <select value={form.startFullness} onChange={e => setForm({ ...form, startFullness: e.target.value as "boş" | "dolu" })} className="input-native">
-                <option value="boş">boş</option>
-                <option value="dolu">dolu</option>
-              </select>
-            </Field>
-
-            {selectedVehicle?.nextOilMaintenanceKm && (
-              <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 flex items-center gap-3 text-amber-950 text-xs shadow-xs animate-fadeIn">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-xl">
-                  🛢️
-                </div>
-                <div className="space-y-0.5">
-                  <p className="font-bold text-amber-900 text-xs">Araç Yağ Bakım Bilgilendirmesi</p>
-                  <p className="text-amber-800 text-xs">
-                    Seçilen <strong>{selectedVehicle.plate}</strong> ({selectedVehicle.brand}) plakalı aracın{" "}
-                    <span className="font-bold text-amber-950 underline">{Number(selectedVehicle.nextOilMaintenanceKm).toLocaleString("tr-TR")} KM</span>'de yağ bakımı bulunmaktadır.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="sm:col-span-2 lg:col-span-3 pt-1">
-              <Button disabled={start.isPending || Boolean(current.data)} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                {current.data ? "Açık mesainiz bulunuyor" : start.isPending ? "Kaydediliyor..." : "Mesaiyi Başlat"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Açık Mesai Sonlandırma Formu */}
-      {Boolean(current.data) && (
-        <Card className="border-2 border-emerald-300 bg-white shadow-md">
-          <CardHeader className="bg-emerald-50/70 border-b border-emerald-100 py-3">
+      {/* 1. Eğer Açık Mesai Varsa: Doğrudan En Üstte Sonlandırma Formu */}
+      {Boolean(current.data) ? (
+        <Card className="border-2 border-emerald-400 bg-white shadow-md">
+          <CardHeader className="bg-emerald-50/80 border-b border-emerald-100 py-3.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <CardTitle className="font-display text-emerald-950 flex items-center gap-2 text-base">
+                <CardTitle className="font-display text-emerald-950 flex items-center gap-2 text-base sm:text-lg">
                   <Gauge className="h-5 w-5 text-emerald-700" />
                   Aktif Mesaiyi Sonlandır
                 </CardTitle>
-                <p className="text-xs text-emerald-800 mt-0.5">
-                  Mesai #{(current.data as any).id} · {(current.data as any).neighborhood} · Araç: <strong>{(current.data as any).vehiclePlate || `#${(current.data as any).vehicleId}`} ({(current.data as any).vehicleType})</strong> · Başlangıç: {(current.data as any).startKm} km
+                <p className="text-xs text-emerald-800 mt-1">
+                  Mesai #{(current.data as any).id} · <strong>{(current.data as any).neighborhood}</strong> · Araç: <strong>{(current.data as any).vehiclePlate || `#${(current.data as any).vehicleId}`} ({(current.data as any).vehicleType})</strong> · Başlangıç: <strong>{(current.data as any).startKm} km</strong>
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1337,13 +1301,15 @@ function ShiftPanel({
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
                   Mesai Sırasında Aracı Değiştir
                 </Button>
-                <Badge className="bg-emerald-700 text-white text-xs">Devam Ediyor</Badge>
+                <Badge className="bg-emerald-700 text-white text-xs px-2.5 py-1 font-bold animate-pulse">
+                  🟢 Mesai Devam Ediyor
+                </Badge>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-5">
             {showSwitchModal && (
-              <div className="mb-5 rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-4 animate-in fade-in duration-150">
+              <div className="mb-5 rounded-2xl border-2 border-emerald-300 bg-emerald-50/70 p-4 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
                   <div className="flex items-center gap-2">
                     <Truck className="h-4 w-4 text-emerald-800" />
@@ -1420,7 +1386,6 @@ function ShiftPanel({
               </div>
             )}
             <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitFinish}>
-
               <Field label="Bitiş Km">
                 <Input required type="number" min={(current.data as any).startKm} value={endForm.endKm} onChange={e => setEndForm({ ...endForm, endKm: e.target.value })} />
               </Field>
@@ -1448,14 +1413,14 @@ function ShiftPanel({
                   <p className="text-xs font-bold text-slate-700">Yüklenen Fiş Fotoğrafları ({endForm.tonnageReceipts.length}):</p>
                   <div className="flex flex-wrap gap-2">
                     {endForm.tonnageReceipts.map((src, index) => (
-                      <div key={index} className="relative h-16 w-16 overflow-hidden rounded-xl border border-slate-200 shadow-2xs">
-                        <img src={src} alt={`Fiş ${index + 1}`} className="h-full w-full object-cover" />
+                      <div key={index} className="relative h-16 w-16 rounded-lg overflow-hidden border border-slate-200 group">
+                        <img src={src} alt="Fiş" className="h-full w-full object-cover" />
                         <button
                           type="button"
                           onClick={() => removeReceipt(index)}
-                          className="absolute top-0.5 right-0.5 grid h-4 w-4 place-items-center rounded-full bg-red-600 text-white text-[10px]"
+                          className="absolute inset-0 bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-xs font-bold"
                         >
-                          ✕
+                          Sil
                         </button>
                       </div>
                     ))}
@@ -1464,18 +1429,121 @@ function ShiftPanel({
               )}
 
               <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 lg:col-span-2">
-                <input type="checkbox" checked={endForm.faultReported} onChange={e => setEndForm({ ...endForm, faultReported: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={endForm.faultReported}
+                  onChange={e => setEndForm({ ...endForm, faultReported: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                />
                 Mesai sırasında araç arızası oluştu
               </label>
-              <div className="lg:col-span-2">
-                <Button disabled={finish.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                  {finish.isPending ? "Kaydediliyor..." : "Mesaiyi Sonlandır & Kaydet"}
+
+              <div className="sm:col-span-2 lg:col-span-2 pt-1">
+                <Button disabled={finish.isPending} className="w-full h-11 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md">
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  {finish.isPending ? "Mesai sonlandırılıyor..." : "Mesaiyi Tamamla ve Sonlandır"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+
+        /* 2. Açık Mesai Yoksa: Yeni Mesai Başlatma Formu */
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-base">Yeni Mesai Başlat</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitDriverStart}>
+              <Field label="Görev Mahallesi">
+                <select
+                  required
+                  value={form.neighborhood}
+                  onChange={e => handleNeighborhoodSelect(e.target.value)}
+                  className="input-native"
+                >
+                  <option value="">Mahalle seçin</option>
+                  {neighborhoodsList.map(n => (
+                    <option key={n.id} value={n.name}>
+                      {n.name} ({n.region})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Vardiya">
+                <select
+                  value={form.shiftHours}
+                  onChange={e => setForm({ ...form, shiftHours: e.target.value as any })}
+                  className="input-native font-semibold text-emerald-900"
+                >
+                  {SHIFT_HOURS.map(h => (
+                    <option key={h} value={h}>
+                      ⏰ {h}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Araç Tipi">
+                <select
+                  value={form.vehicleType}
+                  onChange={e => setForm({ ...form, vehicleType: e.target.value as typeof form.vehicleType, vehicleId: "" })}
+                  className="input-native"
+                >
+                  <option value="çöp kamyonu">çöp kamyonu</option>
+                  <option value="damperli kamyon">damperli kamyon</option>
+                </select>
+              </Field>
+
+              <Field label="Araç Plakası">
+                <select required value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} className="input-native">
+                  <option value="">Araç seçin</option>
+                  {availableVehicles.map(vehicle => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.plate} · {vehicle.brand} ({vehicle.status}){vehicle.nextOilMaintenanceKm ? ` [🛢️ ${Number(vehicle.nextOilMaintenanceKm).toLocaleString('tr-TR')} KM]` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Başlangıç Km">
+                <Input required min="0" type="number" value={form.startKm} onChange={e => setForm({ ...form, startKm: e.target.value })} />
+              </Field>
+
+              <Field label="Doluluk">
+                <select value={form.startFullness} onChange={e => setForm({ ...form, startFullness: e.target.value as "boş" | "dolu" })} className="input-native">
+                  <option value="boş">boş</option>
+                  <option value="dolu">dolu</option>
+                </select>
+              </Field>
+
+              {selectedVehicle?.nextOilMaintenanceKm && (
+                <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 flex items-center gap-3 text-amber-950 text-xs shadow-xs animate-fadeIn">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-xl">
+                    🛢️
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-amber-900 text-xs">Araç Yağ Bakım Bilgilendirmesi</p>
+                    <p className="text-amber-800 text-xs">
+                      Seçilen <strong>{selectedVehicle.plate}</strong> ({selectedVehicle.brand}) plakalı aracın{" "}
+                      <span className="font-bold text-amber-950 underline">{Number(selectedVehicle.nextOilMaintenanceKm).toLocaleString("tr-TR")} KM</span>'de yağ bakımı bulunmaktadır.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="sm:col-span-2 lg:col-span-3 pt-1">
+                <Button disabled={start.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
+                  {start.isPending ? "Kaydediliyor..." : "Mesaiyi Başlat"}
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
+
 
       {/* Şoför Geçmiş 10 Mesaisi Tablosu */}
       <Card className="border-0 bg-white shadow-sm overflow-hidden">
