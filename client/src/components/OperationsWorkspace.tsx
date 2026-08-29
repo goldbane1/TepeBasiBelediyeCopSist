@@ -1771,7 +1771,24 @@ function BulkWasteSolutionPanel({
         </Card>
       )}
 
-      {/* 2. Damperlik Atık Bildirim Formu */}
+      {/* 2. Aktif Mesai Olmadığında Şoföre Bilgilendirme Kartı */}
+      {role === "şoför" && !canReportWaste && !canCollectWaste && (
+        <Card className="border border-amber-200/80 bg-amber-50/80 p-5 rounded-2xl text-amber-900 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+              <ClipboardCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-sm text-amber-950">Aktif Çöp Kamyonu Mesaisi Gereklidir</h3>
+              <p className="text-xs text-amber-900/90 mt-1 leading-relaxed">
+                Damperlik moloz/atık bildiriminde bulunabilmek için lütfen sol menüdeki <strong>Mesai Başla/Bitir</strong> sekmesinden <strong>Çöp Kamyonu</strong> aracınız ile mesainizi başlatın.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* 3. Damperlik Atık Bildirim Formu */}
       {canReportWaste && (
         <Card className="border-0 bg-white shadow-sm">
           <CardHeader className="pb-3">
@@ -1780,6 +1797,7 @@ function BulkWasteSolutionPanel({
               Damperlik Atık Bildir
             </CardTitle>
           </CardHeader>
+
           <CardContent>
             <form className="space-y-4" onSubmit={submitWaste}>
               <div className="grid gap-4 sm:grid-cols-2">
