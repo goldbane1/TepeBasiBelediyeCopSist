@@ -27,6 +27,7 @@ import {
   Search,
   Sparkles,
   Truck,
+  UserCog,
   Wrench,
   Recycle,
   User,
@@ -418,6 +419,202 @@ function Dashboard({
     { label: "Günü geçen şikayet", value: summary.overdueComplaintCount, icon: AlertTriangle, tone: "text-red-700 bg-red-50" },
   ];
 
+  const roleShortcuts = useMemo(() => {
+    if (role === "şoför") {
+      return [
+        {
+          id: "mesai" as AppView,
+          title: "Mesai Başla / Bitir",
+          sub: activeShift ? "Mesai Açık 🟢" : "Mesai Başlat ⚪",
+          icon: ClipboardCheck,
+          accent: activeShift
+            ? "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-500 ring-2 ring-emerald-400 shadow-md"
+            : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-md",
+          iconBg: "bg-white/20 text-white",
+        },
+        {
+          id: "damperlik-çözüm" as AppView,
+          title: "Damperlik Atık Bildir",
+          sub: "Moloz / Dal Bildirimi",
+          icon: Archive,
+          accent: "bg-white text-slate-800 hover:bg-amber-50 border-slate-200 hover:border-amber-300",
+          iconBg: "bg-amber-100 text-amber-800",
+        },
+        {
+          id: "konteyner" as AppView,
+          title: "Arızalı Konteyner Bildir",
+          sub: "Kırık / Hasar Bildirimi",
+          icon: Recycle,
+          accent: "bg-white text-slate-800 hover:bg-emerald-50 border-slate-200 hover:border-emerald-300",
+          iconBg: "bg-emerald-100 text-emerald-800",
+        },
+        {
+          id: "şikayetler" as AppView,
+          title: "Vatandaş Şikayetleri",
+          sub: "Bölge Şikayetleri",
+          icon: AlertTriangle,
+          accent: "bg-white text-slate-800 hover:bg-red-50 border-slate-200 hover:border-red-300",
+          iconBg: "bg-red-100 text-red-700",
+        },
+        {
+          id: "harita" as AppView,
+          title: "Operasyon Haritası",
+          sub: "Canlı İlçe Haritası",
+          icon: Map,
+          accent: "bg-white text-slate-800 hover:bg-sky-50 border-slate-200 hover:border-sky-300",
+          iconBg: "bg-sky-100 text-sky-800",
+        },
+        {
+          id: "araçlar" as AppView,
+          title: "Araçlar",
+          sub: "Araç Listesi & Bilgisi",
+          icon: Truck,
+          accent: "bg-white text-slate-800 hover:bg-slate-50 border-slate-200",
+          iconBg: "bg-slate-100 text-slate-700",
+        },
+        {
+          id: "araç-arızaları" as AppView,
+          title: "Araç Arızaları",
+          sub: "Arıza Bildir / Gör",
+          icon: Wrench,
+          accent: "bg-white text-slate-800 hover:bg-slate-50 border-slate-200",
+          iconBg: "bg-amber-100 text-amber-700",
+        },
+      ];
+    }
+    if (role === "kaynak personeli") {
+      return [
+        {
+          id: "konteyner" as AppView,
+          title: "Konteyner Onarımı",
+          sub: "Bekleyen Kaynak & Tamir",
+          icon: Recycle,
+          accent: "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-600 shadow-md",
+          iconBg: "bg-white/20 text-white",
+        },
+        {
+          id: "harita" as AppView,
+          title: "Operasyon Haritası",
+          sub: "Arıza Noktaları Haritası",
+          icon: Map,
+          accent: "bg-white text-slate-800 hover:bg-sky-50 border-slate-200 hover:border-sky-300",
+          iconBg: "bg-sky-100 text-sky-800",
+        },
+      ];
+    }
+    if (role === "kademe personeli") {
+      return [
+        {
+          id: "araç-arızaları" as AppView,
+          title: "Araç Arızaları",
+          sub: "Onay & Bakım Listesi",
+          icon: Wrench,
+          accent: "bg-amber-600 hover:bg-amber-700 text-white border-amber-500 shadow-md",
+          iconBg: "bg-white/20 text-white",
+        },
+        {
+          id: "araçlar" as AppView,
+          title: "Araç Filosu & Yağ",
+          sub: "Yağ KM & Araç Takibi",
+          icon: Truck,
+          accent: "bg-white text-slate-800 hover:bg-blue-50 border-slate-200 hover:border-blue-300",
+          iconBg: "bg-blue-100 text-blue-800",
+        },
+        {
+          id: "harita" as AppView,
+          title: "Operasyon Haritası",
+          sub: "Canlı Harita",
+          icon: Map,
+          accent: "bg-white text-slate-800 hover:bg-sky-50 border-slate-200 hover:border-sky-300",
+          iconBg: "bg-sky-100 text-sky-800",
+        },
+      ];
+    }
+    // Yönetim
+    return [
+      {
+        id: "harita" as AppView,
+        title: "Operasyon Haritası",
+        sub: "Canlı İlçe Takibi",
+        icon: Map,
+        accent: "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-600 shadow-md",
+        iconBg: "bg-white/20 text-white",
+      },
+      {
+        id: "damperlik-çözüm" as AppView,
+        title: "Damperlik Atıklar",
+        sub: "Hafriyat & Moloz Takibi",
+        icon: Archive,
+        accent: "bg-white text-slate-800 hover:bg-amber-50 border-slate-200 hover:border-amber-300",
+        iconBg: "bg-amber-100 text-amber-800",
+      },
+      {
+        id: "konteyner" as AppView,
+        title: "Konteyner Arızaları",
+        sub: "Kaynak & Onarım Takibi",
+        icon: Recycle,
+        accent: "bg-white text-slate-800 hover:bg-emerald-50 border-slate-200 hover:border-emerald-300",
+        iconBg: "bg-emerald-100 text-emerald-800",
+      },
+      {
+        id: "şikayetler" as AppView,
+        title: "Vatandaş Şikayetleri",
+        sub: "Müdahale & Onay Takibi",
+        icon: AlertTriangle,
+        accent: "bg-white text-slate-800 hover:bg-red-50 border-slate-200 hover:border-red-300",
+        iconBg: "bg-red-100 text-red-700",
+      },
+      {
+        id: "mesai" as AppView,
+        title: "Mesai Yönetimi",
+        sub: "Şoför Vardiya Takibi",
+        icon: ClipboardCheck,
+        accent: "bg-white text-slate-800 hover:bg-emerald-50 border-slate-200",
+        iconBg: "bg-emerald-100 text-emerald-800",
+      },
+      {
+        id: "raporlar" as AppView,
+        title: "Yönetim Raporları",
+        sub: "Tonaj & Denetim Analizi",
+        icon: FileBarChart,
+        accent: "bg-white text-slate-800 hover:bg-purple-50 border-slate-200 hover:border-purple-300",
+        iconBg: "bg-purple-100 text-purple-800",
+      },
+      {
+        id: "araçlar" as AppView,
+        title: "Araçlar & Filo",
+        sub: "Yağ Bakım & KM Takibi",
+        icon: Truck,
+        accent: "bg-white text-slate-800 hover:bg-slate-50 border-slate-200",
+        iconBg: "bg-slate-100 text-slate-700",
+      },
+      {
+        id: "araç-arızaları" as AppView,
+        title: "Araç Arızaları",
+        sub: "Kademe Arıza Onayları",
+        icon: Wrench,
+        accent: "bg-white text-slate-800 hover:bg-amber-50 border-slate-200",
+        iconBg: "bg-amber-100 text-amber-700",
+      },
+      {
+        id: "mahalleler" as AppView,
+        title: "Mahalle Yönetimi",
+        sub: "Bölge & Mahalle Tanımları",
+        icon: MapPin,
+        accent: "bg-white text-slate-800 hover:bg-slate-50 border-slate-200",
+        iconBg: "bg-teal-100 text-teal-800",
+      },
+      {
+        id: "personel" as AppView,
+        title: "Personel Hesapları",
+        sub: "Kullanıcı & Şifre Yönetimi",
+        icon: UserCog,
+        accent: "bg-white text-slate-800 hover:bg-slate-50 border-slate-200",
+        iconBg: "bg-slate-100 text-slate-800",
+      },
+    ];
+  }, [role, activeShift]);
+
   return (
     <div className="space-y-6">
       {/* Şoför Aktif Bölge Şikayet Uyarısı Banner */}
@@ -469,44 +666,84 @@ function Dashboard({
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-emerald-800 via-emerald-700 to-[#0d5e43] p-6 text-white shadow-xl shadow-emerald-950/10 md:p-8">
-        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+      {/* 1. Hızlı İşlem Menüsü (Rol Bazlı Mobil-Öncelikli Büyük Dokunmatik Grid) */}
+      <section className="rounded-3xl border border-emerald-900/10 bg-gradient-to-b from-[#083d2d] to-[#062c20] p-4 sm:p-6 text-white shadow-xl shadow-emerald-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/10">
           <div>
-            <Badge className="bg-white/15 text-emerald-50 hover:bg-white/15">{role}</Badge>
-            <h2 className="mt-4 max-w-xl font-display text-3xl font-bold leading-tight">Sahadaki operasyonları tek ekrandan yönetin.</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-100">
-              Bildirilen atıklar, konteyner arızaları ve şikayetler operasyon haritasında canlı izlenir.
+            <div className="flex items-center gap-2">
+              <span className="text-lg">👋</span>
+              <h2 className="font-display text-base sm:text-lg font-bold text-white tracking-wide">
+                Hızlı İşlem Menüsü
+              </h2>
+            </div>
+            <p className="text-xs text-emerald-300/90 mt-0.5 font-medium">
+              Yapmak istediğiniz işlemi doğrudan aşağıdaki butonlardan seçebilirsiniz
             </p>
           </div>
-          <Button onClick={() => onNavigate(role === "şoför" ? "mesai" : "harita")} className="bg-white text-emerald-800 hover:bg-emerald-50">
-            {role === "şoför" ? <ClipboardCheck className="mr-2 h-4 w-4" /> : <Map className="mr-2 h-4 w-4" />}
-            {role === "şoför" ? "Mesai işlemleri" : "Haritayı aç"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-white/15 text-emerald-100 border border-white/20 capitalize font-bold text-xs px-2.5 py-1">
+              {role}
+            </Badge>
+            {role === "şoför" && (
+              <span className={cn("text-[11px] font-bold px-2.5 py-1 rounded-full border", activeShift ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/40 animate-pulse" : "bg-white/10 text-slate-300 border-white/10")}>
+                {activeShift ? "🟢 Mesai Açık" : "⚪ Mesai Kapalı"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 2 Sütunlu Dokunmatik Grid (Mobilde İkişerli, Tablette Üçerli, Masaüstünde Dörderli) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5 pt-4">
+          {roleShortcuts.map(item => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  onNavigate(item.id);
+                }}
+
+                className={cn(
+                  "relative flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl border text-center transition-all duration-150 active:scale-95 shadow-sm group min-h-[115px] sm:min-h-[125px]",
+                  item.accent
+                )}
+              >
+                <div className={cn("grid h-12 w-12 sm:h-13 sm:w-13 place-items-center rounded-2xl mb-2 transition shadow-xs group-hover:scale-105", item.iconBg)}>
+                  <Icon className="h-6 w-6 sm:h-7 sm:w-7" />
+                </div>
+                <span className="font-display text-xs sm:text-sm font-extrabold leading-tight">
+                  {item.title}
+                </span>
+                {item.sub && (
+                  <span className="text-[10px] font-medium opacity-75 mt-0.5 truncate max-w-full">
+                    {item.sub}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* 2. Operasyon İstatistik Özetleri */}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map(card => (
           <Card key={card.label} className="border-0 bg-white shadow-sm">
-            <CardContent className="flex items-start justify-between p-5">
+            <CardContent className="flex items-start justify-between p-4 sm:p-5">
               <div>
-                <p className="text-sm font-medium text-slate-500">{card.label}</p>
-                <p className="mt-2 font-display text-3xl font-bold text-slate-900">{card.value}</p>
+                <p className="text-xs sm:text-sm font-medium text-slate-500">{card.label}</p>
+                <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-slate-900">{card.value}</p>
               </div>
-              <div className={cn("grid h-12 w-12 place-items-center rounded-2xl", card.tone)}>
-                <card.icon className="h-6 w-6" />
+              <div className={cn("grid h-11 w-11 place-items-center rounded-2xl", card.tone)}>
+                <card.icon className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
             </CardContent>
           </Card>
         ))}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Quick icon={Map} label="Operasyon Haritası" onClick={() => onNavigate("harita")} />
-        <Quick icon={Archive} label="Damperlik Atık Çözümü" onClick={() => onNavigate("damperlik-çözüm")} />
-        <Quick icon={Recycle} label="Konteyner Arıza Çözümü" onClick={() => onNavigate("konteyner")} />
-        <Quick icon={AlertTriangle} label="Vatandaş Şikayetleri" onClick={() => onNavigate("şikayetler")} />
-      </section>
 
       {/* Aktif Vatandaş Şikayetleri Genel Özeti */}
       <Card className="border-0 bg-white shadow-sm overflow-hidden rounded-2xl">
