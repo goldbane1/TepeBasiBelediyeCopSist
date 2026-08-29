@@ -163,23 +163,26 @@ Sistemde 4 temel rol tanımlıdır (`users.role`):
 
 | Yetenek / Ekran | `yönetim` | `şoför` | `kaynak personeli` | `kademe personeli` |
 | :--- | :---: | :---: | :---: | :---: |
-| **Genel Dashboard & İstatistikler** | ✅ | ✅ | ✅ | ✅ |
+| **Ana Sayfa / Hızlı İşlem Menüsü** | ✅ | ✅ | ✅ | ✅ |
 | **Tüm Operasyonlar Haritası** | ✅ | ✅ | ✅ | ✅ |
 | **Mesai Başlatma / Bitirme (Kendi Adına)** | ❌ | ✅ | ❌ | ❌ |
 | **Şoför Adına Mesai Başlatma & Bitirme** | ✅ | ❌ | ❌ | ❌ |
 | **Şoför Geçmiş 10 Mesai Tablosu** | ❌ | ✅ (Kendi mesaileri) | ❌ | ❌ |
-| **Damperlik Atık Bildirme (Saha Kaydı)** | ✅ | ✅ (Çöp kamyonu şoförü) | ❌ | ❌ |
-| **Damperlik Atığı Toplayıp Kapatma** | ✅ | ✅ (Damperli kamyon şoförü) | ❌ | ✅ |
-| **Konteyner Arızası Bildirme** | ✅ | ✅ | ✅ | ✅ |
-| **Konteyner Onarımını Tamamlama/Kapatma** | ✅ | ✅ | ✅ (Esas sorumlu) | ✅ |
-| **Vatandaş Şikayeti Kaydetme** | ✅ | ✅ | ✅ | ✅ |
-| **Vatandaş Şikayetini Çözüp Kapatma** | ✅ | ✅ (Bölgedeki şoför) | ❌ | ❌ |
+| **Damperlik Atık Bildirme (Saha Kaydı)** | ✅ | ✅ (Aktif mesaisi olan tüm şoförler) | ❌ | ❌ |
+| **Damperlik Atığı Toplayıp Kapatma** | ✅ | ✅ (Damperli kamyon şoförü + 175m GPS) | ❌ | ❌ |
+| **Konteyner Arızası Bildirme** | ✅ | ✅ (Sade dokunmatik form) | ✅ | ❌ |
+| **Konteyner Onarımını Tamamlama/Kapatma** | ✅ | ❌ | ✅ (Tek sorumlu) | ❌ |
+| **Vatandaş Şikayeti Kaydetme** | ✅ | ❌ | ❌ | ❌ |
+| **Vatandaş Şikayetini Çözüm Fotoğrafıyla Kapatma** | ✅ | ✅ (Çözüm fotoğrafı ile onay_bekliyor) | ❌ | ❌ |
+| **Vatandaş Şikayetini Onaylama & Kesin Kapatma** | ✅ | ❌ | ❌ | ❌ |
 | **Araç Envanteri Ekle/Düzenle/Sil** | ✅ | ❌ | ❌ | ✅ |
+| **Araç Yağ Bakım KM Tanımlama (`nextOilMaintenanceKm`)**| ✅ | ❌ | ❌ | ✅ |
 | **Araç Arıza Bildirme** | ✅ | ✅ | ✅ | ✅ |
 | **Araç Kademe Onayı & Bakımdan Çıkarma** | ✅ | ❌ | ❌ | ✅ |
 | **Mahalle Yönetimi (Ekle/Düzenle/Sil)** | ✅ | ❌ | ❌ | ❌ |
 | **Yönetim Raporları, CRUD ve Veri Sıfırlama**| ✅ | ❌ | ❌ | ❌ |
 | **Personel / Kullanıcı Yönetimi** | ✅ | ❌ | ❌ | ❌ |
+| **Profil Bilgileri & Şifre Güncelleme** | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -189,7 +192,7 @@ Sistemde 4 temel rol tanımlıdır (`users.role`):
 - **3 Sabit Vardiya Saati:** `08:00 - 16:00`, `16:00 - 00:00`, `00:00 - 08:00`.
 - **Dinamik Mahalle:** Şoför veya yönetici mesai başlatırken veritabanındaki `neighborhoods` listesinden seçim yapar. Seçilen mahalleye bağlı `region` (bölge) otomatik set edilir.
 - **Tek Aktif Mesai Kuralı:** Bir şoförün aynı anda yalnızca 1 açık mesaisi olabilir.
-- **Mesai Bitirme:** Bitiş kilometresi girilir (`endKm >= startKm`). İsteğe bağlı kantar fişi fotoğrafları (`tonnageReceipts` Base64 dizisi) ve tonaj bilgisi kaydedilir.
+- **Mesai Bitirme:** Bitiş kilometresi girilir (`endKm >= startKm`). Zorunlu tonaj bilgisi ve isteğe bağlı kantar fişi fotoğrafları (`tonnageReceipts` Base64 dizisi) kaydedilir.
 
 ### 5.2. Şoför Görev Bölgesi Şikayet Alarmı
 - Şoför aktif bir mesaideyken (`activeShift`), mesai yaptığı mahallede (`activeShift.neighborhood`) açık bir vatandaş şikayeti (`citizenComplaints.status = 'açık'`) varsa:
@@ -197,30 +200,41 @@ Sistemde 4 temel rol tanımlıdır (`users.role`):
   - Şoför tek tıkla şikayeti inceleyip sahada temizliği tamamlayarak şikayeti kapatabilir.
 
 ### 5.3. Damperlik Atık Çözümü (`bulkWasteReports`)
-- Çöp kamyonu şoförleri konteyner dışı büyük moloz/dal/eşya gördüklerinde bildirim oluşturur.
-- Bildirime otomatik olarak `NOW() + 2 GÜN` termin tarihi atanır.
-- **Harita İkazı:** 2 günü geçmemiş atıklar haritada yeşil pin, 2 günü geçmiş atıklar kırmızı pin (acil) olarak görünür.
-- Damperli kamyon şoförü haritadan veya listeden atığın yanına giderek doğrudan **"Toplandı / Çözüldü"** butonuyla kaydı kapatır.
+- Aktif mesaisi olan tüm şoförler (çöp kamyonu veya damperli kamyon) gördükleri atıkları tek tıkla GPS konumu alarak bildirebilir (`bulkWaste.create`).
+- Bildirime otomatik olarak `NOW() + 2 GÜN` (veya acilse 24 saat) termin tarihi atanır.
+- **Harita İkazı:** Süresi geçmemiş atıklar yeşil pin, süresi geçmiş atıklar kırmızı pin (acil) olarak görünür.
+- **175m Saha Konum Doğrulaması:** Damperli kamyon şoförü atığın yanına gittiğinde sistem anlık GPS mesafesini kontrol eder; şoför 175 metre mesafe içindeyse atığı toplayabilir (`bulkWaste.collect`). Yönetim personeli konum kısıtlamasından muaftır.
 
 ### 5.4. Konteyner Arıza Çözümü (`containerFaults`)
-- Kırık kaldırma kolu, tekerlek, delik sac, hasarlı kapak arızaları fotoğraflı ve koordinatlı bildirilir.
-- Kaynak personeli haritadan veya listeden arızayı seçer, onarım notunu yazar ve kaydı onarılmış olarak kapatır.
+- Şoförler ve kaynak personeli, sahada karşılaştıkları arızalı çöp konteynerlerini (kaldırma kolu, ayak/tekerlek, gövde, kapak vb.) tek tıkla GPS alarak sade formla bildirebilir (`containerFaults.create`).
+- **Kaynak Personeli:** Arıza listesinden veya haritadan kaydı seçer, onarım notunu yazar ve kaydı onarılmış (`onarım_tamamlandı`) olarak kapatır (`containerFaults.repair`). Şoför ve kademe personelinin arıza kapatma yetkisi yoktur.
 
-### 5.5. Konum ve Geocoding Mimarisi (Forward & Reverse Geocoding)
+### 5.5. Vatandaş Şikayetleri & Yönetici Onay Akışı (`citizenComplaints`)
+- Şikayet bildirme yetkisi yalnızca **yönetim** rolündedir (`complaints.create`).
+- Şoför sahada şikayetli bölgeyi temizledikten sonra **zorunlu çözüm fotoğrafı** yükleyerek çözüldü talebi gönderir (`status = 'onay_bekliyor'`).
+- Yönetici, şikayet panelinden veya haritadan yüklenen çözüm fotoğrafını inceleyerek "✅ Onayla & Kapat" veya "❌ Reddet" işlemi uygular (`complaints.approve` / `complaints.reject`).
+
+### 5.6. Rol Güvenliği (Route Guard) & Hızlı İşlem Menüsü (Quick Launcher)
+- Ana sayfada her rolün yetkilerine uygun, 2 sütunlu mobil dokunmatik butonlardan oluşan Hızlı İşlem Menüsü bulunur.
+- Hesap geçişlerinde veya yetkisiz `?view=...` sorgularında sistem kullanıcının rol yetkilerini kontrol eder; yetkisiz erişim denemelerinde kullanıcıyı anında güvenli `dashboard` (Ana Sayfa) ekranına yönlendirir.
+- Yeni oturum açılışlarında her zaman Ana Sayfa'ya yönlendirilir; oturum açıkken yapılan sayfa yenilemelerinde (F5) aktif sekme korunur.
+
+### 5.7. Konum ve Geocoding Mimarisi (Forward & Reverse Geocoding)
 Tüm operasyonel bildirim formlarında iki yönlü OpenStreetMap (Nominatim) entegrasyonu vardır:
 1. **Düz Geocoding (Forward Geocoding - Adresten Koordinat Bulma):**
-   - Kullanıcı bir sokak, cadde veya mahalle ismi yazar (Örn: *İsmet İnönü Caddesi*, *Şirintepe*).
-   - Sistem Nominatim API'sine `query + ", Tepebaşı, Eskişehir"` sorgusu atar.
-   - Enlem (`latitude`) ve boylam (`longitude`) otomatik doldurulur, açık adres kullanıcıya teyit ettirilir.
+   - Kullanıcı bir sokak, cadde veya mahalle ismi yazar. Sistem Nominatim API'sine `query + ", Tepebaşı, Eskişehir"` sorgusu atar.
+   - Enlem (`latitude`) ve boylam (`longitude`) otomatik doldurulur.
 2. **Ters Geocoding (Reverse Geocoding - GPS'ten Adres Bulma):**
    - Kullanıcı **"Anlık GPS Al"** butonuna basar (`navigator.geolocation` yüksek hassasiyet modu).
    - Alınan koordinat Nominatim reverse API'sine gönderilerek mahalle ve sokak adı form alanına doldurulur.
 
-### 5.6. Operasyon Haritası ve Pin Özellikleri (`OperationsMap.tsx`)
+
+### 5.8. Operasyon Haritası ve Pin Özellikleri (`OperationsMap.tsx`)
 - **Tekil Harita Filtreleme:** Her operasyon sekmesinde (`Konteyner`, `Damperlik Atık`, `Şikayetler`) sadece o kategoriye ait özel harita gösterilir.
 - **Fotoğraf Önizleme & Lightbox:** Pin tıklandığında yüklenen fotoğrafın küçük önizlemesi çıkar; tıklandığında tam ekran yüksek çözünürlüklü Lightbox açılır.
 - **Doğrudan Pinden Kapatma:** Yetkili personel pin üzerindeki butona basarak listede aramaya gerek kalmadan görevi haritadan kapatabilir.
 - **Kompakt Bildirim Tablosu:** Ana haritanın altında fotoğrafsız, kompakt, doğrudan pine odaklayan (`Pini Göster`) bir özet bildirim listesi bulunur.
+
 
 ---
 
