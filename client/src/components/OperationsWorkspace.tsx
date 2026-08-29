@@ -302,7 +302,36 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
         resolveCollectWaste.mutate({ id: op.id, vehicleId });
       }
     } else if (op.category === "Konteyner arızası") {
-      resolveRepairContainer.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarım tamamlandı." });
+      if (role === "kaynak personeli") {
+        if (!navigator.geolocation) {
+          toast.error("Cihazınız konum servisini desteklemiyor.");
+          return;
+        }
+        toast.loading("Konum doğrulanıyor (175m kontrolü)...", { id: "container-map-geo" });
+
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            toast.dismiss("container-map-geo");
+            resolveRepairContainer.mutate({
+              id: op.id,
+              note: "Harita üzerinden doğrudan onarım tamamlandı.",
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          },
+          err => {
+            toast.dismiss("container-map-geo");
+            toast.error(
+              err.code === err.PERMISSION_DENIED
+                ? "Konum izni verilmedi. Onarımı tamamlayabilmek için lütfen cihaz konum iznini açın."
+                : "Anlık GPS konumu alınamadı. Lütfen açık alanda tekrar deneyin."
+            );
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      } else {
+        resolveRepairContainer.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarım tamamlandı." });
+      }
     } else if (op.category === "Vatandaş şikayeti") {
       resolveAcknowledgeComplaint.mutate({ id: op.id });
     }
@@ -336,19 +365,14 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
     );
 
   if (view === "harita") {
-    const isKaynakci = role === "kaynak personeli";
-    const filteredOps = isKaynakci
-      ? mapOperations.filter(op => op.category === "Konteyner arızası")
-      : mapOperations;
-
     return (
       <MapPanel
         role={role}
         activeVehicleType={(currentShift.data as any)?.vehicleType}
-        operations={filteredOps}
+        operations={mapOperations}
         vehicles={vehicles.data ?? []}
         refresh={refresh}
-        filterCategory={isKaynakci ? "Konteyner arızası" : "tümü"}
+        filterCategory="tümü"
         selectedOperationId={focusOpId}
         onResolveOperation={handleResolveFromMap}
       />
@@ -407,17 +431,17 @@ function Dashboard({
   summary,
   openFaults,
   activeShift,
-  driverActiveComplaints,
-  complaintsList,
+  driverActiveComplaints = [],
+  complaintsList = [],
   onNavigate,
 }: {
   role: Role;
   summary: typeof EMPTY_SUMMARY;
   openFaults: number;
   activeShift?: any;
-  driverActiveComplaints: any[];
-  complaintsList: any[];
-  onNavigate: Props["onNavigate"];
+  driverActiveComplaints?: any[];
+  complaintsList?: any[];
+  onNavigate: (view: AppView) => void;
 }) {
   const cards = [
     { label: "Kayıtlı araç", value: summary.vehicleCount, icon: Truck, tone: "text-emerald-700 bg-emerald-50" },
@@ -425,6 +449,7 @@ function Dashboard({
     { label: "Bekleyen damperlik atık", value: summary.pendingWasteCount, icon: Archive, tone: "text-amber-700 bg-amber-50" },
     { label: "Günü geçen şikayet", value: summary.overdueComplaintCount, icon: AlertTriangle, tone: "text-red-700 bg-red-50" },
   ];
+
 
   const roleShortcuts = useMemo(() => {
     if (role === "şoför") {
@@ -499,14 +524,6 @@ function Dashboard({
           icon: Recycle,
           accent: "bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-600 shadow-md",
           iconBg: "bg-white/20 text-white",
-        },
-        {
-          id: "harita" as AppView,
-          title: "Operasyon Haritası",
-          sub: "Arıza Noktaları Haritası",
-          icon: Map,
-          accent: "bg-white text-slate-800 hover:bg-sky-50 border-slate-200 hover:border-sky-300",
-          iconBg: "bg-sky-100 text-sky-800",
         },
       ];
     }

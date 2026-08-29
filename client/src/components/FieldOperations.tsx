@@ -135,8 +135,45 @@ function ContainerPanel({
       toast.success("Konteyner onarımı tamamlandı.");
       refresh();
     },
-    onError: e => toast.error(e.message),
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
   });
+
+  const handleRepairWithGps = (id: number, note?: string) => {
+    if (role === "kaynak personeli") {
+      if (!navigator.geolocation) {
+        toast.error("Cihazınız konum servisini desteklemiyor.");
+        return;
+      }
+      toast.loading("Konum doğrulanıyor (175m kontrolü)...", { id: "container-repair-geo" });
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          toast.dismiss("container-repair-geo");
+          repair.mutate({
+            id,
+            note: note || "Kaynak ve parça onarımı tamamlandı.",
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        },
+        err => {
+          toast.dismiss("container-repair-geo");
+          toast.error(
+            err.code === err.PERMISSION_DENIED
+              ? "Konum izni verilmedi. Onarımı tamamlayabilmek için lütfen cihaz konum iznini açın."
+              : "Anlık GPS konumu alınamadı. Lütfen açık alanda tekrar deneyin."
+          );
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      repair.mutate({ id, note: note || "Kaynak ve parça onarımı tamamlandı." });
+    }
+  };
+
 
   const submitContainer = (event: FormEvent) => {
     event.preventDefault();
@@ -299,10 +336,11 @@ function ContainerPanel({
             showCategoryTabs={false}
             role={role}
             selectedOperationId={selectedPinId}
-            onResolveOperation={op => repair.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarıldı." })}
+            onResolveOperation={op => handleRepairWithGps(op.id, "Harita üzerinden doğrudan onarıldı.")}
           />
         </Card>
       )}
+
 
       {/* 2. Konteyner Arızası Bildirim Formu (Şoför, Kaynakçı ve Yönetim) */}
       {canReport && (
@@ -550,7 +588,7 @@ function ContainerPanel({
                               disabled={repair.isPending}
                               onClick={() => {
                                 const note = repairNotes[record.id]?.trim() || "Kaynak ve parça onarımı tamamlandı.";
-                                repair.mutate({ id: record.id, note });
+                                handleRepairWithGps(record.id, note);
                               }}
                               className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
                             >

@@ -26,7 +26,7 @@ interface NavItem {
 const allNavItems: NavItem[] = [
   { id: "dashboard", label: "Ana Sayfa", icon: LayoutDashboard, roles: ["şoför", "kademe personeli", "kaynak personeli", "yönetim"] },
   { id: "mesai", label: "Mesai Yönetimi", icon: ClipboardCheck, roles: ["şoför", "yönetim"] },
-  { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["şoför", "kaynak personeli", "yönetim"] },
+  { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["şoför", "yönetim"] },
   { id: "damperlik-çözüm", label: "Damperlik Atık Çözümü", icon: Archive, roles: ["şoför", "yönetim"] },
   { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["şoför", "kaynak personeli", "yönetim"] },
   { id: "şikayetler", label: "Vatandaş Şikayetleri", icon: AlertTriangle, roles: ["şoför", "yönetim"] },
@@ -63,8 +63,7 @@ function getNavItemsForRole(role: Role): NavItem[] {
   if (role === "kaynak personeli") {
     return [
       { id: "dashboard", label: "Ana Sayfa", icon: LayoutDashboard, roles: ["kaynak personeli"] },
-      { id: "konteyner", label: "Konteyner Arıza Çözümü", icon: Recycle, roles: ["kaynak personeli"] },
-      { id: "harita", label: "Operasyon Haritası", icon: Map, roles: ["kaynak personeli"] },
+      { id: "konteyner", label: "Konteyner Onarımı", icon: Recycle, roles: ["kaynak personeli"] },
     ];
   }
 
@@ -117,7 +116,6 @@ function getMobileQuickNav(role: Role): MobileNavItem[] {
     return [
       { id: "dashboard", shortLabel: "Ana Sayfa", icon: LayoutDashboard },
       { id: "konteyner", shortLabel: "Konteyner", icon: Recycle },
-      { id: "harita", shortLabel: "Harita", icon: Map },
     ];
   }
   // Yönetim
@@ -150,6 +148,9 @@ export default function Home() {
 
   const handleSetView = (newView: AppView) => {
     setView(newView);
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
     try {
       localStorage.setItem("tepebasi_app_view", newView);
       const url = new URL(window.location.href);
@@ -157,6 +158,16 @@ export default function Home() {
       window.history.replaceState({}, "", url.toString());
     } catch {}
   };
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mainEl = document.getElementById("main-content-area");
+    if (mainEl) {
+      mainEl.scrollTop = 0;
+    }
+  }, [view]);
 
   useEffect(() => {
     if (role) {
@@ -167,6 +178,7 @@ export default function Home() {
       }
     }
   }, [role, view]);
+
 
 
   if (loading) {

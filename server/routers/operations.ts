@@ -478,13 +478,47 @@ export const operationsRouter = router({
       return { success: true };
     }),
     repair: protectedProcedure.input(
-      z.object({ id: z.number().int().positive(), note: z.string().optional() })
+      z.object({
+        id: z.number().int().positive(),
+        note: z.string().optional(),
+        latitude: z.number().optional(),
+        longitude: z.number().optional(),
+      })
     ).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["kaynak personeli", "yönetim"]);
+
+      const fault = await db.getContainerFaultById(input.id);
+      if (!fault) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Konteyner arıza kaydı bulunamadı." });
+      }
+
+      if (ctx.user.role === "kaynak personeli") {
+        if (input.latitude === undefined || input.longitude === undefined) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Konum bilginiz alınamadı. Konteyner onarımını tamamlayabilmek için cihazınızın konum iznini açarak konteyner noktasına en fazla 175 metre mesafede olmalısınız.",
+          });
+        }
+
+        const faultLat = parseFloat(fault.latitude);
+        const faultLon = parseFloat(fault.longitude);
+
+        if (!isNaN(faultLat) && !isNaN(faultLon)) {
+          const distance = db.calculateDistanceMeters(input.latitude, input.longitude, faultLat, faultLon);
+          if (distance > 175) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Konteyner onarımını tamamlayabilmek için konteyner noktasına en fazla 175 metre mesafede olmalısınız! (Şu anki mesafeniz: ${distance} metre)`,
+            });
+          }
+        }
+      }
+
       await db.repairContainerFault(input.id, ctx.user.id, input.note);
       await audit(ctx.user.id, "KONTEYNER_ONARILDI", "konteyner_arızası", input.id, input.note);
       return { success: true };
     }),
+
 
     update: protectedProcedure.input(
       z.object({

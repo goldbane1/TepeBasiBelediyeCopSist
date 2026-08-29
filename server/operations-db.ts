@@ -468,11 +468,19 @@ export async function deleteContainerFault(id: number) {
   await db.delete(containerFaults).where(eq(containerFaults.id, id));
 }
 
+export async function getContainerFaultById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [record] = await db.select().from(containerFaults).where(eq(containerFaults.id, id)).limit(1);
+  return record ?? null;
+}
+
 export async function repairContainerFault(id: number, technicianId: number, note?: string) {
   const db = await getDb();
   if (!db) throw new Error("Veritabanı bağlantısı kurulamadı.");
   await db.update(containerFaults).set({ status: "onarım_tamamlandı", repairedBy: technicianId, repairNote: note ?? null, repairedAt: new Date() }).where(eq(containerFaults.id, id));
 }
+
 
 // -----------------------------------------------------------------------------
 // CITIZEN COMPLAINTS (VATANDAŞ ŞİKAYETLERİ)
