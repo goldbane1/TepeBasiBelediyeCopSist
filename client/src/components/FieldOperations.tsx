@@ -154,13 +154,14 @@ function ContainerPanel({
     });
   };
 
-  const FAULT_OPTIONS: { id: typeof containerForm.faultType; label: string; icon: string }[] = [
-    { id: "kol", label: "Kaldırma Kolu", icon: "🦾" },
-    { id: "ayak", label: "Tekerlek / Ayak", icon: "⚙️" },
-    { id: "gövde", label: "Gövde / Sac Delik", icon: "📦" },
-    { id: "kapak", label: "Kapak Hasarı", icon: "🛡️" },
-    { id: "diğer", label: "Diğer Arıza", icon: "🔧" },
+  const FAULT_OPTIONS: { id: typeof containerForm.faultType; label: string }[] = [
+    { id: "kol", label: "Kaldırma Kolu" },
+    { id: "ayak", label: "Tekerlek / Ayak" },
+    { id: "gövde", label: "Gövde / Sac Delik" },
+    { id: "kapak", label: "Kapak Hasarı" },
+    { id: "diğer", label: "Diğer Arıza" },
   ];
+
 
   const searchAddressLocation = async () => {
     const query = searchQuery.trim();
@@ -329,13 +330,12 @@ function ContainerPanel({
                         type="button"
                         onClick={() => setContainerForm(f => ({ ...f, faultType: opt.id }))}
                         className={cn(
-                          "flex items-center gap-2 rounded-xl border p-3 text-left transition text-xs font-bold",
+                          "flex items-center justify-center rounded-xl border py-3 px-3.5 text-center transition text-xs font-bold",
                           selected
                             ? "border-emerald-700 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-600 shadow-2xs"
                             : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                         )}
                       >
-                        <span className="text-lg">{opt.icon}</span>
                         <span className="truncate">{opt.label}</span>
                       </button>
                     );
