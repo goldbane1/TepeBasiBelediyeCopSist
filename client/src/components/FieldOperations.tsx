@@ -28,7 +28,10 @@ import { useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
+
 import { compressImageFile } from "@/lib/imageCompress";
+import { cn, triggerHaptic } from "@/lib/utils";
+
 
 
 export default function FieldOperations({
@@ -83,6 +86,7 @@ function ContainerPanel({
   onFocusOnMap: (id: number) => void;
 }) {
   const canRepair = role === "kaynak personeli" || role === "yönetim";
+  const canReport = role === "şoför" || role === "kaynak personeli" || role === "yönetim";
   const [repairNotes, setRepairNotes] = useState<Record<number, string>>({});
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedPinId, setSelectedPinId] = useState<number | null>(null);
@@ -104,7 +108,8 @@ function ContainerPanel({
 
   const createContainerFault = trpc.operations.containerFaults.create.useMutation({
     onSuccess: () => {
-      toast.success("Konteyner arızası bildirimi kaydedildi.");
+      triggerHaptic("success");
+      toast.success("Arızalı konteyner bildirimi kaydedildi.");
       refresh();
       setContainerForm({
         region: "Tepebaşı",
@@ -118,26 +123,48 @@ function ContainerPanel({
       setSearchQuery("");
       setResolvedAddress("");
     },
-    onError: e => toast.error(e.message),
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
   });
 
   const repair = trpc.operations.containerFaults.repair.useMutation({
     onSuccess: () => {
-      toast.success("Konteyner onarımı kaydedildi.");
+      triggerHaptic("success");
+      toast.success("Konteyner onarımı tamamlandı.");
       refresh();
     },
     onError: e => toast.error(e.message),
   });
 
-  const handleRepair = (id: number) => {
-    const note = repairNotes[id]?.trim() || "Kaynak ve parça onarımı tamamlandı.";
-    repair.mutate({ id, note });
+  const submitContainer = (event: FormEvent) => {
+    event.preventDefault();
+    const finalNeighborhood = containerForm.neighborhood.trim() || "Tepebaşı";
+    const finalRegion = containerForm.region.trim() || "Tepebaşı";
+
+    createContainerFault.mutate({
+      region: finalRegion,
+      neighborhood: finalNeighborhood,
+      faultType: containerForm.faultType,
+      description: containerForm.description || "",
+      latitude: Number(containerForm.latitude),
+      longitude: Number(containerForm.longitude),
+      photo: containerForm.photo || undefined,
+    });
   };
 
-  // Konum / Adres Arayarak Enlem & Boylam Bulma (Forward Geocoding)
+  const FAULT_OPTIONS: { id: typeof containerForm.faultType; label: string; icon: string }[] = [
+    { id: "kol", label: "Kaldırma Kolu", icon: "🦾" },
+    { id: "ayak", label: "Tekerlek / Ayak", icon: "⚙️" },
+    { id: "gövde", label: "Gövde / Sac Delik", icon: "📦" },
+    { id: "kapak", label: "Kapak Hasarı", icon: "🛡️" },
+    { id: "diğer", label: "Diğer Arıza", icon: "🔧" },
+  ];
+
   const searchAddressLocation = async () => {
     const query = searchQuery.trim();
-    if (!query) return toast.error("Lütfen aranacak bir adres veya konum yazın.");
+    if (!query) return toast.error("Lütfen aranacak bir adres yazın.");
     setIsSearching(true);
     try {
       const fullQuery = query.toLowerCase().includes("eskişehir") || query.toLowerCase().includes("tepebaşı")
@@ -165,9 +192,10 @@ function ContainerPanel({
           neighborhood: neighborhood || prev.neighborhood,
         }));
         setResolvedAddress(item.display_name);
-        toast.success(`Konum bulundu: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+        setLocationState("ready");
+        toast.success(`Konum bulundu: ${neighborhood || region}`);
       } else {
-        toast.error("Aradığınız adres için koordinat bulunamadı. Lütfen sokak veya mahalle adını netleştirin.");
+        toast.error("Aradığınız adres için koordinat bulunamadı.");
       }
     } catch (err: any) {
       toast.error("Adres koordinatı alınamadı: " + err.message);
@@ -177,7 +205,7 @@ function ContainerPanel({
   };
 
   const useCurrentLocation = () => {
-    if (!navigator.geolocation) return toast.error("Bu cihaz konum bilgisini desteklemiyor.");
+    if (!navigator.geolocation) return toast.error("Bu cihaz konum servisini desteklemiyor.");
     setLocationState("loading");
     navigator.geolocation.getCurrentPosition(
       position => {
@@ -214,10 +242,9 @@ function ContainerPanel({
           neighborhood: neighborhood || current.neighborhood,
         }));
         setResolvedAddress(data.display_name || `${latitude}, ${longitude}`);
-        toast.success("Konum adresi tespit edildi.");
       }
     } catch {
-      // Ignored
+      // ignore geocoding fallback
     }
   };
 
@@ -232,21 +259,6 @@ function ContainerPanel({
     setContainerForm(prev => ({ ...prev, photo: compressed }));
   };
 
-
-  const submitContainer = (event: FormEvent) => {
-    event.preventDefault();
-    if (!containerForm.neighborhood.trim()) return toast.error("Lütfen mahalle seçin veya girin.");
-    createContainerFault.mutate({
-      region: containerForm.region,
-      neighborhood: containerForm.neighborhood,
-      faultType: containerForm.faultType,
-      description: containerForm.description || "",
-      latitude: Number(containerForm.latitude),
-      longitude: Number(containerForm.longitude),
-      photo: containerForm.photo || undefined,
-    });
-  };
-
   const openRecords = useMemo(() => records.filter(r => r.status === "bekliyor"), [records]);
 
   const mapOperations = useMemo<MapOperation[]>(
@@ -254,7 +266,7 @@ function ContainerPanel({
       openRecords.map(record => ({
         id: record.id,
         category: "Konteyner arızası" as const,
-        title: `${record.faultType} arızası · ${record.neighborhood}`,
+        title: `${record.faultType.toUpperCase()} Arızası · ${record.neighborhood}`,
         description: record.description,
         latitude: record.latitude,
         longitude: record.longitude,
@@ -268,286 +280,295 @@ function ContainerPanel({
 
   return (
     <div className="space-y-5">
-      {/* 1. Sadece Konteyner Arızalarını Gösteren Harita */}
-      <Card className="border-0 bg-white shadow-sm p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-            <Recycle className="h-5 w-5 text-emerald-700" />
-            Konteyner Arıza Haritası
-          </h2>
-          <Badge className="bg-amber-50 text-amber-800 border-amber-200 font-bold">
-            {openRecords.length} Arıza Bekliyor
-          </Badge>
-        </div>
-        <OperationsMap
-          operations={mapOperations}
-          initialCategoryFilter="Konteyner arızası"
-          showCategoryTabs={false}
-          role={role}
-          selectedOperationId={selectedPinId}
-          onResolveOperation={op => repair.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarıldı." })}
-        />
-      </Card>
+      {/* 1. Sadece Konteyner Arızalarını Gösteren Harita (Şoförler için gizlenir) */}
+      {role !== "şoför" && (
+        <Card className="border-0 bg-white shadow-sm p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+              <Recycle className="h-5 w-5 text-emerald-700" />
+              Konteyner Arıza Haritası
+            </h2>
+            <Badge className="bg-amber-50 text-amber-800 border-amber-200 font-bold">
+              {openRecords.length} Arıza Bekliyor
+            </Badge>
+          </div>
+          <OperationsMap
+            operations={mapOperations}
+            initialCategoryFilter="Konteyner arızası"
+            showCategoryTabs={false}
+            role={role}
+            selectedOperationId={selectedPinId}
+            onResolveOperation={op => repair.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarıldı." })}
+          />
+        </Card>
+      )}
 
-      {/* 2. Konteyner Arızası Bildirim Formu (Yalnızca Kaynak Personeli ve Yönetim) */}
-      {canRepair && (
+      {/* 2. Konteyner Arızası Bildirim Formu (Şoför, Kaynakçı ve Yönetim) */}
+      {canReport && (
         <Card className="border-0 bg-white shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="font-display flex items-center gap-2 text-base">
+            <CardTitle className="font-display flex items-center gap-2 text-base sm:text-lg">
               <Plus className="h-5 w-5 text-emerald-700" />
-              Yeni Konteyner Arızası Bildir
+              Arızalı Konteyner Bildir
             </CardTitle>
           </CardHeader>
 
-        <CardContent>
-          <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" onSubmit={submitContainer}>
-            <Field label="Arıza Türü">
-              <select
-                className="input-native font-semibold"
-                value={containerForm.faultType}
-                onChange={e => setContainerForm({ ...containerForm, faultType: e.target.value as typeof containerForm.faultType })}
-              >
-                <option value="kol">Kaldırma Kolu Arızası</option>
-                <option value="ayak">Tekerlek / Ayak Kırığı</option>
-                <option value="gövde">Gövde / Sac Delinmesi</option>
-                <option value="kapak">Kapak Hasarı</option>
-                <option value="diğer">Diğer Kaynak / Boya</option>
-              </select>
-            </Field>
-
-            <Field label="Mahalle">
-              <select
-                value={containerForm.neighborhood}
-                onChange={e => {
-                  const matched = neighborhoodsList.find(n => n.name === e.target.value);
-                  setContainerForm({ ...containerForm, neighborhood: e.target.value, region: matched?.region || containerForm.region });
-                }}
-                className="input-native"
-              >
-                <option value="">Mahalle seçin</option>
-                {neighborhoodsList.map(n => (
-                  <option key={n.id} value={n.name}>
-                    {n.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Bölge">
-              <Input required value={containerForm.region} onChange={e => setContainerForm({ ...containerForm, region: e.target.value })} />
-            </Field>
-
-            {/* Konum Arama & GPS Buton Alanı */}
-            <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 space-y-2 min-w-0 max-w-full overflow-hidden">
-              <div className="flex flex-col sm:flex-row gap-2 min-w-0">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Adres veya sokak arayın..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        searchAddressLocation();
-                      }
-                    }}
-                    className="bg-white pl-9 text-xs h-9 w-full min-w-0"
-                  />
+          <CardContent>
+            <form className="space-y-4" onSubmit={submitContainer}>
+              {/* Arıza Türü Seçimi (Büyük Dokunmatik Butonlar) */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-2">
+                  Arıza Türünü Seçin
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {FAULT_OPTIONS.map(opt => {
+                    const selected = containerForm.faultType === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setContainerForm(f => ({ ...f, faultType: opt.id }))}
+                        className={cn(
+                          "flex items-center gap-2 rounded-xl border p-3 text-left transition text-xs font-bold",
+                          selected
+                            ? "border-emerald-700 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-600 shadow-2xs"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        )}
+                      >
+                        <span className="text-lg">{opt.icon}</span>
+                        <span className="truncate">{opt.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+              </div>
+
+              {/* Konum Belirleme Alanı (Sadeleştirilmiş, Enlem/Boylam gizli) */}
+              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-emerald-700" />
+                    Konteyner Konumu
+                  </label>
+                  {locationState === "ready" && (
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-md">
+                      ✅ Konum Alındı
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     type="button"
-                    size="sm"
-                    disabled={isSearching}
-                    onClick={searchAddressLocation}
-                    className="bg-emerald-700 hover:bg-emerald-800 text-xs h-9 font-semibold text-white flex-1 sm:flex-initial"
-                  >
-                    <Search className="mr-1.5 h-3.5 w-3.5" />
-                    {isSearching ? "Aranıyor..." : "Adresi Bul"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
+                    size="lg"
                     disabled={locationState === "loading"}
                     onClick={useCurrentLocation}
-                    className="border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs h-9 bg-white shadow-2xs flex-1 sm:flex-initial"
+                    className="h-11 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white flex-1 shadow-sm active:scale-98"
                   >
-                    <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                    {locationState === "loading" ? "Alınıyor..." : "Anlık Konum"}
+                    <LocateFixed className={cn("mr-2 h-4 w-4 text-white", locationState === "loading" && "animate-spin")} />
+                    {locationState === "loading" ? "GPS Konumu Alınıyor..." : "📍 Şu Anki Konumumu Al"}
                   </Button>
-                </div>
-              </div>
-              {resolvedAddress && (
-                <p className="text-[11px] text-emerald-800 font-medium truncate max-w-full overflow-hidden bg-white/90 px-2.5 py-1 rounded-lg border border-emerald-200/60">
-                  📍 <strong>Adres:</strong> {resolvedAddress}
-                </p>
-              )}
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 min-w-0 w-full sm:col-span-2 lg:col-span-2">
-              <Field label="Enlem">
-                <Input required type="number" step="any" value={containerForm.latitude} onChange={e => setContainerForm({ ...containerForm, latitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
-              </Field>
-              <Field label="Boylam">
-                <Input required type="number" step="any" value={containerForm.longitude} onChange={e => setContainerForm({ ...containerForm, longitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
-              </Field>
-            </div>
-
-
-            <Field label="Fotoğraf (İsteğe Bağlı)">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoUpload}
-                  className="text-xs"
-                />
-                {containerForm.photo && (
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setContainerForm({ ...containerForm, photo: "" })} className="text-red-600 px-2 h-8">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </Field>
-
-            {containerForm.photo && (
-              <div className="sm:col-span-2 lg:col-span-3">
-                <img src={containerForm.photo} alt="Önizleme" className="h-20 w-28 rounded-lg object-cover border border-slate-200" />
-              </div>
-            )}
-
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Field label="Arıza Açıklaması (İsteğe Bağlı)">
-                <Textarea value={containerForm.description} onChange={e => setContainerForm({ ...containerForm, description: e.target.value })} placeholder="Konteynerdeki hasar veya detaylar (isteğe bağlı)..." />
-              </Field>
-            </div>
-
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Button disabled={createContainerFault.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                <Plus className="mr-2 h-4 w-4" />
-                {createContainerFault.isPending ? "Kaydediliyor..." : "Arıza Bildirimini Kaydet"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      )}
-
-      {/* 3. Onarım Bekleyen Kayıtlar Listesi */}
-
-      <Card className="border-0 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="font-display flex items-center gap-2 text-base">
-            <Wrench className="h-5 w-5 text-amber-600" />
-            Konteyner Arıza & Onarım Listesi
-          </CardTitle>
-          <Badge variant="outline" className="text-slate-600 text-xs font-bold">
-            {openRecords.length} Bekleyen Arıza
-          </Badge>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {openRecords.length === 0 ? (
-            <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş bekleyen konteyner arıza kaydı bulunmuyor.</p>
-          ) : (
-            openRecords.map(record => {
-              const isPending = record.status === "bekliyor";
-
-              return (
-                <div
-                  key={record.id}
-                  className={`rounded-xl border p-3.5 transition ${
-                    isPending ? "border-amber-200 bg-amber-50/30" : "border-emerald-100 bg-emerald-50/15"
-                  }`}
-                >
-                  <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-slate-900 text-sm">
-                          {record.faultType} Arızası · {record.neighborhood}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={
-                            isPending
-                              ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px]"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                  <div className="flex-1 flex gap-1.5">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="veya Adres/Sokak yazın..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            searchAddressLocation();
                           }
-                        >
-                          {isPending ? "Onarım Bekliyor" : "Onarım Tamamlandı"}
-                        </Badge>
-                        {record.photoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImage(record.photoUrl)}
-                            className="flex items-center gap-1 bg-white text-slate-700 hover:bg-slate-100 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-slate-200"
-                          >
-                            <ImageIcon className="h-3 w-3 text-emerald-700" /> Fotoğraf
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-600 break-words line-clamp-3 max-w-full overflow-hidden">{record.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-
-                        <span>📍 {record.region}</span>
-                        <span>·</span>
-                        <span>📅 {new Date(record.createdAt).toLocaleDateString("tr-TR")}</span>
-                        {record.reporterName && (
-                          <>
-                            <span>·</span>
-                            <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
-                              👤 Bildiren: {record.reporterName}
-                            </span>
-                          </>
-                        )}
-                        {record.repairNote && <span className="text-emerald-700 font-medium">· 🔧 {record.repairNote}</span>}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedPinId(record.id);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
-                        title="Bu sayfadaki haritada göster"
-                      >
-                        <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                        Haritada Gör
-                      </Button>
-
-                      {canRepair && isPending && (
-                        <div className="flex items-center gap-1.5">
-                          <Input
-                            placeholder="Onarım notu"
-                            value={repairNotes[record.id] || ""}
-                            onChange={e => setRepairNotes({ ...repairNotes, [record.id]: e.target.value })}
-                            className="h-8 text-xs w-36 bg-white"
-                          />
-                          <Button
-                            size="sm"
-                            disabled={repair.isPending}
-                            onClick={() => handleRepair(record.id)}
-                            className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
-                          >
-                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                            Tamamla
-                          </Button>
-                        </div>
-                      )}
+                        className="pl-9 text-xs bg-white h-11 w-full border-emerald-200"
+                      />
                     </div>
+                    <Button
+                      type="button"
+                      disabled={isSearching}
+                      onClick={searchAddressLocation}
+                      className="h-11 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white px-3"
+                    >
+                      {isSearching ? "..." : "Bul"}
+                    </Button>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
+
+                {resolvedAddress && (
+                  <p className="text-xs font-semibold text-emerald-900 bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs leading-relaxed">
+                    📍 <strong>Adres:</strong> {resolvedAddress}
+                  </p>
+                )}
+              </div>
+
+              {/* Fotoğraf Yükleme */}
+              <div>
+                <Field label="Konteyner Fotoğrafı (İsteğe Bağlı)">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoUpload}
+                      className="text-xs h-11 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                    />
+                    {containerForm.photo && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setContainerForm({ ...containerForm, photo: "" })} className="text-red-600 px-2 h-10">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </Field>
+              </div>
+
+              {containerForm.photo && (
+                <div>
+                  <img src={containerForm.photo} alt="Önizleme" className="h-24 w-32 rounded-xl object-cover border border-slate-200 shadow-xs" />
+                </div>
+              )}
+
+              <div>
+                <Field label="Arıza Açıklaması & Not (İsteğe Bağlı)">
+                  <Textarea
+                    value={containerForm.description}
+                    onChange={e => setContainerForm({ ...containerForm, description: e.target.value })}
+                    placeholder="Konteynerdeki hasar veya detaylar (isteğe bağlı)..."
+                    className="text-sm min-h-[70px]"
+                  />
+                </Field>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={createContainerFault.isPending}
+                className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md active:scale-98 rounded-xl"
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                {createContainerFault.isPending ? "Kaydediliyor..." : "Arıza Bildirimini Gönder"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 3. Onarım Bekleyen Kayıtlar Listesi (Şoförler için gizlenir) */}
+      {role !== "şoför" && (
+        <Card className="border-0 bg-white shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="font-display flex items-center gap-2 text-base">
+              <Wrench className="h-5 w-5 text-amber-600" />
+              Konteyner Arıza & Onarım Listesi
+            </CardTitle>
+            <Badge variant="outline" className="text-slate-600 text-xs font-bold">
+              {openRecords.length} Bekleyen Arıza
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {openRecords.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-6 text-center text-xs text-slate-500">Henüz bildirilmiş bekleyen konteyner arıza kaydı bulunmuyor.</p>
+            ) : (
+              openRecords.map(record => {
+                const isPending = record.status === "bekliyor";
+
+                return (
+                  <div
+                    key={record.id}
+                    className={`rounded-xl border p-3.5 transition ${
+                      isPending ? "border-amber-200 bg-amber-50/30" : "border-emerald-100 bg-emerald-50/15"
+                    }`}
+                  >
+                    <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-slate-900 text-sm">
+                            {record.faultType} Arızası · {record.neighborhood}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={
+                              isPending
+                                ? "border-amber-200 bg-amber-50 text-amber-700 text-[10px]"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]"
+                            }
+                          >
+                            {isPending ? "Onarım Bekliyor" : "Onarım Tamamlandı"}
+                          </Badge>
+                          {record.photoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage(record.photoUrl)}
+                              className="flex items-center gap-1 bg-white text-slate-700 hover:bg-slate-100 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-slate-200"
+                            >
+                              <ImageIcon className="h-3 w-3 text-emerald-700" /> Fotoğraf
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 break-words line-clamp-3 max-w-full overflow-hidden">{record.description}</p>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                          <span>📍 {record.region}</span>
+                          <span>·</span>
+                          <span>📅 {new Date(record.createdAt).toLocaleDateString("tr-TR")}</span>
+                          {record.reporterName && (
+                            <>
+                              <span>·</span>
+                              <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+                                👤 Bildiren: {record.reporterName}
+                              </span>
+                            </>
+                          )}
+                          {record.repairNote && <span className="text-emerald-700 font-medium">· 🔧 {record.repairNote}</span>}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedPinId(record.id);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className="text-xs h-8 border-slate-200 text-slate-700 hover:bg-slate-50"
+                          title="Bu sayfadaki haritada göster"
+                        >
+                          <Eye className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
+                          Haritada Gör
+                        </Button>
+
+                        {canRepair && isPending && (
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              placeholder="Onarım notu"
+                              value={repairNotes[record.id] || ""}
+                              onChange={e => setRepairNotes({ ...repairNotes, [record.id]: e.target.value })}
+                              className="h-8 text-xs w-36 bg-white"
+                            />
+                            <Button
+                              size="sm"
+                              disabled={repair.isPending}
+                              onClick={() => {
+                                const note = repairNotes[record.id]?.trim() || "Kaynak ve parça onarımı tamamlandı.";
+                                repair.mutate({ id: record.id, note });
+                              }}
+                              className="bg-emerald-700 hover:bg-emerald-800 text-xs h-8"
+                            >
+                              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                              Tamamla
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Lightbox modal - Top level portal with z-[99999] */}
       {previewImage &&

@@ -1721,10 +1721,13 @@ function BulkWasteSolutionPanel({
 
   const submitWaste = (event: FormEvent) => {
     event.preventDefault();
-    if (!form.neighborhood.trim()) return toast.error("Lütfen mahalle seçin veya girin.");
+    const fallbackNeighborhood = (currentShift.data as any)?.neighborhood || "Tepebaşı";
+    const finalNeighborhood = form.neighborhood.trim() || fallbackNeighborhood;
+    const finalRegion = form.region.trim() || (currentShift.data as any)?.region || "Tepebaşı";
+
     createWaste.mutate({
-      region: form.region,
-      neighborhood: form.neighborhood,
+      region: finalRegion,
+      neighborhood: finalNeighborhood,
       wasteType: form.wasteType,
       description: form.description || "",
       latitude: Number(form.latitude),
@@ -1737,130 +1740,106 @@ function BulkWasteSolutionPanel({
 
   return (
     <div className="space-y-5">
-      {/* 1. Sadece Damperlik Atıkları Gösteren Özel Harita */}
-      <Card className="border-0 bg-white shadow-sm p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
-            <Archive className="h-5 w-5 text-amber-600" />
-            Damperlik Atık Haritası
-          </h2>
-          <Badge className="bg-amber-50 text-amber-800 border-amber-200 font-bold">
-            {pendingWaste.length} Bekleyen Atık
-          </Badge>
-        </div>
-        <OperationsMap
-          operations={mapOperations}
-          initialCategoryFilter="Damperlik atık"
-          showCategoryTabs={false}
-          role={role}
-          activeVehicleType={(currentShift.data as any)?.vehicleType}
-          selectedOperationId={selectedPinId}
-          onResolveOperation={op => {
-            if (role === "şoför" && (currentShift.data as any)?.vehicleType !== "damperli kamyon") {
-              toast.error("Damperlik atık toplamak için aktif bir damperli kamyon mesainiz olmalıdır.");
-              return;
-            }
-            const damperId = (currentShift.data as any)?.vehicleId ?? activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
-            if (damperId) {
-              handleCollectWithGps(op.id, damperId);
-            } else {
-              toast.error("Toplama için aktif damperli kamyon tanımlı olmalıdır.");
-            }
-          }}
-
-        />
-
-      </Card>
+      {/* 1. Sadece Damperlik Atıkları Gösteren Özel Harita (Şoförler için gizlenir, doğrudan bildirim/toplama öne çıkar) */}
+      {role !== "şoför" && (
+        <Card className="border-0 bg-white shadow-sm p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+              <Archive className="h-5 w-5 text-amber-600" />
+              Damperlik Atık Haritası
+            </h2>
+            <Badge className="bg-amber-50 text-amber-800 border-amber-200 font-bold">
+              {pendingWaste.length} Bekleyen Atık
+            </Badge>
+          </div>
+          <OperationsMap
+            operations={mapOperations}
+            initialCategoryFilter="Damperlik atık"
+            showCategoryTabs={false}
+            role={role}
+            activeVehicleType={(currentShift.data as any)?.vehicleType}
+            selectedOperationId={selectedPinId}
+            onResolveOperation={op => {
+              const damperId = (currentShift.data as any)?.vehicleId ?? activeDamper?.id ?? vehicles.find(v => v.type === "damperli kamyon")?.id;
+              if (damperId) {
+                handleCollectWithGps(op.id, damperId);
+              } else {
+                toast.error("Toplama için aktif damperli kamyon tanımlı olmalıdır.");
+              }
+            }}
+          />
+        </Card>
+      )}
 
       {/* 2. Damperlik Atık Bildirim Formu */}
       {canReportWaste && (
         <Card className="border-0 bg-white shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="font-display flex items-center gap-2 text-base">
+            <CardTitle className="font-display flex items-center gap-2 text-base sm:text-lg">
               <Plus className="h-5 w-5 text-emerald-700" />
-              Yeni Damperlik Atık Bildir
+              Damperlik Atık Bildir
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={submitWaste}>
-              <Field label="Atık Türü">
-                <select
-                  value={form.wasteType}
-                  onChange={e => setForm({ ...form, wasteType: e.target.value })}
-                  className="input-native font-semibold"
-                >
-                  {WASTE_TYPES.map(type => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Mahalle">
-                <select
-                  value={form.neighborhood}
-                  onChange={e => {
-                    const matched = neighborhoodsList.find(n => n.name === e.target.value);
-                    setForm({ ...form, neighborhood: e.target.value, region: matched?.region || form.region });
-                  }}
-                  className="input-native"
-                >
-                  <option value="">Mahalle seçin</option>
-                  {neighborhoodsList.map(n => (
-                    <option key={n.id} value={n.name}>
-                      {n.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Bölge">
-                <Input required value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} />
-              </Field>
-
-              <Field label="Müdahale Süresi">
-                <div className="flex gap-1.5 h-10">
-                  <button
-                    type="button"
-                    onClick={() => setDurationHours(24)}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1 rounded-lg border text-xs font-semibold transition px-2",
-                      durationHours === 24
-                        ? "border-amber-600 bg-amber-500 text-white shadow-sm font-bold"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    )}
+            <form className="space-y-4" onSubmit={submitWaste}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Atık Türü">
+                  <select
+                    value={form.wasteType}
+                    onChange={e => setForm({ ...form, wasteType: e.target.value })}
+                    className="input-native font-bold text-sm h-11"
                   >
-                    <Clock className="h-3 w-3" />
-                    Acil (24s)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDurationHours(48)}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1 rounded-lg border text-xs font-semibold transition px-2",
-                      durationHours === 48
-                        ? "border-emerald-700 bg-emerald-700 text-white shadow-sm font-bold"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    )}
-                  >
-                    <Clock className="h-3 w-3" />
-                    Standart (48s)
-                  </button>
-                </div>
-              </Field>
+                    {WASTE_TYPES.map(type => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Müdahale Aciliyeti">
+                  <div className="flex gap-2 h-11">
+                    <button
+                      type="button"
+                      onClick={() => setDurationHours(24)}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 rounded-xl border text-xs font-bold transition px-3",
+                        durationHours === 24
+                          ? "border-amber-600 bg-amber-500 text-white shadow-sm font-extrabold"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      )}
+                    >
+                      <Clock className="h-4 w-4" />
+                      Acil (24s)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDurationHours(48)}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 rounded-xl border text-xs font-bold transition px-3",
+                        durationHours === 48
+                          ? "border-emerald-700 bg-emerald-700 text-white shadow-sm font-extrabold"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      )}
+                    >
+                      <Clock className="h-4 w-4" />
+                      Standart (48s)
+                    </button>
+                  </div>
+                </Field>
+              </div>
 
               {/* Kepçe Gereksinimi Seçimi */}
-              <div className="sm:col-span-2 lg:col-span-4">
+              <div>
                 <Field label="Kepçe İhtiyacı Durumu">
-                  <div className="grid grid-cols-2 gap-2 max-w-md">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <button
                       type="button"
                       onClick={() => setForm(f => ({ ...f, requiresExcavator: false }))}
                       className={cn(
-                        "flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-semibold transition",
+                        "flex items-center justify-center gap-1.5 rounded-xl border p-3 text-xs font-bold transition",
                         !form.requiresExcavator
-                          ? "border-emerald-700 bg-emerald-50 text-emerald-800 font-bold shadow-2xs"
+                          ? "border-emerald-700 bg-emerald-50 text-emerald-800 font-extrabold shadow-2xs ring-1 ring-emerald-600"
                           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                       )}
                     >
@@ -1870,9 +1849,9 @@ function BulkWasteSolutionPanel({
                       type="button"
                       onClick={() => setForm(f => ({ ...f, requiresExcavator: true }))}
                       className={cn(
-                        "flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-semibold transition",
+                        "flex items-center justify-center gap-1.5 rounded-xl border p-3 text-xs font-bold transition",
                         form.requiresExcavator
-                          ? "border-amber-500 bg-amber-500 text-white font-bold shadow-xs"
+                          ? "border-amber-500 bg-amber-500 text-white font-extrabold shadow-xs"
                           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                       )}
                     >
@@ -1882,84 +1861,79 @@ function BulkWasteSolutionPanel({
                 </Field>
               </div>
 
-              {/* Konum Arama & GPS Buton Alanı */}
-              <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 space-y-2 min-w-0 max-w-full overflow-hidden">
-                <div className="flex flex-col sm:flex-row gap-2 min-w-0">
-                  <div className="relative flex-1 min-w-0">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Adres veya sokak yazarak arayın..."
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          searchAddressLocation();
-                        }
-                      }}
-                      className="pl-9 text-xs bg-white h-9 w-full min-w-0"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
+              {/* Konum Belirleme Alanı (Sadeleştirilmiş, Enlem/Boylam gizli) */}
+              <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-emerald-700" />
+                    Atık Konumu
+                  </label>
+                  {locationState === "ready" && (
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-md">
+                      ✅ Konum Alındı
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    disabled={locationState === "loading"}
+                    onClick={useCurrentLocation}
+                    className="h-11 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white flex-1 shadow-sm active:scale-98"
+                  >
+                    <LocateFixed className={cn("mr-2 h-4 w-4 text-white", locationState === "loading" && "animate-spin")} />
+                    {locationState === "loading" ? "GPS Konumu Alınıyor..." : "📍 Şu Anki Konumumu Al"}
+                  </Button>
+
+                  <div className="flex-1 flex gap-1.5">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="veya Adres/Sokak yazın..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            searchAddressLocation();
+                          }
+                        }}
+                        className="pl-9 text-xs bg-white h-11 w-full border-emerald-200"
+                      />
+                    </div>
                     <Button
                       type="button"
-                      size="sm"
                       disabled={isSearching}
                       onClick={searchAddressLocation}
-                      className="h-9 text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white flex-1 sm:flex-initial"
+                      className="h-11 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white px-3"
                     >
-                      <Search className="mr-1.5 h-3.5 w-3.5" />
-                      {isSearching ? "Aranıyor..." : "Adresi Bul"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={locationState === "loading"}
-                      onClick={useCurrentLocation}
-                      className="h-9 text-xs bg-white text-emerald-800 hover:bg-emerald-100 border-emerald-300 flex-1 sm:flex-initial shadow-2xs"
-                    >
-                      <LocateFixed className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
-                      {locationState === "loading" ? "Alınıyor..." : "Anlık Konum"}
+                      {isSearching ? "..." : "Bul"}
                     </Button>
                   </div>
                 </div>
 
                 {resolvedAddress && (
-                  <p className="text-[11px] font-medium text-emerald-800 bg-white/90 rounded-lg px-2.5 py-1 border border-emerald-200/60 truncate max-w-full overflow-hidden">
+                  <p className="text-xs font-semibold text-emerald-900 bg-white/95 rounded-xl p-2.5 border border-emerald-300 shadow-2xs leading-relaxed">
                     📍 <strong>Adres:</strong> {resolvedAddress}
                   </p>
                 )}
-
-                <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-emerald-200/50 text-[11px]">
-                  <span className="text-slate-600 font-mono truncate">
-                    📍 {form.latitude}, {form.longitude}
-                  </span>
-                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 min-w-0 w-full sm:col-span-2 lg:col-span-2">
-                <Field label="Enlem">
-                  <Input required type="number" step="any" value={form.latitude} onChange={e => setForm({ ...form, latitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
-                </Field>
-                <Field label="Boylam">
-                  <Input required type="number" step="any" value={form.longitude} onChange={e => setForm({ ...form, longitude: e.target.value })} className="w-full min-w-0 text-xs h-9" />
-                </Field>
-              </div>
-
-
-              <div className="sm:col-span-2 lg:col-span-2">
-                <Field label="Fotoğraf (İsteğe Bağlı)">
+              {/* Fotoğraf Yükleme */}
+              <div>
+                <Field label="Atık Fotoğrafı (İsteğe Bağlı)">
                   <div className="flex items-center gap-2">
                     <Input
                       type="file"
                       accept="image/*"
                       capture="environment"
                       onChange={handlePhotoUpload}
-                      className="text-xs"
+                      className="text-xs h-11 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
                     />
                     {form.photo && (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setForm({ ...form, photo: "" })} className="text-red-600 px-2 h-8">
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setForm({ ...form, photo: "" })} className="text-red-600 px-2 h-10">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
@@ -1968,27 +1942,35 @@ function BulkWasteSolutionPanel({
               </div>
 
               {form.photo && (
-                <div className="sm:col-span-2 lg:col-span-4">
-                  <img src={form.photo} alt="Önizleme" className="h-20 w-28 rounded-lg object-cover border border-slate-200" />
+                <div>
+                  <img src={form.photo} alt="Önizleme" className="h-24 w-32 rounded-xl object-cover border border-slate-200 shadow-xs" />
                 </div>
               )}
 
-              <div className="sm:col-span-2 lg:col-span-4">
-                <Field label="Açıklama & Adres Tarifi (İsteğe Bağlı)">
-                  <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Atığın bulunduğu nokta veya detaylar (isteğe bağlı)..." />
+              <div>
+                <Field label="Açıklama & Not (İsteğe Bağlı)">
+                  <Textarea
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    placeholder="Atığın bulunduğu nokta veya detaylar (isteğe bağlı)..."
+                    className="text-sm min-h-[70px]"
+                  />
                 </Field>
               </div>
 
-              <div className="sm:col-span-2 lg:col-span-4">
-                <Button disabled={createWaste.isPending} className="w-full bg-emerald-700 hover:bg-emerald-800">
-                  <Plus className="mr-2 h-4 w-4" />
-                  {createWaste.isPending ? "Kaydediliyor..." : "Damperlik Atık Bildirimini Kaydet"}
-                </Button>
-              </div>
+              <Button
+                type="submit"
+                disabled={createWaste.isPending}
+                className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md active:scale-98 rounded-xl"
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                {createWaste.isPending ? "Kaydediliyor..." : "Damperlik Atık Bildirimini Gönder"}
+              </Button>
             </form>
           </CardContent>
         </Card>
       )}
+
 
       {/* 3. Toplama Kayıtları Listesi */}
       <Card className="border-0 bg-white shadow-sm">

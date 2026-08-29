@@ -540,9 +540,24 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
     4. **Vardiya Tonaj Analizi:** Gündüz, Akşam ve Gece vardiyalarının ayrı ayrı tonaj, sefer ve yüzde dağılım göstergesi.
     5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
 
+### [v2.7.0] - 2026-08-29
+- **Kullanıcı Profili & Şifre/Kullanıcı Adı Değiştirme:**
+  - Sol menü profil kartına tıklandığında açılan `UserProfileModal` entegre edildi. Kullanıcılar ad, kullanıcı adı ve şifrelerini doğrudan güncelleyebilir (`users.updateMyProfile` backend mutasyonu).
+  - Giriş ekranı (`LoginLanding`) açıklama metni bu akışa uygun olarak güncellendi.
+- **Şoför Menüsü & İsim Sadeleştirmesi:**
+  - `Mesai Yönetimi` -> **`Mesai Başla/Bitir`**
+  - `Damperlik Atık Çözümü` -> **`Damperlik Atık Bildir`**
+  - `Konteyner Arıza Çözümü` -> **`Arızalı Konteyner Bildir`**
+- **Şoför Ekranlarında Harita ve Sayısal Koordinat Karmaşasının Kaldırılması:**
+  - Şoförler için "Damperlik Atık Bildir" ve "Arızalı Konteyner Bildir" sayfalarındaki harita gizlendi, doğrudan temiz ve büyük butonlu bildirim formları öne çıkarıldı.
+  - Bildirim formlarındaki ham `Mahalle`, `Bölge`, `Enlem` ve `Boylam` giriş kutuları arayüzden kaldırılarak arka planda tek tıkla çalışan **`[📍 Şu Anki Konumumu Al]`** ve otomatik adres çözümleme mekanizmasına bağlandı.
+- **Şoförler İçin Arızalı Konteyner Bildirim Yetkisi:**
+  - Backend API (`containerFaults.create`), şoförlerin sahada gördükleri kırık/arızalı konteynerleri bildirebilmesi için `["şoför", "kaynak personeli", "yönetim"]` olarak güncellendi (tamir/onarım yetkisi yalnızca kaynak personeli ve yönetimde kaldı).
+
 ---
-*Doküman Sürümü: v2.6.0 (Canlı Şema, Mobil Saha UX & Operasyonel Devir Standardı)*  
-*Son Güncelleme: 2026-08-25*
+*Doküman Sürümü: v2.7.0 (Saha ve Şoför Mobil Sadeleştirmesi & Profil Yönetimi)*  
+*Son Güncelleme: 2026-08-29*
+
 
 
 

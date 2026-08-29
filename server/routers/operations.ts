@@ -457,8 +457,9 @@ export const operationsRouter = router({
         photo: z.string().optional(),
       })
     ).mutation(async ({ ctx, input }) => {
-      requireRole(ctx.user.role, ["kaynak personeli", "yönetim"]);
+      requireRole(ctx.user.role, ["şoför", "kaynak personeli", "yönetim"]);
       const photoUrl = await uploadImage(input.photo, `containers/${ctx.user.id}`);
+
 
       const desc = input.description?.trim() || "Açıklama belirtilmedi";
       await db.createContainerFault({
@@ -769,6 +770,25 @@ export const operationsRouter = router({
       await audit(ctx.user.id, "PERSONEL_HESABI_GÜNCELLENDİ", "kullanıcı", undefined, `${input.openId} / ${input.role || "bilgi"}`);
       return { success: true };
     }),
+    updateMyProfile: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(2).optional(),
+          username: z.string().trim().toLowerCase().min(2).optional(),
+          password: z.string().min(3).optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const passwordHash = input.password && input.password.trim() ? await hashPassword(input.password) : undefined;
+        await updateLocalManagedUser({
+          openId: ctx.user.openId,
+          name: input.name,
+          username: input.username,
+          passwordHash,
+        });
+        await audit(ctx.user.id, "KULLANICI_KENDİ_PROFİLİNİ_GÜNCELLEDİ", "kullanıcı", undefined, `${ctx.user.openId} / ${input.username || "şifre"}`);
+        return { success: true };
+      }),
     remove: protectedProcedure.input(z.object({ openId: z.string().min(4) })).mutation(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["yönetim"]);
       if (input.openId === ctx.user.openId) {
@@ -780,3 +800,4 @@ export const operationsRouter = router({
     }),
   }),
 });
+
