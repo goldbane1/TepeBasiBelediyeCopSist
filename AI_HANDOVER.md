@@ -552,11 +552,28 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - Şoförler için "Damperlik Atık Bildir" ve "Arızalı Konteyner Bildir" sayfalarındaki harita gizlendi, doğrudan temiz ve büyük butonlu bildirim formları öne çıkarıldı.
   - Bildirim formlarındaki ham `Mahalle`, `Bölge`, `Enlem` ve `Boylam` giriş kutuları arayüzden kaldırılarak arka planda tek tıkla çalışan **`[📍 Şu Anki Konumumu Al]`** ve otomatik adres çözümleme mekanizmasına bağlandı.
 - **Şoförler İçin Arızalı Konteyner Bildirim Yetkisi:**
-  - Backend API (`containerFaults.create`), şoförlerin sahada gördükleri kırık/arızalı konteynerleri bildirebilmesi için `["şoför", "kaynak personeli", "yönetim"]` olarak güncellendi (tamir/onarım yetkisi yalnızca kaynak personeli ve yönetimde kaldı).
+### [v2.8.0] - 2026-08-29
+- **%100 Mobil Uyumlu Rol Bazlı "Hızlı İşlem Menüsü" (Quick Launcher):**
+  - Kafa karıştıran yönetici odaklı yeşil dashboard banner'ı ("Sahadaki operasyonları tek ekrandan yönetin...") kaldırılarak yerine kullanıcının rolüne göre özelleştirilmiş 2 sütunlu, büyük dokunmatik butonlu, dokunsal titreşim (`haptic feedback`) destekli **Hızlı İşlem Menüsü** entegre edildi.
+  - Şoför, Kaynak Personeli, Kademe Personeli ve Yönetim için tüm yetkiler doğrudan ana sayfada belirgin dokunmatik kartlar olarak sunuldu; personelin menüde kaybolması engellendi.
+  - Şoför mesai durumu rozeti açık mesai olmadığında `⚪ Aktif Mesai Yok`, mesai açıkken `🟢 Mesai Açık` şeklinde güncellendi.
+- **Damperli Kamyon Şoförleri İçin Damperlik Atık Bildirim İzni:**
+  - Aktif mesai açan damperli kamyon şoförlerinin de sahada gördükleri moloz/hafriyat atıklarını bildirebilmesi sağlandı. Backend `bulkWaste.create` API'si ve ön yüz yetkilendirmesi, açık mesaisi (çöp kamyonu veya damperli kamyon) olan tüm şoförlere bildirim izni verecek şekilde genişletildi.
+- **Üst Düzey Yönetici ve Personel Profil/Şifre Değiştirme Modalı:**
+  - `UserProfileModal` tamamen modernize edildi: İki sekmeli yapı (`👤 Kullanıcı Bilgileri` ve `🔒 Şifre Değiştir`), şifre göster/gizle göz ikonu (`Eye`/`EyeOff`), şifre eşleşme durum rozeti (`✓ Şifreler eşleşiyor` / `✕ Girdiğiniz şifreler eşleşmiyor`) ve koyu zümrüt gradient başlık eklendi.
+- **Rol Bazlı Sayfa Güvenlik Koruması (Role Route Guard):**
+  - Kullanıcı oturum açtığında veya hesap değiştirdiğinde URL'deki `?view=...` sorgusu veya `localStorage`'da kalan önceki sayfa kullanıcının rol yetkileriyle uyuşmuyorsa, yetkisiz içeriği göstermek yerine anında güvenli bir şekilde `dashboard` (Ana Sayfa) ekranına yönlendirme koruması (`useEffect` role route guard) devreye alındı.
+- **Giriş ve Sayfa Yenileme (F5) Davranışının Standartlaştırılması:**
+  - Her yeni oturum açılışında kullanıcı doğrudan `Ana Sayfa`ya (dashboard) yönlendirilir.
+  - Oturumu açık olan kullanıcı sayfayı yenilediğinde (F5) bulunduğu aktif sekmede kalmaya devam eder.
+  - Çıkış yapıldığında (`logout`) önceki sayfa hafızası temizlenir.
+- **Mobil Alt Navigasyon ve Menü İsimlendirmesi:**
+  - Mobil alt gezinme çubuğundaki (Bottom Navigation Bar) ve sol kenar çubuğundaki "Özet" / "Operasyon Özeti" etiketleri tüm roller için **"Ana Sayfa"** olarak güncellendi.
 
 ---
-*Doküman Sürümü: v2.7.0 (Saha ve Şoför Mobil Sadeleştirmesi & Profil Yönetimi)*  
+*Doküman Sürümü: v2.8.0 (Mobil Quick Launcher, Rol Güvenliği, Profesyonel Profil Modalı & Saha İyileştirmeleri)*  
 *Son Güncelleme: 2026-08-29*
+
 
 
 
