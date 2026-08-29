@@ -115,3 +115,14 @@ client/public/__manus__/version.json
 
 # User uploaded files (local assets)
 uploads/
+
+# Flutter / Dart & Mobile build artifacts
+**/mobile/.dart_tool/
+**/mobile/build/
+**/mobile/android/.gradle/
+**/mobile/android/local.properties
+**/mobile/ios/Flutter/ephemeral/
+**/mobile/ios/Flutter/Generated.xcconfig
+**/mobile/macos/Flutter/ephemeral/
+**/mobile/macos/Flutter/Flutter-Generated.xcconfig
+**/*.dill
