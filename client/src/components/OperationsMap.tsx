@@ -249,7 +249,11 @@ export default function OperationsMap({
           : "operations-map-pin--sikayet";
       }
 
-      const pinHtml = `<div class="operations-map-pin ${pinClass}">${categorySymbol}</div>`;
+      const shortLabel = operation.title.includes('·') ? operation.title.split('·')[1].trim() : operation.title;
+      const pinHtml = `<div class="flex items-center gap-1 cursor-pointer">
+        <div class="operations-map-pin ${pinClass}">${categorySymbol}</div>
+        ${shortLabel ? `<span class="bg-white/95 text-slate-900 border border-slate-300 font-extrabold text-[10px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">${shortLabel}</span>` : ''}
+      </div>`;
 
       const customIcon = L.divIcon({
         className: "custom-leaflet-marker",
@@ -269,7 +273,7 @@ export default function OperationsMap({
       marker.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
         setSelected(operation);
-        map.panTo([Number(operation.latitude), Number(operation.longitude)], { animate: true });
+        map.setView([Number(operation.latitude), Number(operation.longitude)], 18, { animate: true });
       });
       marker.addTo(map);
       return marker;
@@ -364,7 +368,7 @@ export default function OperationsMap({
       <div className="relative overflow-hidden rounded-[1.4rem] border border-slate-200 bg-slate-100">
         <MapView
           initialCenter={{ lat: 39.7767, lng: 30.5206 }}
-          initialZoom={13}
+          initialZoom={16}
           className="h-[400px] sm:h-[490px]"
           onMapReady={setMap}
           onMapError={() => setMapFailed(true)}
@@ -463,7 +467,10 @@ export default function OperationsMap({
               ) : resolvedAddress ? (
                 <div className="flex items-start gap-1.5 text-xs font-semibold text-emerald-950 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/80">
                   <MapPin className="h-4 w-4 text-emerald-700 shrink-0 mt-0.5" />
-                  <span className="leading-snug">📍 {resolvedAddress}</span>
+                  <div className="w-full">
+                    <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-extrabold">Bina & Kapı Adresi:</div>
+                    <div className="text-xs font-black text-emerald-950 mt-0.5">📍 {resolvedAddress}</div>
+                  </div>
                 </div>
               ) : null}
               <p className="text-sm leading-5 text-slate-600 break-words line-clamp-3">
