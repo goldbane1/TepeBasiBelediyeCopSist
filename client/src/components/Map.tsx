@@ -29,11 +29,29 @@ export function MapView({
       const map = L.map(mapContainer.current, {
         center: [initialCenter.lat, initialCenter.lng],
         zoom: initialZoom,
-        maxZoom: 20,
+        maxZoom: 21,
         zoomControl: true,
       });
 
-      // 1. OpenStreetMap Standart - %100 Ücretsiz, Sıfır Filigran
+      // 1. Google Haritalar (Varsayılan - Tüm binalar ve kapı numaraları net)
+      const googleStreets = L.tileLayer(
+        "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+        {
+          maxZoom: 21,
+          attribution: "&copy; Google Maps",
+        }
+      );
+
+      // 2. Google Uydu & Hibrit (Uydu fotoğrafı + kapı ve sokak isimleri)
+      const googleHybrid = L.tileLayer(
+        "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+        {
+          maxZoom: 21,
+          attribution: "&copy; Google Maps",
+        }
+      );
+
+      // 3. OpenStreetMap Standart (Yedek)
       const osm = L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
@@ -44,26 +62,16 @@ export function MapView({
         }
       );
 
-      // 2. OpenStreetMap France - Bina ve sokak hatlarını koyu çizen %100 Ücretsiz Katman
-      const osmFr = L.tileLayer(
-        "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
-        {
-          maxZoom: 20,
-          maxNativeZoom: 19,
-          attribution:
-            '&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        }
-      );
+      // Google Sokak haritası varsayılan olarak yüklenir
+      googleStreets.addTo(map);
 
-      // Standart temiz OSM katmanı varsayılan olarak eklenir (Kesinlikle filigran YOK)
-      osm.addTo(map);
-
-      // Sağ üste temiz katman değiştirici
+      // Sağ üstten tek tıkla katman değiştirme
       L.control
         .layers(
           {
-            "Standart Harita": osm,
-            "Detaylı Sokak & Kapı No (OSM-FR)": osmFr,
+            "Google Haritalar (Kapı No)": googleStreets,
+            "Google Uydu (Hibrit)": googleHybrid,
+            "Açık Harita (OSM)": osm,
           },
           undefined,
           { position: "topright" }
@@ -72,7 +80,7 @@ export function MapView({
 
       mapInstance.current = map;
 
-      // Boyut geçersiz kılma (render uyumu için)
+      // Render uyumu için invalidateSize
       setTimeout(() => {
         map.invalidateSize();
       }, 200);
