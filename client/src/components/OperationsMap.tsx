@@ -269,7 +269,7 @@ export default function OperationsMap({
       marker.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
         setSelected(operation);
-        map.setView([Number(operation.latitude), Number(operation.longitude)], 18, { animate: true });
+        map.setView([Number(operation.latitude), Number(operation.longitude)], 17, { animate: true });
       });
       marker.addTo(map);
       return marker;
@@ -364,7 +364,7 @@ export default function OperationsMap({
       <div className="relative overflow-hidden rounded-[1.4rem] border border-slate-200 bg-slate-100">
         <MapView
           initialCenter={{ lat: 39.7767, lng: 30.5206 }}
-          initialZoom={16}
+          initialZoom={15}
           className="h-[400px] sm:h-[490px]"
           onMapReady={setMap}
           onMapError={() => setMapFailed(true)}

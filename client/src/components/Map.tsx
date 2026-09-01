@@ -14,7 +14,7 @@ interface MapViewProps {
 export function MapView({
   className,
   initialCenter = { lat: 39.7767, lng: 30.5206 }, // Tepebaşı, Eskişehir
-  initialZoom = 16,
+  initialZoom = 15,
   onMapReady,
   onMapError,
 }: MapViewProps) {
@@ -26,53 +26,47 @@ export function MapView({
     if (mapInstance.current) return;
 
     try {
+      // Zoom sınırı: maxZoom 18 ve minZoom 10 ile beyaz ekrana düşmeyi kesin olarak engeller
       const map = L.map(mapContainer.current, {
         center: [initialCenter.lat, initialCenter.lng],
         zoom: initialZoom,
-        maxZoom: 20,
+        minZoom: 10,
+        maxZoom: 18,
         zoomControl: true,
       });
 
-      // 1. Yandex Haritalar (Türkiye Kapı Numaraları & Binalar - %100 Ücretsiz, Hesap Gerekmez)
-      const yandex = L.tileLayer(
-        "https://core-renderer-tiles.maps.yandex.net/tiles?l=map&x={x}&y={y}&z={z}&scale=1&lang=tr_TR",
-        {
-          maxZoom: 19,
-          attribution:
-            '&copy; <a href="https://yandex.com.tr/harita" target="_blank" rel="noreferrer">Yandex Haritalar</a>',
-        }
-      );
-
-      // 2. Google Haritalar (Yol Görünümü)
-      const googleStreets = L.tileLayer(
-        "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
-        {
-          maxZoom: 20,
-          attribution: "&copy; Google Maps",
-        }
-      );
-
-      // 3. OpenStreetMap Standart
+      // 1. OpenStreetMap Standart - VARSAYILAN AÇILIŞ KATMANI
       const osm = L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
-          maxZoom: 20,
-          maxNativeZoom: 19,
+          minZoom: 10,
+          maxZoom: 18,
+          maxNativeZoom: 18,
           attribution:
             '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
         }
       );
 
-      // Varsayılan olarak Yandex Haritalar açılır (Kapı numaraları için)
-      yandex.addTo(map);
+      // 2. Google Haritalar - Market / İşletme isimleri kaldırılmış sade yol ve bina görünümü
+      const googleClean = L.tileLayer(
+        "https://mt1.google.com/vt/lyrs=m&apistyle=s.t:33|p.v:off&x={x}&y={y}&z={z}",
+        {
+          minZoom: 10,
+          maxZoom: 18,
+          maxNativeZoom: 18,
+          attribution: "&copy; Google Maps",
+        }
+      );
 
-      // Sağ üstten katman değiştirme (Uydu kaldırıldı)
+      // Varsayılan olarak OpenStreetMap (OSM) açılır
+      osm.addTo(map);
+
+      // Sağ üste sadece OSM ve Google seçenekleri konur (Yandex ve Uydu kaldırıldı)
       L.control
         .layers(
           {
-            "Yandex Haritalar (Kapı Nolu)": yandex,
-            "Google Haritalar": googleStreets,
             "Açık Harita (OSM)": osm,
+            "Google Haritalar (Sade)": googleClean,
           },
           undefined,
           { position: "topright" }
