@@ -14,7 +14,7 @@ interface MapViewProps {
 export function MapView({
   className,
   initialCenter = { lat: 39.7767, lng: 30.5206 }, // Tepebaşı, Eskişehir
-  initialZoom = 15,
+  initialZoom = 16,
   onMapReady,
   onMapError,
 }: MapViewProps) {
@@ -29,29 +29,30 @@ export function MapView({
       const map = L.map(mapContainer.current, {
         center: [initialCenter.lat, initialCenter.lng],
         zoom: initialZoom,
-        maxZoom: 21,
+        maxZoom: 20,
         zoomControl: true,
       });
 
-      // 1. Google Haritalar (Varsayılan - Tüm binalar ve kapı numaraları net)
+      // 1. Yandex Haritalar (Türkiye Kapı Numaraları & Binalar - %100 Ücretsiz, Hesap Gerekmez)
+      const yandex = L.tileLayer(
+        "https://core-renderer-tiles.maps.yandex.net/tiles?l=map&x={x}&y={y}&z={z}&scale=1&lang=tr_TR",
+        {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://yandex.com.tr/harita" target="_blank" rel="noreferrer">Yandex Haritalar</a>',
+        }
+      );
+
+      // 2. Google Haritalar (Yol Görünümü)
       const googleStreets = L.tileLayer(
         "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
         {
-          maxZoom: 21,
+          maxZoom: 20,
           attribution: "&copy; Google Maps",
         }
       );
 
-      // 2. Google Uydu & Hibrit (Uydu fotoğrafı + kapı ve sokak isimleri)
-      const googleHybrid = L.tileLayer(
-        "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-        {
-          maxZoom: 21,
-          attribution: "&copy; Google Maps",
-        }
-      );
-
-      // 3. OpenStreetMap Standart (Yedek)
+      // 3. OpenStreetMap Standart
       const osm = L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
@@ -62,15 +63,15 @@ export function MapView({
         }
       );
 
-      // Google Sokak haritası varsayılan olarak yüklenir
-      googleStreets.addTo(map);
+      // Varsayılan olarak Yandex Haritalar açılır (Kapı numaraları için)
+      yandex.addTo(map);
 
-      // Sağ üstten tek tıkla katman değiştirme
+      // Sağ üstten katman değiştirme (Uydu kaldırıldı)
       L.control
         .layers(
           {
-            "Google Haritalar (Kapı No)": googleStreets,
-            "Google Uydu (Hibrit)": googleHybrid,
+            "Yandex Haritalar (Kapı Nolu)": yandex,
+            "Google Haritalar": googleStreets,
             "Açık Harita (OSM)": osm,
           },
           undefined,
@@ -80,7 +81,7 @@ export function MapView({
 
       mapInstance.current = map;
 
-      // Render uyumu için invalidateSize
+      // Render uyumu için
       setTimeout(() => {
         map.invalidateSize();
       }, 200);
