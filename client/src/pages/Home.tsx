@@ -241,9 +241,8 @@ export default function Home() {
                   <p className="truncate text-xs font-bold text-white leading-snug group-hover:text-emerald-200 transition">
                     {user.name || "Kullanıcı"}
                   </p>
-                  <p className="truncate text-[10px] font-semibold text-emerald-300 capitalize leading-none flex items-center gap-1">
-                    <span>{role}</span>
-                    <span className="text-[9px] opacity-70 underline">⚙️ Şifre Değiştir</span>
+                  <p className="truncate text-[10px] font-semibold text-emerald-300 capitalize leading-tight">
+                    {role}
                   </p>
                 </div>
               </button>
@@ -257,6 +256,16 @@ export default function Home() {
                 <span>Çıkış</span>
               </button>
             </div>
+
+            {/* Net ve Geniş Şifre Değiştirme Butonu */}
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold py-1.5 px-2 transition border border-white/10 active:scale-98 shadow-2xs"
+            >
+              <Lock className="h-3 w-3 text-emerald-300 shrink-0" />
+              <span className="whitespace-nowrap">Şifre Değiştir & Profil</span>
+            </button>
           </div>
 
           <div className="mt-3.5 mb-1.5 border-t border-emerald-800/60 pt-2.5">
@@ -488,36 +497,36 @@ function UserProfileModal({ currentUser, onClose }: { currentUser: any; onClose:
           </div>
 
           {/* Sekmeler */}
-          <div className="mt-4 grid grid-cols-2 gap-1.5 rounded-2xl bg-black/25 p-1 border border-white/10 text-xs font-bold">
+          <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-black/25 p-1 border border-white/10 text-xs font-bold">
             <button
               type="button"
               onClick={() => setActiveTab("profile")}
               className={cn(
-                "flex items-center justify-center gap-1.5 py-1.5 rounded-xl transition",
+                "flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl transition whitespace-nowrap text-xs",
                 activeTab === "profile"
                   ? "bg-white text-emerald-950 shadow-sm"
                   : "text-emerald-100/70 hover:text-white hover:bg-white/5"
               )}
             >
-              <User className="h-3.5 w-3.5" />
-              Kullanıcı Bilgileri
+              <User className="h-3.5 w-3.5 shrink-0" />
+              <span>Kullanıcı Bilgileri</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("password")}
               className={cn(
-                "flex items-center justify-center gap-1.5 py-1.5 rounded-xl transition",
+                "flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl transition whitespace-nowrap text-xs",
                 activeTab === "password"
                   ? "bg-white text-emerald-950 shadow-sm"
                   : "text-emerald-100/70 hover:text-white hover:bg-white/5"
               )}
             >
-              <Lock className="h-3.5 w-3.5" />
-              Şifre Değiştir
+              <Lock className="h-3.5 w-3.5 shrink-0" />
+              <span>Şifre Değiştir</span>
             </button>
           </div>
-        </div>
 
+        </div>
         {/* Modal Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {activeTab === "profile" ? (
@@ -680,9 +689,6 @@ function LoginLanding() {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 pt-6 text-[11px] text-emerald-300/70 border-t border-white/10 mt-6">
-            <span>🛡️ Tepebaşı Belediyesi Bilgi İşlem Altyapısı</span>
-          </div>
         </section>
 
         {/* Sağ / Alt Giriş Kartı */}
