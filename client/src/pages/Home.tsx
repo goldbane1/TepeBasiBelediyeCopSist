@@ -179,6 +179,26 @@ export default function Home() {
     }
   }, [role, view]);
 
+  // Giriş yapmamış kullanıcıda URL'deki ?view=... parametrelerini anında temizle
+  useEffect(() => {
+    if (!loading && (!user || !role)) {
+      if (typeof window !== "undefined" && window.location.search) {
+        try {
+          localStorage.removeItem("tepebasi_app_view");
+          window.history.replaceState({}, "", window.location.pathname);
+        } catch {}
+      }
+    }
+  }, [loading, user, role]);
+
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem("tepebasi_app_view");
+    } catch {}
+    await logout();
+    window.location.href = "/";
+  };
+
 
 
   if (loading) {
@@ -248,7 +268,7 @@ export default function Home() {
               </button>
 
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-red-500/80 px-2.5 py-1.5 text-[11px] font-semibold text-white transition shadow-2xs shrink-0 active:scale-95 border border-white/10"
                 title="Oturumu Kapat"
               >
@@ -257,15 +277,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Net ve Geniş Şifre Değiştirme Butonu */}
-            <button
-              type="button"
-              onClick={() => setProfileOpen(true)}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold py-1.5 px-2 transition border border-white/10 active:scale-98 shadow-2xs"
-            >
-              <Lock className="h-3 w-3 text-emerald-300 shrink-0" />
-              <span className="whitespace-nowrap">Şifre Değiştir & Profil</span>
-            </button>
           </div>
 
           <div className="mt-3.5 mb-1.5 border-t border-emerald-800/60 pt-2.5">

@@ -804,6 +804,21 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
 - **Arızalı Konteyner Bildirim Formu Emoji Sadeleştirmesi:**
   - Arıza türü butonlarındaki sembol/emojiler kaldırılarak doğrudan kurumsal buton metinlerine dönüştürüldü.
 
+### [v2.11.0] - 2026-09-02
+- **Harita Altyapısı, Katman ve Zoom Optimizasyonları:**
+  - Filigranlı harita sağlayıcıları (CartoDB) ve kararsız sistemler kaldırıldı; Leaflet harita omurgası %100 açık kaynaklı ve ücretsiz olan **Açık Harita (OpenStreetMap)** varsayılanına geçirildi.
+  - Alternatif olarak dükkan, market ve ticari işletme etiketleri filtrelenmiş sade **Google Haritalar (Sade)** katmanı entegre edildi.
+  - Haritaya kesin zoom sınırları (`minZoom: 10`, `maxZoom: 18`, `maxNativeZoom: 18`) tanımlanarak aşırı yakınlaşmada oluşan beyaz ekran boşluğuna düşme hatası kalıcı olarak giderildi.
+  - Haritada herhangi bir binaya veya sokağa tıklandığında anlık olarak o noktanın sokak ve kapı numarasını gösteren etkileşimli Leaflet bilgi balonu (`popup`) eklendi.
+  - Tüm harita standartları Yönetim, Şoför ve Kaynak Personeli olmak üzere tüm roller için ortaklaştırıldı.
+- **Giriş Ekranı & URL Temizleme Yönlendirmeleri:**
+  - Giriş yapılmamış ziyaretlerde veya oturum kapatıldığında tarayıcı adres çubuğundaki `?view=harita` gibi yetkisiz/eski sayfa parametreleri otomatik temizlenerek temiz ve kurumsal kök URL (`/`) yönlendirmesi devreye alındı.
+  - Giriş sayfasındaki `🛡️ Tepebaşı Belediyesi Bilgi İşlem Altyapısı` alt bilgi metni kaldırıldı.
+- **Kullanıcı Profili & Şifre Düzenleme Arayüzü:**
+  - Sol kenar çubuğundaki kullanıcı profil kartında tıklama ile profil modalı açılma davranışı korundu; sığmama sorunu yaratan mükerrer şifre değiştir butonu kaldırılarak arayüz sadeleştirildi.
+  - Profil düzenleme modalındaki sekmeler genişletilerek `Kullanıcı Bilgileri` ve `Şifre Değiştir` başlıklarının taşması engellendi.
+
 ---
-*Doküman Sürümü: v2.10.0 (Kaynakçı 175m GPS Doğrulaması, Sayfa Başı Kaydırma & Arayüz Sadeleştirmeleri)*  
-*Son Güncelleme: 2026-08-29*
+*Doküman Sürümü: v2.11.0 (Harita Zoom Sınırları, Açık Harita Varsayılanı, URL Temizleme & Profil İyileştirmeleri)*  
+*Son Güncelleme: 2026-09-02*
+
