@@ -161,7 +161,7 @@ export default function OperationsMap({
 
         const marker = L.marker([latitude, longitude], { icon: userIcon, title: "Sizin Konumunuz" });
         marker.bindPopup("<div class='text-xs font-bold text-slate-800 p-1'>📍 Şu Anki Konumunuz (Siz)</div>");
-        marker.addTo(map);
+      marker.addTo(map);
         userMarkerRef.current = marker;
 
         map.setView([latitude, longitude], 16, { animate: true });
@@ -249,11 +249,7 @@ export default function OperationsMap({
           : "operations-map-pin--sikayet";
       }
 
-      const shortLabel = operation.title.includes('·') ? operation.title.split('·')[1].trim() : operation.title;
-      const pinHtml = `<div class="flex items-center gap-1 cursor-pointer">
-        <div class="operations-map-pin ${pinClass}">${categorySymbol}</div>
-        ${shortLabel ? `<span class="bg-white/95 text-slate-900 border border-slate-300 font-extrabold text-[10px] px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">${shortLabel}</span>` : ''}
-      </div>`;
+      const pinHtml = `<div class="operations-map-pin ${pinClass}">${categorySymbol}</div>`;
 
       const customIcon = L.divIcon({
         className: "custom-leaflet-marker",

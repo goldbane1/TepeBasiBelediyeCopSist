@@ -14,7 +14,7 @@ interface MapViewProps {
 export function MapView({
   className,
   initialCenter = { lat: 39.7767, lng: 30.5206 }, // Tepebaşı, Eskişehir
-  initialZoom = 16, // Doğrudan sokak ve bina seviyesinde başlar
+  initialZoom = 15,
   onMapReady,
   onMapError,
 }: MapViewProps) {
@@ -33,48 +33,37 @@ export function MapView({
         zoomControl: true,
       });
 
-      // 1. CartoDB Voyager: Binaları ve cadde isimlerini en net çizen katman
-      const voyager = L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        {
-          maxZoom: 20,
-          subdomains: "abcd",
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        }
-      );
-
-      // 2. OpenStreetMap Standart
+      // 1. OpenStreetMap Standart - %100 Ücretsiz, Sıfır Filigran
       const osm = L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
           maxZoom: 20,
           maxNativeZoom: 19,
           attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> katkıda bulunanlar',
+            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
         }
       );
 
-      // 3. OpenStreetMap France (Bina kapı numaralarını ekstra koyu çizen stil)
+      // 2. OpenStreetMap France - Bina ve sokak hatlarını koyu çizen %100 Ücretsiz Katman
       const osmFr = L.tileLayer(
         "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
         {
           maxZoom: 20,
+          maxNativeZoom: 19,
           attribution:
             '&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         }
       );
 
-      // Varsayılan olarak binaları en net gösteren Voyager eklenir
-      voyager.addTo(map);
+      // Standart temiz OSM katmanı varsayılan olarak eklenir (Kesinlikle filigran YOK)
+      osm.addTo(map);
 
-      // Sağ üste tek tıkla katman değiştirme kontrolü
+      // Sağ üste temiz katman değiştirici
       L.control
         .layers(
           {
-            "Detaylı Binalar (Voyager)": voyager,
-            "Kapı No Odaklı (OSM-FR)": osmFr,
-            "Standart Harita (OSM)": osm,
+            "Standart Harita": osm,
+            "Detaylı Sokak & Kapı No (OSM-FR)": osmFr,
           },
           undefined,
           { position: "topright" }
@@ -83,7 +72,7 @@ export function MapView({
 
       mapInstance.current = map;
 
-      // Boyut geçersiz kılma (flex kutuları için)
+      // Boyut geçersiz kılma (render uyumu için)
       setTimeout(() => {
         map.invalidateSize();
       }, 200);
