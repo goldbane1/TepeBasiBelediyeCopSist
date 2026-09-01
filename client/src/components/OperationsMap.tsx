@@ -64,6 +64,65 @@ export default function OperationsMap({
   const [activeCategory, setActiveCategory] = useState<"tümü" | MapOperationCategory>(initialCategoryFilter);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+
+  useEffect(() => {
+    if (!selected) {
+      setResolvedAddress(null);
+      setIsLoadingAddress(false);
+      return;
+    }
+
+    const lat = Number(selected.latitude);
+    const lon = Number(selected.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      setResolvedAddress(null);
+      setIsLoadingAddress(false);
+      return;
+    }
+
+    let active = true;
+    setIsLoadingAddress(true);
+
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          "Accept-Language": "tr",
+        },
+      }
+    )
+      .then(res => res.json())
+      .then(data => {
+        if (!active) return;
+        const addr = data?.address;
+        if (addr) {
+          const road = addr.road || addr.street || addr.pedestrian || "";
+          const houseNumber = addr.house_number ? `No: ${addr.house_number}` : "";
+          const neighbourhood =
+            addr.neighbourhood || addr.suburb || addr.quarter || "";
+          const parts = [neighbourhood, road, houseNumber].filter(Boolean);
+          setResolvedAddress(
+            parts.length > 0
+              ? parts.join(", ")
+              : data.display_name?.split(",").slice(0, 3).join(",") || null
+          );
+        } else {
+          setResolvedAddress(null);
+        }
+      })
+      .catch(() => {
+        if (active) setResolvedAddress(null);
+      })
+      .finally(() => {
+        if (active) setIsLoadingAddress(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selected?.id, selected?.latitude, selected?.longitude]);
   const markersRef = useRef<L.Marker[]>([]);
   const userMarkerRef = useRef<L.Marker | null>(null);
 
@@ -396,6 +455,17 @@ export default function OperationsMap({
             {/* 2. Kaydırılabilir İçerik Alanı */}
             <div className="p-3.5 sm:p-4 overflow-y-auto flex-1 space-y-3">
               <h3 className="text-base font-bold text-slate-900 leading-snug">{selected.title}</h3>
+              {isLoadingAddress ? (
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 py-0.5">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-600 animate-bounce shrink-0" />
+                  <span>Kapı numarası sorgulanıyor...</span>
+                </div>
+              ) : resolvedAddress ? (
+                <div className="flex items-start gap-1.5 text-xs font-semibold text-emerald-950 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/80">
+                  <MapPin className="h-4 w-4 text-emerald-700 shrink-0 mt-0.5" />
+                  <span className="leading-snug">📍 {resolvedAddress}</span>
+                </div>
+              ) : null}
               <p className="text-sm leading-5 text-slate-600 break-words line-clamp-3">
                 {selected.description}
               </p>

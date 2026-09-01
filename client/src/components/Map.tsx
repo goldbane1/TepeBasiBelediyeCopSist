@@ -30,10 +30,12 @@ export function MapView({
         center: [initialCenter.lat, initialCenter.lng],
         zoom: initialZoom,
         zoomControl: true,
+        maxZoom: 20,
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
+        maxZoom: 20,
+        maxNativeZoom: 19,
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> katkıda bulunanlar',
       }).addTo(map);
