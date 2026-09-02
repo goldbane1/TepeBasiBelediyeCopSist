@@ -515,15 +515,15 @@ function exportNeighborhoodsPdf(rows: any[], periodLabel: string, totalTonnage: 
         </tbody>
       </table>
 
-      <div class="footer-signatures">
-        <div class="sig-box">
-          <strong>Hazırlayan</strong><br/><br/><br/>Saha Denetim Sorumlusu
+      <div class="footer-signatures" style="display: flex; justify-content: space-between; margin-top: 32px; page-break-inside: avoid;">
+        <div class="sig-box" style="width: 28%; text-align: center; border-top: 1.5px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #1e293b;">
+          <strong style="font-size: 12px; color: #065f46;">Saha Sorumlusu</strong><br/><br/><br/><br/>İmza
         </div>
-        <div class="sig-box">
-          <strong>Kontrol Eden</strong><br/><br/><br/>Operasyon ve Lojistik Şefi
+        <div class="sig-box" style="width: 28%; text-align: center; border-top: 1.5px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #1e293b;">
+          <strong style="font-size: 12px; color: #065f46;">Vardiya Amiri</strong><br/><br/><br/><br/>İmza / Kaşe
         </div>
-        <div class="sig-box">
-          <strong>Tasdik Eden</strong><br/><br/><br/>Temizlik İşleri Müdürü
+        <div class="sig-box" style="width: 28%; text-align: center; border-top: 1.5px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #1e293b;">
+          <strong style="font-size: 12px; color: #065f46;">Temizlik İşleri Müdürü</strong><br/><br/><br/><br/>İmza / Mühür
         </div>
       </div>
 
@@ -595,10 +595,16 @@ function generateMunicipalPdfDoc(title: string, subtitle: string, headers: strin
         <thead><tr>${thHtml}</tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
-      <div class="footer-signatures">
-        <div class="sig-box"><strong>Hazırlayan</strong><br/><br/><br/>Saha Denetim Sorumlusu</div>
-        <div class="sig-box"><strong>Kontrol Eden</strong><br/><br/><br/>Operasyon ve Lojistik Şefi</div>
-        <div class="sig-box"><strong>Tasdik Eden</strong><br/><br/><br/>Temizlik İşleri Müdürü</div>
+      <div class="footer-signatures" style="display: flex; justify-content: space-between; margin-top: 32px; page-break-inside: avoid;">
+        <div class="sig-box" style="width: 28%; text-align: center; border-top: 1.5px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #1e293b;">
+          <strong style="font-size: 12px; color: #065f46;">Saha Sorumlusu</strong><br/><br/><br/><br/>İmza
+        </div>
+        <div class="sig-box" style="width: 28%; text-align: center; border-top: 1.5px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #1e293b;">
+          <strong style="font-size: 12px; color: #065f46;">Vardiya Amiri</strong><br/><br/><br/><br/>İmza / Kaşe
+        </div>
+        <div class="sig-box" style="width: 28%; text-align: center; border-top: 1.5px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #1e293b;">
+          <strong style="font-size: 12px; color: #065f46;">Temizlik İşleri Müdürü</strong><br/><br/><br/><br/>İmza / Mühür
+        </div>
       </div>
       <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 350); };</script>
     </body>
