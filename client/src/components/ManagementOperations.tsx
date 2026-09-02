@@ -547,14 +547,17 @@ function exportNeighborhoodsPdf(rows: any[], periodLabel: string, totalTonnage: 
 // ==========================================
 // RESMİ BELEDİYE KURUMSAL PDF RAPOR MOTORU
 // ==========================================
+
+// ==========================================
+// RESMİ BELEDİYE KURUMSAL PDF RAPOR MOTORU
+// ==========================================
 function generateMunicipalPdfDoc(title: string, subtitle: string, headers: string[], rowsHtml: string, metaSummary: string) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
-    alert("Tarayıcınız açılır pencereyi engelledi. Lütfen adres çubuğundan izin verin.");
+    alert("Tarayıcınız açılır pencereyi engelledi. Lütfen adres çubuğundaki engeli kaldırıp tekrar deneyin.");
     return;
   }
   const nowFormatted = new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date());
-
   const thHtml = headers.map(h => `<th style="background:#065f46;color:#ffffff;padding:8px 10px;font-size:11px;text-transform:uppercase;text-align:left;">${h}</th>`).join("");
 
   const docHtml = `
@@ -606,12 +609,14 @@ function generateMunicipalPdfDoc(title: string, subtitle: string, headers: strin
   printWindow.document.close();
 }
 
-// 1. Mesai ve Kantar Raporu PDF & CSV
+// 1. Mesai ve Kantar Raporu
 function exportShiftsPdf(shiftsList: any[], periodLabel: string) {
-  if (!shiftsList || !shiftsList.length) return;
-  const headers = ["ID", "Tarih", "Şoför", "Mahalle", "Vardiya", "Araç Plaka", "Km (Baş-Bit)", "Net Tonaj", "Durum"];
+  const list = shiftsList || [];
+  const headers = ["ID", "Tarih", "Şoför", "Mahalle / Bölge", "Vardiya", "Araç Plaka", "Km (Baş-Bit)", "Net Tonaj", "Durum"];
   let totalTon = 0;
-  const rows = shiftsList.map((s, i) => {
+  const rows = list.length === 0 ? `
+    <tr><td colspan="9" style="padding:20px;text-align:center;color:#64748b;font-style:italic;">Seçilen dönemde (${periodLabel}) kayıtlı araç mesaisi bulunmamaktadır.</td></tr>
+  ` : list.map((s, i) => {
     const tonVal = Number(String(s.tonnage ?? "0").replace(",", "."));
     totalTon += isNaN(tonVal) ? 0 : tonVal;
     return `
@@ -619,7 +624,7 @@ function exportShiftsPdf(shiftsList: any[], periodLabel: string) {
         <td style="padding:7px 10px;font-weight:bold;">#${s.id}</td>
         <td style="padding:7px 10px;">${new Date(s.startedAt).toLocaleDateString("tr-TR")}</td>
         <td style="padding:7px 10px;font-weight:600;">${s.driverName || "Şoför #" + s.driverId}</td>
-        <td style="padding:7px 10px;">${s.neighborhood}</td>
+        <td style="padding:7px 10px;">${s.neighborhood || "—"}</td>
         <td style="padding:7px 10px;">${s.shiftHours || "08:00 - 16:00"}</td>
         <td style="padding:7px 10px;font-weight:bold;">${s.vehiclePlate || "#" + s.vehicleId}</td>
         <td style="padding:7px 10px;">${s.startKm ?? "—"} → ${s.endKm ?? "—"} km</td>
@@ -632,7 +637,7 @@ function exportShiftsPdf(shiftsList: any[], periodLabel: string) {
   const summary = `
     <div class="summary-bar">
       <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
-      <div style="flex:1;">Toplam Sefer: <strong>${shiftsList.length} Sefer</strong></div>
+      <div style="flex:1;">Toplam Sefer: <strong>${list.length} Sefer</strong></div>
       <div style="flex:1;">Toplam Tartılan Atık: <strong>${totalTon.toFixed(2)} Ton</strong></div>
     </div>
   `;
@@ -640,14 +645,14 @@ function exportShiftsPdf(shiftsList: any[], periodLabel: string) {
 }
 
 function exportShiftsCsv(shiftsList: any[]) {
-  if (!shiftsList || !shiftsList.length) return;
+  const list = shiftsList || [];
   const cols = ["ID", "Tarih", "Şoför", "Mahalle", "Vardiya", "Araç", "Başlangıç Km", "Bitiş Km", "Net Tonaj (Ton)", "Durum"];
   const header = cols.map(c => `"${c}"`).join(";");
-  const data = shiftsList.map(s => [
+  const data = list.map(s => [
     s.id,
     new Date(s.startedAt).toLocaleDateString("tr-TR"),
     s.driverName || "Şoför #" + s.driverId,
-    s.neighborhood,
+    s.neighborhood || "",
     s.shiftHours || "08:00 - 16:00",
     s.vehiclePlate || "#" + s.vehicleId,
     s.startKm ?? "",
@@ -663,48 +668,57 @@ function exportShiftsCsv(shiftsList: any[]) {
   a.click();
 }
 
-// 2. Damperlik Atık Raporu PDF & CSV
+// 2. Damperlik Atık Raporu (Açık Adres Bilgisi Dahil)
 function exportWastePdf(wasteList: any[], periodLabel: string) {
-  if (!wasteList || !wasteList.length) return;
-  const headers = ["ID", "Tarih", "Mahalle", "Adres / Konum", "Açıklama", "Bildiren", "Toplanma Tarihi", "Durum"];
-  const rows = wasteList.map((w, i) => `
-    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
-      <td style="padding:7px 10px;font-weight:bold;">#${w.id}</td>
-      <td style="padding:7px 10px;">${new Date(w.createdAt).toLocaleDateString("tr-TR")}</td>
-      <td style="padding:7px 10px;font-weight:600;">${w.neighborhood}</td>
-      <td style="padding:7px 10px;">${w.addressText || "—"}</td>
-      <td style="padding:7px 10px;">${w.description || "Damperlik Atık"}</td>
-      <td style="padding:7px 10px;">${w.createdByName || "Saha Ekibi"}</td>
-      <td style="padding:7px 10px;">${w.collectedAt ? new Date(w.collectedAt).toLocaleDateString("tr-TR") : "—"}</td>
-      <td style="padding:7px 10px;font-weight:bold;color:${w.status === "toplandı" ? "#047857" : "#b91c1c"};text-align:right;">
-        ${w.status === "toplandı" ? "✓ Toplandı" : "Müdahale Bekliyor"}
-      </td>
-    </tr>
-  `).join("");
+  const list = wasteList || [];
+  const headers = ["ID", "Tarih", "Mahalle / Bölge", "Açık Adres / Konum Detayı", "Açıklama / Atık Türü", "Bildiren", "Toplanma", "Durum"];
+  const rows = list.length === 0 ? `
+    <tr><td colspan="8" style="padding:20px;text-align:center;color:#64748b;font-style:italic;">Seçilen dönemde (${periodLabel}) kayıtlı damperlik atık bildirimi bulunmamaktadır.</td></tr>
+  ` : list.map((w, i) => {
+    const fullAddress = w.addressText || (w.neighborhood ? w.neighborhood + " Mah. " + (w.description || "") : w.description) || "Adres detayı yok";
+    return `
+      <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+        <td style="padding:7px 10px;font-weight:bold;">#${w.id}</td>
+        <td style="padding:7px 10px;">${new Date(w.createdAt).toLocaleDateString("tr-TR")}</td>
+        <td style="padding:7px 10px;font-weight:600;">${w.neighborhood || "—"} ${w.region ? "(" + w.region + ")" : ""}</td>
+        <td style="padding:7px 10px;color:#1e293b;max-width:260px;">${fullAddress}</td>
+        <td style="padding:7px 10px;">${w.wasteType || w.description || "Damperlik Atık"}</td>
+        <td style="padding:7px 10px;">${w.createdByName || "Saha Ekibi"}</td>
+        <td style="padding:7px 10px;">${w.collectedAt ? new Date(w.collectedAt).toLocaleDateString("tr-TR") : "—"}</td>
+        <td style="padding:7px 10px;font-weight:bold;color:${w.status === "toplandı" ? "#047857" : "#b91c1c"};text-align:right;">
+          ${w.status === "toplandı" ? "✓ Toplandı" : "Müdahale Bekliyor"}
+        </td>
+      </tr>
+    `;
+  }).join("");
   const summary = `
     <div class="summary-bar">
       <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
-      <div style="flex:1;">Toplam Atık Bildirimi: <strong>${wasteList.length} Adet</strong></div>
-      <div style="flex:1;">Bekleyen Müdahale: <strong>${wasteList.filter(w => w.status === "bekliyor").length} Adet</strong></div>
+      <div style="flex:1;">Toplam Atık Bildirimi: <strong>${list.length} Adet</strong></div>
+      <div style="flex:1;">Bekleyen Müdahale: <strong>${list.filter(w => w.status === "bekliyor").length} Adet</strong></div>
     </div>
   `;
   generateMunicipalPdfDoc("Damperlik Atık ve Moloz Raporu", "Damperlik Atık ve Moloz Takip Denetim Raporu", headers, rows, summary);
 }
 
 function exportWasteCsv(wasteList: any[]) {
-  if (!wasteList || !wasteList.length) return;
-  const cols = ["ID", "Tarih", "Mahalle", "Adres", "Açıklama", "Bildiren", "Toplanma Tarihi", "Durum"];
+  const list = wasteList || [];
+  const cols = ["ID", "Tarih", "Mahalle", "Bölge", "Açık Adres / Konum Detayı", "Açıklama", "Bildiren", "Toplanma Tarihi", "Durum"];
   const header = cols.map(c => `"${c}"`).join(";");
-  const data = wasteList.map(w => [
-    w.id,
-    new Date(w.createdAt).toLocaleDateString("tr-TR"),
-    w.neighborhood,
-    w.addressText || "",
-    w.description || "",
-    w.createdByName || "",
-    w.collectedAt ? new Date(w.collectedAt).toLocaleDateString("tr-TR") : "",
-    w.status
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const data = list.map(w => {
+    const fullAddress = w.addressText || (w.neighborhood ? w.neighborhood + " Mah. " + (w.description || "") : w.description) || "Adres detayı yok";
+    return [
+      w.id,
+      new Date(w.createdAt).toLocaleDateString("tr-TR"),
+      w.neighborhood || "",
+      w.region || "",
+      fullAddress,
+      w.description || "",
+      w.createdByName || "",
+      w.collectedAt ? new Date(w.collectedAt).toLocaleDateString("tr-TR") : "",
+      w.status
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
+  });
   const csv = "\uFEFF" + [header, ...data].join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const a = document.createElement("a");
@@ -713,48 +727,61 @@ function exportWasteCsv(wasteList: any[]) {
   a.click();
 }
 
-// 3. Konteyner Arıza Raporu PDF & CSV
+// 3. Konteyner Arıza Raporu (Açık Adres Bilgisi Dahil)
 function exportContainersPdf(containersList: any[], periodLabel: string) {
-  if (!containersList || !containersList.length) return;
-  const headers = ["ID", "Tarih", "Mahalle", "Adres / Konum", "Arıza Türü", "Bildiren", "Onarım Tarihi", "Durum"];
-  const rows = containersList.map((c, i) => `
-    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
-      <td style="padding:7px 10px;font-weight:bold;">#${c.id}</td>
-      <td style="padding:7px 10px;">${new Date(c.reportedAt).toLocaleDateString("tr-TR")}</td>
-      <td style="padding:7px 10px;font-weight:600;">${c.neighborhood}</td>
-      <td style="padding:7px 10px;">${c.addressText || "—"}</td>
-      <td style="padding:7px 10px;font-weight:600;">${c.faultType || "Arıza"}</td>
-      <td style="padding:7px 10px;">${c.reportedByName || "Saha Ekibi"}</td>
-      <td style="padding:7px 10px;">${c.repairedAt ? new Date(c.repairedAt).toLocaleDateString("tr-TR") : "—"}</td>
-      <td style="padding:7px 10px;font-weight:bold;color:${c.status === "onarıldı" ? "#047857" : "#b45309"};text-align:right;">
-        ${c.status === "onarıldı" ? "✓ Onarıldı" : "Kaynak Bekliyor"}
-      </td>
-    </tr>
-  `).join("");
+  const list = containersList || [];
+  const headers = ["ID", "Tarih", "Mahalle / Bölge", "Açık Adres / Konum Detayı", "Arıza Türü", "Onarım Notu", "Durum"];
+  const rows = list.length === 0 ? `
+    <tr><td colspan="7" style="padding:20px;text-align:center;color:#64748b;font-style:italic;">Seçilen dönemde (${periodLabel}) kayıtlı konteyner arızası bulunmamaktadır.</td></tr>
+  ` : list.map((c, i) => {
+    const dt = c.createdAt || c.reportedAt;
+    const dateStr = dt ? new Date(dt).toLocaleDateString("tr-TR") : "—";
+    const fullAddress = c.addressText || (c.neighborhood ? c.neighborhood + " Mah. " + (c.description || "") : c.description) || "Adres detayı yok";
+    const faultStr = c.faultType ? (c.faultType.charAt(0).toUpperCase() + c.faultType.slice(1) + " Arızası") : "Konteyner Arızası";
+    const isRepaired = c.status === "onarım_tamamlandı" || c.status === "onarıldı";
+    return `
+      <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+        <td style="padding:7px 10px;font-weight:bold;">#${c.id}</td>
+        <td style="padding:7px 10px;">${dateStr}</td>
+        <td style="padding:7px 10px;font-weight:600;">${c.neighborhood || "—"} ${c.region ? "(" + c.region + ")" : ""}</td>
+        <td style="padding:7px 10px;color:#1e293b;max-width:260px;">${fullAddress}</td>
+        <td style="padding:7px 10px;font-weight:600;">${faultStr}</td>
+        <td style="padding:7px 10px;color:#64748b;">${c.repairNote || c.description || "—"}</td>
+        <td style="padding:7px 10px;font-weight:bold;color:${isRepaired ? "#047857" : "#b45309"};text-align:right;">
+          ${isRepaired ? "✓ Onarıldı" : "Kaynak Bekliyor"}
+        </td>
+      </tr>
+    `;
+  }).join("");
   const summary = `
     <div class="summary-bar">
       <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
-      <div style="flex:1;">Toplam Arıza: <strong>${containersList.length} Adet</strong></div>
-      <div style="flex:1;">Onarım Bekleyen: <strong>${containersList.filter(c => c.status === "bekliyor").length} Adet</strong></div>
+      <div style="flex:1;">Toplam Arıza: <strong>${list.length} Adet</strong></div>
+      <div style="flex:1;">Onarım Bekleyen: <strong>${list.filter(c => c.status === "bekliyor").length} Adet</strong></div>
     </div>
   `;
   generateMunicipalPdfDoc("Konteyner Onarım Raporu", "Konteyner Arıza ve Atölye Onarım Denetim Raporu", headers, rows, summary);
 }
 
 function exportContainersCsv(containersList: any[]) {
-  if (!containersList || !containersList.length) return;
-  const cols = ["ID", "Tarih", "Mahalle", "Adres", "Arıza Tipi", "Bildiren", "Onarım Tarihi", "Durum"];
+  const list = containersList || [];
+  const cols = ["ID", "Tarih", "Mahalle", "Bölge", "Açık Adres / Konum Detayı", "Arıza Tipi", "Açıklama", "Durum"];
   const header = cols.map(c => `"${c}"`).join(";");
-  const data = containersList.map(c => [
-    c.id,
-    new Date(c.reportedAt).toLocaleDateString("tr-TR"),
-    c.neighborhood,
-    c.addressText || "",
-    c.faultType || "",
-    c.reportedByName || "",
-    c.repairedAt ? new Date(c.repairedAt).toLocaleDateString("tr-TR") : "",
-    c.status
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const data = list.map(c => {
+    const dt = c.createdAt || c.reportedAt;
+    const dateStr = dt ? new Date(dt).toLocaleDateString("tr-TR") : "";
+    const fullAddress = c.addressText || (c.neighborhood ? c.neighborhood + " Mah. " + (c.description || "") : c.description) || "Adres detayı yok";
+    return [
+      c.id,
+      dateStr,
+      c.neighborhood || "",
+      c.region || "",
+      fullAddress,
+      c.faultType || "",
+      c.description || "",
+      c.status
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
+  });
   const csv = "\uFEFF" + [header, ...data].join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const a = document.createElement("a");
@@ -763,48 +790,57 @@ function exportContainersCsv(containersList: any[]) {
   a.click();
 }
 
-// 4. Şikayetler Raporu PDF & CSV
+// 4. Şikayetler Raporu (Açık Adres Bilgisi Dahil)
 function exportComplaintsPdf(complaintsList: any[], periodLabel: string) {
-  if (!complaintsList || !complaintsList.length) return;
-  const headers = ["ID", "Tarih", "Mahalle", "Adres", "Vatandaş Adı", "Şikayet Konusu", "Çözüm Tarihi", "Durum"];
-  const rows = complaintsList.map((cp, i) => `
-    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
-      <td style="padding:7px 10px;font-weight:bold;">#${cp.id}</td>
-      <td style="padding:7px 10px;">${new Date(cp.createdAt).toLocaleDateString("tr-TR")}</td>
-      <td style="padding:7px 10px;font-weight:600;">${cp.neighborhood}</td>
-      <td style="padding:7px 10px;">${cp.addressText || "—"}</td>
-      <td style="padding:7px 10px;">${cp.citizenName || "Vatandaş"}</td>
-      <td style="padding:7px 10px;">${cp.description || "Temizlik Talebi"}</td>
-      <td style="padding:7px 10px;">${cp.resolvedAt ? new Date(cp.resolvedAt).toLocaleDateString("tr-TR") : "—"}</td>
-      <td style="padding:7px 10px;font-weight:bold;color:${cp.status === "çözüldü" ? "#047857" : "#b91c1c"};text-align:right;">
-        ${cp.status === "çözüldü" ? "✓ Çözüldü" : "Açık Şikayet"}
-      </td>
-    </tr>
-  `).join("");
+  const list = complaintsList || [];
+  const headers = ["ID", "Tarih", "Mahalle / Bölge", "Açık Adres / Konum Detayı", "Vatandaş Adı", "Şikayet Konusu", "Çözüm", "Durum"];
+  const rows = list.length === 0 ? `
+    <tr><td colspan="8" style="padding:20px;text-align:center;color:#64748b;font-style:italic;">Seçilen dönemde (${periodLabel}) kayıtlı vatandaş temizlik talebi bulunmamaktadır.</td></tr>
+  ` : list.map((cp, i) => {
+    const fullAddress = cp.addressText || (cp.neighborhood ? cp.neighborhood + " Mah. " + (cp.description || "") : cp.description) || "Adres detayı yok";
+    const isResolved = cp.status === "onaylandı" || cp.status === "çözüldü";
+    return `
+      <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+        <td style="padding:7px 10px;font-weight:bold;">#${cp.id}</td>
+        <td style="padding:7px 10px;">${new Date(cp.createdAt).toLocaleDateString("tr-TR")}</td>
+        <td style="padding:7px 10px;font-weight:600;">${cp.neighborhood || "—"} ${cp.region ? "(" + cp.region + ")" : ""}</td>
+        <td style="padding:7px 10px;color:#1e293b;max-width:260px;">${fullAddress}</td>
+        <td style="padding:7px 10px;">${cp.citizenName || "Vatandaş Başvurusu"}</td>
+        <td style="padding:7px 10px;">${cp.description || "Temizlik Talebi"}</td>
+        <td style="padding:7px 10px;">${cp.resolvedAt ? new Date(cp.resolvedAt).toLocaleDateString("tr-TR") : "—"}</td>
+        <td style="padding:7px 10px;font-weight:bold;color:${isResolved ? "#047857" : "#b91c1c"};text-align:right;">
+          ${isResolved ? "✓ Çözüldü" : "Açık Şikayet"}
+        </td>
+      </tr>
+    `;
+  }).join("");
   const summary = `
     <div class="summary-bar">
       <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
-      <div style="flex:1;">Toplam Başvuru: <strong>${complaintsList.length} Adet</strong></div>
-      <div style="flex:1;">Açık Bekleyen: <strong>${complaintsList.filter(c => c.status === "açık").length} Adet</strong></div>
+      <div style="flex:1;">Toplam Başvuru: <strong>${list.length} Adet</strong></div>
+      <div style="flex:1;">Açık Bekleyen: <strong>${list.filter(c => c.status === "açık").length} Adet</strong></div>
     </div>
   `;
   generateMunicipalPdfDoc("Vatandaş Şikayet Raporu", "Vatandaş Temizlik Talepleri ve Çözüm Takip Raporu", headers, rows, summary);
 }
 
 function exportComplaintsCsv(complaintsList: any[]) {
-  if (!complaintsList || !complaintsList.length) return;
-  const cols = ["ID", "Tarih", "Mahalle", "Adres", "Vatandaş", "Şikayet Detayı", "Çözüm Tarihi", "Durum"];
+  const list = complaintsList || [];
+  const cols = ["ID", "Tarih", "Mahalle", "Bölge", "Açık Adres / Konum Detayı", "Vatandaş", "Şikayet Detayı", "Durum"];
   const header = cols.map(c => `"${c}"`).join(";");
-  const data = complaintsList.map(cp => [
-    cp.id,
-    new Date(cp.createdAt).toLocaleDateString("tr-TR"),
-    cp.neighborhood,
-    cp.addressText || "",
-    cp.citizenName || "",
-    cp.description || "",
-    cp.resolvedAt ? new Date(cp.resolvedAt).toLocaleDateString("tr-TR") : "",
-    cp.status
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const data = list.map(cp => {
+    const fullAddress = cp.addressText || (cp.neighborhood ? cp.neighborhood + " Mah. " + (cp.description || "") : cp.description) || "Adres detayı yok";
+    return [
+      cp.id,
+      new Date(cp.createdAt).toLocaleDateString("tr-TR"),
+      cp.neighborhood || "",
+      cp.region || "",
+      fullAddress,
+      cp.citizenName || "",
+      cp.description || "",
+      cp.status
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
+  });
   const csv = "\uFEFF" + [header, ...data].join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const a = document.createElement("a");
@@ -813,43 +849,54 @@ function exportComplaintsCsv(complaintsList: any[]) {
   a.click();
 }
 
-// 5. Sistem Logları Raporu PDF & CSV
-function exportLogsPdf(logsList: any[]) {
-  if (!logsList || !logsList.length) return;
-  const headers = ["ID", "Zaman Damgası", "Kullanıcı", "Rol", "İşlem Türü", "Açıklama / Detay", "IP Adresi"];
-  const rows = logsList.map((l, i) => `
-    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
-      <td style="padding:7px 10px;font-weight:bold;">#${l.id}</td>
-      <td style="padding:7px 10px;">${new Date(l.createdAt).toLocaleString("tr-TR")}</td>
-      <td style="padding:7px 10px;font-weight:600;">${l.userName || "Kullanıcı #" + l.userId}</td>
-      <td style="padding:7px 10px;">${l.userRole || "Kullanıcı"}</td>
-      <td style="padding:7px 10px;font-weight:bold;">${l.action}</td>
-      <td style="padding:7px 10px;">${l.details || "—"}</td>
-      <td style="padding:7px 10px;color:#64748b;">${l.ipAddress || "—"}</td>
-    </tr>
-  `).join("");
+// 5. Sistem Logları Raporu
+function exportLogsPdf(logsList: any[], usersList: any[] = []) {
+  const list = logsList || [];
+  const headers = ["ID", "Zaman Damgası", "İşlem Yapan Kullanıcı", "Kategori", "İşlem Türü", "İşlem Açıklaması / Detay"];
+  const rows = list.length === 0 ? `
+    <tr><td colspan="6" style="padding:20px;text-align:center;color:#64748b;font-style:italic;">Seçilen filtreleme kriterlerine uygun sistem log kaydı bulunmamaktadır.</td></tr>
+  ` : list.map((l, i) => {
+    const dateStr = l.createdAt ? new Date(l.createdAt).toLocaleString("tr-TR") : "—";
+    const user = (usersList || []).find(u => u.id === l.actorId);
+    const userName = l.actorName || l.actorUsername || user?.name || user?.username || ("Kullanıcı #" + l.actorId);
+    const category = l.entityType ? l.entityType.toUpperCase() : "GENEL";
+    return `
+      <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+        <td style="padding:7px 10px;font-weight:bold;">#${l.id}</td>
+        <td style="padding:7px 10px;">${dateStr}</td>
+        <td style="padding:7px 10px;font-weight:600;">${userName}</td>
+        <td style="padding:7px 10px;color:#047857;font-weight:bold;">${category}</td>
+        <td style="padding:7px 10px;font-weight:bold;">${l.action || "İŞLEM"}</td>
+        <td style="padding:7px 10px;color:#334155;">${l.details || "—"}</td>
+      </tr>
+    `;
+  }).join("");
   const summary = `
     <div class="summary-bar">
-      <div style="flex:1;">Toplam Denetim Kaydı: <strong>${logsList.length} Log</strong></div>
+      <div style="flex:1;">Toplam Denetim Kaydı: <strong>${list.length} Log</strong></div>
       <div style="flex:1;">Güvenlik Standardı: <strong>Değiştirilemez Zaman Damgalı</strong></div>
     </div>
   `;
   generateMunicipalPdfDoc("Sistem Denetim Logları", "Sistem Güvenlik ve Denetim Logları Raporu", headers, rows, summary);
 }
 
-function exportLogsCsv(logsList: any[]) {
-  if (!logsList || !logsList.length) return;
-  const cols = ["ID", "Zaman", "Kullanıcı", "Rol", "İşlem", "Detay", "IP"];
+function exportLogsCsv(logsList: any[], usersList: any[] = []) {
+  const list = logsList || [];
+  const cols = ["ID", "Zaman Damgası", "Kullanıcı", "Kategori", "İşlem Türü", "Detay"];
   const header = cols.map(c => `"${c}"`).join(";");
-  const data = logsList.map(l => [
-    l.id,
-    new Date(l.createdAt).toLocaleString("tr-TR"),
-    l.userName || "Kullanıcı #" + l.userId,
-    l.userRole || "",
-    l.action,
-    l.details || "",
-    l.ipAddress || ""
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const data = list.map(l => {
+    const dateStr = l.createdAt ? new Date(l.createdAt).toLocaleString("tr-TR") : "";
+    const user = (usersList || []).find(u => u.id === l.actorId);
+    const userName = l.actorName || l.actorUsername || user?.name || user?.username || ("Kullanıcı #" + l.actorId);
+    return [
+      l.id,
+      dateStr,
+      userName,
+      l.entityType || "",
+      l.action || "",
+      l.details || ""
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
+  });
   const csv = "\uFEFF" + [header, ...data].join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const a = document.createElement("a");
@@ -1102,7 +1149,7 @@ function ReportsAndManagement({
   }, [wasteList, auditPeriod, selectedDate, startDate, endDate]);
 
   const periodContainers = useMemo(() => {
-    return containers.filter(c => isDateInPeriod(c.reportedAt));
+    return containers.filter(c => isDateInPeriod((c as any).createdAt || (c as any).reportedAt));
   }, [containers, auditPeriod, selectedDate, startDate, endDate]);
 
   const periodComplaints = useMemo(() => {
@@ -1131,7 +1178,7 @@ function ReportsAndManagement({
   }, [todayShifts]);
   const todayActiveShiftsCount = useMemo(() => todayShifts.filter(s => s.status === "açık").length, [todayShifts]);
   const todayWasteWaiting = useMemo(() => wasteList.filter(w => isCreatedToday(w.createdAt) && w.status === "bekliyor").length, [wasteList, todayDateStr]);
-  const todayContainersWaiting = useMemo(() => containers.filter(c => isCreatedToday(c.reportedAt) && c.status === "bekliyor").length, [containers, todayDateStr]);
+  const todayContainersWaiting = useMemo(() => containers.filter(c => isCreatedToday((c as any).createdAt || (c as any).reportedAt) && c.status === "bekliyor").length, [containers, todayDateStr]);
   const todayComplaintsOpen = useMemo(() => complaints.filter(c => isCreatedToday(c.createdAt) && c.status === "açık").length, [complaints, todayDateStr]);
   const todayTotalWaiting = todayWasteWaiting + todayContainersWaiting + todayComplaintsOpen;
 
@@ -1502,6 +1549,25 @@ function ReportsAndManagement({
     };
   };
 
+  // Aktif sekmeye göre akıllı üst araç çubuğu PDF ve Excel dışa aktarma işleyicileri
+  const handleGlobalExportPdf = () => {
+    if (activeTab === "mesailer") exportShiftsPdf(periodShifts, activePeriodLabel);
+    else if (activeTab === "atiklar") exportWastePdf(periodWaste, activePeriodLabel);
+    else if (activeTab === "konteynerler") exportContainersPdf(periodContainers, activePeriodLabel);
+    else if (activeTab === "sikayetler") exportComplaintsPdf(periodComplaints, activePeriodLabel);
+    else if (activeTab === "loglar") exportLogsPdf(filteredLogs, users);
+    else exportNeighborhoodsPdf(displayedNeighborhoodMatrix, activePeriodLabel, totalAuditTonnage, periodShifts.length);
+  };
+
+  const handleGlobalExportCsv = () => {
+    if (activeTab === "mesailer") exportShiftsCsv(periodShifts);
+    else if (activeTab === "atiklar") exportWasteCsv(periodWaste);
+    else if (activeTab === "konteynerler") exportContainersCsv(periodContainers);
+    else if (activeTab === "sikayetler") exportComplaintsCsv(periodComplaints);
+    else if (activeTab === "loglar") exportLogsCsv(filteredLogs, users);
+    else exportNeighborhoodsCsv(displayedNeighborhoodMatrix, activePeriodLabel);
+  };
+
   return (
     <div className="space-y-5">
       {/* Üst Sekmeler (Modern Yönetici Kontrol Paneli) */}
@@ -1611,172 +1677,174 @@ function ReportsAndManagement({
       </div>
 
       {/* 1. GENEL ÖZET & MAHALLE BAZLI KAPSAMLI DENETİM ANALİZİ */}
+      {/* GLOBAL TARİH & DÖNEM FİLTRESİ (TÜM SEKMELERDE ERİŞİLEBİLİR) */}
+      {activeTab !== "sifirla" && (
+            <Card className="border-0 bg-white shadow-sm p-4 space-y-3">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                {/* Hızlı Dönem Seçiciler */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarih & Denetim Filtresi</p>
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[11px] font-bold">
+                      {activePeriodLabel}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[
+                      { id: "today", label: "Bugün" },
+                      { id: "week", label: "Son 7 Gün" },
+                      { id: "month", label: "Bu Ay" },
+                      { id: "all", label: "Tüm Zamanlar" },
+                      { id: "single_date", label: "Belirli Gün" },
+                      { id: "custom_range", label: "Tarih Aralığı" },
+                    ].map(period => (
+                      <Button
+                        key={period.id}
+                        type="button"
+                        size="sm"
+                        variant={auditPeriod === period.id ? "default" : "outline"}
+                        onClick={() => setAuditPeriod(period.id as any)}
+                        className={cn(
+                          "h-8 text-xs font-semibold rounded-xl transition",
+                          auditPeriod === period.id
+                            ? "bg-emerald-700 text-white hover:bg-emerald-800 shadow-xs"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                        )}
+                      >
+                        {period.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+  
+                {/* Bölge, Arama ve Sıralama Filtreleri */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="w-48">
+                    <select
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value as any)}
+                      className="input-native text-xs h-8 font-semibold text-slate-800"
+                    >
+                      <option value="date_desc">Tarih (Yeniden Eskiye)</option>
+                      <option value="date_asc">Tarih (Eskiden Yeniye)</option>
+                      <option value="tonnage_desc">Tonaj (Çoktan Aza)</option>
+                      <option value="tonnage_asc">Tonaj (Azdan Çoka)</option>
+                      <option value="shifts_desc">Sefer (En Çok Sefer)</option>
+                      <option value="name_asc">Mahalle Adı (A-Z)</option>
+                    </select>
+                  </div>
+  
+                  <div className="w-40">
+                    <select
+                      value={selectedRegion}
+                      onChange={e => setSelectedRegion(e.target.value)}
+                      className="input-native text-xs h-8"
+                    >
+                      <option value="all">Tüm Bölgeler</option>
+                      <option value="Batı Bölgesi">Batı Bölgesi</option>
+                      <option value="Merkez Bölgesi">Merkez Bölgesi</option>
+                      <option value="Kuzey Bölgesi">Kuzey Bölgesi</option>
+                      <option value="Doğu Bölgesi">Doğu Bölgesi</option>
+                      <option value="Güney Bölgesi">Güney Bölgesi</option>
+                      <option value="Kırsal / Dış Bölge">Kırsal / Dış Bölge</option>
+                    </select>
+                  </div>
+  
+                  <div className="w-44">
+                    <Input
+                      placeholder="Mahalle ara..."
+                      value={neighborhoodSearch}
+                      onChange={e => setNeighborhoodSearch(e.target.value)}
+                      className="text-xs h-8 bg-slate-50/70"
+                    />
+                  </div>
+  
+                  {/* Hızlı Dışa Aktarma Butonları (Üst Araç Çubuğu) */}
+                  <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-slate-200">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); handleGlobalExportCsv(); }}
+                      className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs active:scale-98 cursor-pointer"
+                      title="Tüm dönem verilerini Excel tablosu olarak indir"
+                    >
+                      <Download className="h-3.5 w-3.5 text-emerald-700" />
+                      <span>Excel</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); handleGlobalExportPdf(); }}
+                      className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs active:scale-98 cursor-pointer"
+                      title="Resmi belediye formatında PDF raporu yazdır veya kaydet"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      <span>PDF</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+  
+              {/* Özel Tarih Seçici Giriş Alanları */}
+              {auditPeriod === "single_date" && (
+                <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-slate-100 popup-transition">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4 text-emerald-700" />
+                    İncelenecek Tarih:
+                  </span>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="input-native h-8 w-44 text-xs font-semibold text-slate-800"
+                  />
+                  {selectedDate && (
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                      Seçilen: {new Intl.DateTimeFormat("tr-TR", { dateStyle: "full" }).format(new Date(selectedDate.split("-").map(Number)[0], selectedDate.split("-").map(Number)[1] - 1, selectedDate.split("-").map(Number)[2]))}
+                    </span>
+                  )}
+                </div>
+              )}
+  
+              {auditPeriod === "custom_range" && (
+                <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-slate-100 popup-transition">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4 text-emerald-700" />
+                    Aralık:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="input-native h-8 w-40 text-xs font-medium text-slate-800"
+                      placeholder="Başlangıç"
+                    />
+                    <span className="text-xs text-slate-400 font-bold">→</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="input-native h-8 w-40 text-xs font-medium text-slate-800"
+                      placeholder="Bitiş"
+                    />
+                  </div>
+                  {(startDate || endDate) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setStartDate(""); setEndDate(""); }}
+                      className="h-8 text-xs text-slate-500 hover:text-red-600"
+                    >
+                      Temizle
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Card>
+      )}
+
       {activeTab === "genel" && (
         <div className="space-y-6">
-          {/* Günlük Denetim Filtre Çubuğu */}
-          <Card className="border-0 bg-white shadow-sm p-4 space-y-3">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              {/* Hızlı Dönem Seçiciler */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tarih & Denetim Filtresi</p>
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[11px] font-bold">
-                    {activePeriodLabel}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {[
-                    { id: "today", label: "Bugün" },
-                    { id: "week", label: "Son 7 Gün" },
-                    { id: "month", label: "Bu Ay" },
-                    { id: "all", label: "Tüm Zamanlar" },
-                    { id: "single_date", label: "Belirli Gün" },
-                    { id: "custom_range", label: "Tarih Aralığı" },
-                  ].map(period => (
-                    <Button
-                      key={period.id}
-                      type="button"
-                      size="sm"
-                      variant={auditPeriod === period.id ? "default" : "outline"}
-                      onClick={() => setAuditPeriod(period.id as any)}
-                      className={cn(
-                        "h-8 text-xs font-semibold rounded-xl transition",
-                        auditPeriod === period.id
-                          ? "bg-emerald-700 text-white hover:bg-emerald-800 shadow-xs"
-                          : "border-slate-200 text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      {period.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Bölge, Arama ve Sıralama Filtreleri */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="w-48">
-                  <select
-                    value={sortBy}
-                    onChange={e => setSortBy(e.target.value as any)}
-                    className="input-native text-xs h-8 font-semibold text-slate-800"
-                  >
-                    <option value="date_desc">Tarih (Yeniden Eskiye)</option>
-                    <option value="date_asc">Tarih (Eskiden Yeniye)</option>
-                    <option value="tonnage_desc">Tonaj (Çoktan Aza)</option>
-                    <option value="tonnage_asc">Tonaj (Azdan Çoka)</option>
-                    <option value="shifts_desc">Sefer (En Çok Sefer)</option>
-                    <option value="name_asc">Mahalle Adı (A-Z)</option>
-                  </select>
-                </div>
-
-                <div className="w-40">
-                  <select
-                    value={selectedRegion}
-                    onChange={e => setSelectedRegion(e.target.value)}
-                    className="input-native text-xs h-8"
-                  >
-                    <option value="all">Tüm Bölgeler</option>
-                    <option value="Batı Bölgesi">Batı Bölgesi</option>
-                    <option value="Merkez Bölgesi">Merkez Bölgesi</option>
-                    <option value="Kuzey Bölgesi">Kuzey Bölgesi</option>
-                    <option value="Doğu Bölgesi">Doğu Bölgesi</option>
-                    <option value="Güney Bölgesi">Güney Bölgesi</option>
-                    <option value="Kırsal / Dış Bölge">Kırsal / Dış Bölge</option>
-                  </select>
-                </div>
-
-                <div className="w-44">
-                  <Input
-                    placeholder="Mahalle ara..."
-                    value={neighborhoodSearch}
-                    onChange={e => setNeighborhoodSearch(e.target.value)}
-                    className="text-xs h-8 bg-slate-50/70"
-                  />
-                </div>
-
-                {/* Hızlı Dışa Aktarma Butonları (Üst Araç Çubuğu) */}
-                <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-slate-200">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); exportNeighborhoodsCsv(displayedNeighborhoodMatrix, activePeriodLabel); }}
-                    className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs active:scale-98 cursor-pointer"
-                    title="Tüm dönem verilerini Excel tablosu olarak indir"
-                  >
-                    <Download className="h-3.5 w-3.5 text-emerald-700" />
-                    <span>Excel</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); exportNeighborhoodsPdf(displayedNeighborhoodMatrix, activePeriodLabel, totalAuditTonnage, periodShifts.length); }}
-                    className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs active:scale-98 cursor-pointer"
-                    title="Resmi belediye formatında PDF raporu yazdır veya kaydet"
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    <span>PDF</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Özel Tarih Seçici Giriş Alanları */}
-            {auditPeriod === "single_date" && (
-              <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-slate-100 popup-transition">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4 text-emerald-700" />
-                  İncelenecek Tarih:
-                </span>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
-                  className="input-native h-8 w-44 text-xs font-semibold text-slate-800"
-                />
-                {selectedDate && (
-                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
-                    Seçilen: {new Intl.DateTimeFormat("tr-TR", { dateStyle: "full" }).format(new Date(selectedDate.split("-").map(Number)[0], selectedDate.split("-").map(Number)[1] - 1, selectedDate.split("-").map(Number)[2]))}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {auditPeriod === "custom_range" && (
-              <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-slate-100 popup-transition">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4 text-emerald-700" />
-                  Aralık:
-                </span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={e => setStartDate(e.target.value)}
-                    className="input-native h-8 w-40 text-xs font-medium text-slate-800"
-                    placeholder="Başlangıç"
-                  />
-                  <span className="text-xs text-slate-400 font-bold">→</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={e => setEndDate(e.target.value)}
-                    className="input-native h-8 w-40 text-xs font-medium text-slate-800"
-                    placeholder="Bitiş"
-                  />
-                </div>
-                {(startDate || endDate) && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => { setStartDate(""); setEndDate(""); }}
-                    className="h-8 text-xs text-slate-500 hover:text-red-600"
-                  >
-                    Temizle
-                  </Button>
-                )}
-              </div>
-            )}
-          </Card>
-
-                    {/* Kurumsal Operasyon Nabzı (Executive Mission Banner) */}
           {/* Kurumsal Saha Yoğunluğu (Yalnızca Bugünün Canlı Verileri) */}
           <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-4 text-white shadow-xs">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -3109,7 +3177,7 @@ function ReportsAndManagement({
                 </Button>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); exportLogsCsv(filteredLogs); }}
+                  onClick={(e) => { e.preventDefault(); exportLogsCsv(filteredLogs, users); }}
                   className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-98"
                   title="Sistem loglarını Excel olarak indir"
                 >
@@ -3118,7 +3186,7 @@ function ReportsAndManagement({
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); exportLogsPdf(filteredLogs); }}
+                  onClick={(e) => { e.preventDefault(); exportLogsPdf(filteredLogs, users); }}
                   className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs cursor-pointer active:scale-98"
                   title="Resmi belediye formatında Sistem Logları PDF raporu al"
                 >
