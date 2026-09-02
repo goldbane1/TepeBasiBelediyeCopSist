@@ -1426,6 +1426,43 @@ function ReportsAndManagement({
                 {neighborhoodMatrix.length} Mahalle
               </Badge>
             </CardHeader>
+            {/* Akıllı Hızlı Görünüm Filtreleri (Linear / Stripe Preset Bar) */}
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1 shrink-0">
+                  <Filter className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Hızlı Görünüm:</span>
+                </span>
+                {[
+                  { id: "all", label: "Tüm Mahalleler", count: neighborhoodMatrix.length, badgeClass: "bg-slate-100 text-slate-700" },
+                  { id: "needs_attention", label: "Müdahale Bekleyenler", count: needsAttentionCount, badgeClass: "bg-red-100 text-red-700 font-bold" },
+                  { id: "no_shifts", label: "Sefer Yapılmayanlar", count: noShiftsCount, badgeClass: "bg-amber-100 text-amber-800 font-bold" },
+                  { id: "top_tonnage", label: "En Yüksek Tonaj (İlk 10)", count: Math.min(10, neighborhoodMatrix.length), badgeClass: "bg-emerald-100 text-emerald-800 font-bold" },
+                  { id: "clean", label: "Temiz Mahalleler", count: cleanCount, badgeClass: "bg-emerald-50 text-emerald-700" },
+                ].map(preset => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setQuickPreset(preset.id as any)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 border",
+                      quickPreset === preset.id
+                        ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    <span>{preset.label}</span>
+                    <span className={cn("rounded-full px-1.5 py-0.2 text-[10px]", quickPreset === preset.id ? "bg-white/20 text-white font-black" : preset.badgeClass)}>
+                      {preset.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-xs text-slate-500 font-medium shrink-0">
+                Gösterilen: <strong className="text-slate-800">{displayedNeighborhoodMatrix.length}</strong> / {neighborhoodMatrix.length} Mahalle
+              </div>
+            </div>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm min-w-[1000px]">
@@ -1636,10 +1673,284 @@ function ReportsAndManagement({
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* 2. MESAİ YÖNETİMİ & TONAJ FİŞİ İNCELEME */}
+      {/* 4. MAHALLENİN DERİN DETAY ÇEKMECESİ (SLIDE-OVER SHEET) */}
+      <Sheet open={Boolean(selectedNeighborhoodDetail)} onOpenChange={open => !open && setSelectedNeighborhoodDetail(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl p-0 flex flex-col h-full bg-slate-50 border-l border-slate-200">
+          {selectedNeighborhoodDetail && (
+            <div className="flex flex-col h-full overflow-hidden">
+              {/* Çekmece Başlığı (Executive Dark Hero) */}
+              <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-900 p-5 text-white shrink-0 relative">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-white/10 text-emerald-300 border-white/10 text-[10px] font-bold">
+                    {selectedNeighborhoodDetail.region}
+                  </Badge>
+                  {selectedNeighborhoodDetail.auditStatus === "active_shift" ? (
+                    <Badge className="bg-sky-500/20 text-sky-200 border-sky-400/30 text-[10px] font-bold">
+                      ● Aktif Mesai Sürüyor
+                    </Badge>
+                  ) : selectedNeighborhoodDetail.auditStatus === "needs_action" ? (
+                    <Badge className="bg-red-500/20 text-red-200 border-red-400/30 text-[10px] font-bold">
+                      ⚠️ Müdahale Bekliyor
+                    </Badge>
+                  ) : selectedNeighborhoodDetail.auditStatus === "clean" ? (
+                    <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/30 text-[10px] font-bold">
+                      ✓ Saha Temiz
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-slate-500/20 text-slate-300 border-slate-400/30 text-[10px] font-bold">
+                      Sefer Yok
+                    </Badge>
+                  )}
+                </div>
+
+                <h2 className="text-2xl font-black font-display tracking-tight text-white mt-1.5">
+                  {selectedNeighborhoodDetail.name} Mahalle Raporu
+                </h2>
+                <p className="text-xs text-emerald-200/80 mt-0.5">
+                  Seçilen dönemdeki kantar fişleri, araç vardiyaları, moloz atıkları ve konteyner onarım dökümü.
+                </p>
+
+                {/* 4 Özet Mikro Metrik Kartı */}
+                <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-white/10 text-center">
+                  <div className="bg-white/5 rounded-xl p-2 border border-white/10">
+                    <p className="text-[10px] uppercase font-bold text-emerald-300">Toplam Atık</p>
+                    <p className="text-base font-extrabold text-white mt-0.5 font-display">
+                      {selectedNeighborhoodDetail.totalTonnage.toFixed(2)} <span className="text-[10px]">T</span>
+                    </p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2 border border-white/10">
+                    <p className="text-[10px] uppercase font-bold text-emerald-300">Sefer</p>
+                    <p className="text-base font-extrabold text-white mt-0.5 font-display">
+                      {selectedNeighborhoodDetail.totalShifts}
+                    </p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2 border border-white/10">
+                    <p className="text-[10px] uppercase font-bold text-emerald-300">Ortalama</p>
+                    <p className="text-base font-extrabold text-white mt-0.5 font-display">
+                      {selectedNeighborhoodDetail.avgTonnage} <span className="text-[10px]">T</span>
+                    </p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2 border border-white/10">
+                    <p className="text-[10px] uppercase font-bold text-emerald-300">İlçe Payı</p>
+                    <p className="text-base font-extrabold text-white mt-0.5 font-display">
+                      %{selectedNeighborhoodDetail.tonnageShare}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Çekmece Alt Sekmeleri */}
+              <div className="flex items-center gap-1 p-2 bg-white border-b border-slate-200 shrink-0 overflow-x-auto">
+                {[
+                  { id: "shifts", label: "Sefer & Kantar", count: (selectedNeighborhoodDetail.shifts || []).length, icon: Truck },
+                  { id: "waste", label: "Damperlik Atık", count: (selectedNeighborhoodDetail.waste || []).length, icon: Recycle },
+                  { id: "containers", label: "Konteyner", count: (selectedNeighborhoodDetail.containers || []).length, icon: Wrench },
+                  { id: "complaints", label: "Şikayetler", count: (selectedNeighborhoodDetail.complaints || []).length, icon: AlertTriangle },
+                ].map(t => {
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setDrawerTab(t.id as any)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 border",
+                        drawerTab === t.id
+                          ? "bg-emerald-700 text-white border-emerald-800 shadow-xs"
+                          : "bg-slate-50 text-slate-700 border-slate-200/60 hover:bg-slate-100"
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span>{t.label}</span>
+                      <span className={cn("rounded-full px-1.5 py-0.2 text-[10px]", drawerTab === t.id ? "bg-white/20 text-white" : "bg-white text-slate-700 border")}>
+                        {t.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Çekmece İçerik Alanı (Kaydırılabilir) */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {/* 1. SEFERLER & KANTAR FİŞLERİ */}
+                {drawerTab === "shifts" && (
+                  <div className="space-y-3">
+                    {(selectedNeighborhoodDetail.shifts || []).length === 0 ? (
+                      <div className="text-center py-12 text-xs text-slate-400">
+                        Bu mahalleye ait kayıtlı çöp seferi bulunmuyor.
+                      </div>
+                    ) : (
+                      (selectedNeighborhoodDetail.shifts || []).map((s: any) => (
+                        <div key={s.id} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-sm text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                {s.vehiclePlate || "Plakasız"}
+                              </span>
+                              <span className="text-xs font-semibold text-slate-700">{s.driverName || "Şoför"}</span>
+                            </div>
+                            <Badge className={cn("text-[10px] font-bold", s.status === "tamamlandı" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-sky-50 text-sky-700 border-sky-200")}>
+                              {s.status === "tamamlandı" ? "✓ Tamamlandı" : "● Aktif Sahada"}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 bg-slate-50 p-2 rounded-xl">
+                            <div>
+                              <span className="text-[10px] text-slate-400 block font-medium">Başlama / Bitiş</span>
+                              <span className="font-bold text-slate-800">
+                                {new Date(s.startedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                                {s.endedAt ? " - " + new Date(s.endedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : " (Sürüyor)"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 block font-medium">Kantar Net Ağırlık</span>
+                              <span className="font-extrabold text-emerald-800 text-sm font-display">
+                                {s.tonnage ? Number(s.tonnage).toFixed(2) + " Ton" : "Tartım Yok"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Kantar Fişi Görseli */}
+                          {s.scalePhotoUrl ? (
+                            <div className="pt-1">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+                                <Camera className="h-3 w-3 text-emerald-600" />
+                                <span>Kantar Fişi Fotoğrafı</span>
+                              </p>
+                              <div
+                                onClick={() => setPreviewImage({ url: s.scalePhotoUrl, title: "Kantar Fişi - " + (s.vehiclePlate || "Tartım") })}
+                                className="relative rounded-xl overflow-hidden border border-slate-200 h-28 w-full bg-slate-100 cursor-pointer group shadow-2xs"
+                              >
+                                <img
+                                  src={s.scalePhotoUrl}
+                                  alt="Kantar Fişi"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1">
+                                  <Eye className="h-4 w-4" /> Büyüt
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 italic">Kantar fişi fotoğrafı yüklenmemiş.</p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 2. DAMPERLİK ATIKLAR */}
+                {drawerTab === "waste" && (
+                  <div className="space-y-3">
+                    {(selectedNeighborhoodDetail.waste || []).length === 0 ? (
+                      <div className="text-center py-12 text-xs text-slate-400">
+                        Bu mahallede kayıtlı damperlik atık bulunmuyor.
+                      </div>
+                    ) : (
+                      (selectedNeighborhoodDetail.waste || []).map((w: any) => (
+                        <div key={w.id} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-slate-900">{w.description || "Damperlik Atık"}</span>
+                            <Badge className={cn("text-[10px] font-bold", w.status === "toplandı" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200")}>
+                              {w.status === "toplandı" ? "✓ Toplandı" : "Müdahale Bekliyor"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600">{w.addressText || "Adres detayı yok"}</p>
+                          {w.photoUrl && (
+                            <div
+                              onClick={() => setPreviewImage({ url: w.photoUrl, title: "Damperlik Atık Görseli" })}
+                              className="relative rounded-xl overflow-hidden border border-slate-200 h-24 w-full bg-slate-100 cursor-pointer group shadow-2xs"
+                            >
+                              <img src={w.photoUrl} alt="Atık Görseli" className="w-full h-full object-cover group-hover:scale-105 transition" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1">
+                                <Eye className="h-4 w-4" /> Fotoğrafı Gör
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 3. KONTEYNER ARIZALARI */}
+                {drawerTab === "containers" && (
+                  <div className="space-y-3">
+                    {(selectedNeighborhoodDetail.containers || []).length === 0 ? (
+                      <div className="text-center py-12 text-xs text-slate-400">
+                        Bu mahallede arızalı konteyner kaydı bulunmuyor.
+                      </div>
+                    ) : (
+                      (selectedNeighborhoodDetail.containers || []).map((c: any) => (
+                        <div key={c.id} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-slate-900">{c.faultType || "Konteyner Arızası"}</span>
+                            <Badge className={cn("text-[10px] font-bold", c.status === "onarıldı" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200")}>
+                              {c.status === "onarıldı" ? "✓ Onarıldı" : "Kaynak Bekliyor"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600">{c.addressText || "Adres detayı yok"}</p>
+                          {c.photoUrl && (
+                            <div
+                              onClick={() => setPreviewImage({ url: c.photoUrl, title: "Arızalı Konteyner Görseli" })}
+                              className="relative rounded-xl overflow-hidden border border-slate-200 h-24 w-full bg-slate-100 cursor-pointer group shadow-2xs"
+                            >
+                              <img src={c.photoUrl} alt="Arıza Görseli" className="w-full h-full object-cover group-hover:scale-105 transition" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1">
+                                <Eye className="h-4 w-4" /> Fotoğrafı Gör
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 4. ŞİKAYETLER */}
+                {drawerTab === "complaints" && (
+                  <div className="space-y-3">
+                    {(selectedNeighborhoodDetail.complaints || []).length === 0 ? (
+                      <div className="text-center py-12 text-xs text-slate-400">
+                        Bu mahallede kayıtlı vatandaş şikayeti bulunmuyor.
+                      </div>
+                    ) : (
+                      (selectedNeighborhoodDetail.complaints || []).map((cp: any) => (
+                        <div key={cp.id} className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-slate-900">{cp.citizenName || "Vatandaş Başvurusu"}</span>
+                            <Badge className={cn("text-[10px] font-bold", cp.status === "çözüldü" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200")}>
+                              {cp.status === "çözüldü" ? "✓ Çözüldü" : "Açık Şikayet"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-700 font-medium">{cp.description}</p>
+                          <p className="text-[11px] text-slate-500">{cp.addressText}</p>
+                          {cp.proofPhotoUrl && (
+                            <div
+                              onClick={() => setPreviewImage({ url: cp.proofPhotoUrl, title: "Vatandaş Şikayeti Çözüm Fotoğrafı" })}
+                              className="relative rounded-xl overflow-hidden border border-slate-200 h-24 w-full bg-slate-100 cursor-pointer group shadow-2xs"
+                            >
+                              <img src={cp.proofPhotoUrl} alt="Çözüm Kanıtı" className="w-full h-full object-cover group-hover:scale-105 transition" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1">
+                                <Eye className="h-4 w-4" /> Çözüm Fotoğrafı
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  )}
+
       {activeTab === "mesailer" && (
         <Card className="border-0 bg-white shadow-sm overflow-hidden">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
