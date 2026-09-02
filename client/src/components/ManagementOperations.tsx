@@ -1,6 +1,7 @@
 import { AccessNotice, Field, type AppView } from "@/components/OperationsWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -415,6 +416,10 @@ function ReportsAndManagement({
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [neighborhoodSearch, setNeighborhoodSearch] = useState<string>("");
   const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "tonnage_desc" | "tonnage_asc" | "shifts_desc" | "name_asc">("date_desc");
+  const [selectedScalePhoto, setSelectedScalePhoto] = useState<string | null>(null);
+  const [selectedNeighborhoodDetail, setSelectedNeighborhoodDetail] = useState<any>(null);
+  const [drawerTab, setDrawerTab] = useState<"shifts" | "waste" | "containers" | "complaints">("shifts");
+  const [quickPreset, setQuickPreset] = useState<"all" | "needs_attention" | "no_shifts" | "top_tonnage" | "clean">("all");
 
   // Denetim Logları Filtreleme State'leri
   const [logPeriod, setLogPeriod] = useState<"today" | "week" | "month" | "all" | "single_date" | "custom_range">("today");
@@ -802,6 +807,24 @@ function ReportsAndManagement({
     if (neighborhoodMatrix.length === 0 || neighborhoodMatrix[0].totalTonnage === 0) return null;
     return neighborhoodMatrix[0];
   }, [neighborhoodMatrix]);
+
+  const needsAttentionCount = useMemo(() => neighborhoodMatrix.filter(m => m.wasteWaiting > 0 || m.containerWaiting > 0 || m.complaintOpen > 0).length, [neighborhoodMatrix]);
+  const noShiftsCount = useMemo(() => neighborhoodMatrix.filter(m => m.totalShifts === 0).length, [neighborhoodMatrix]);
+  const cleanCount = useMemo(() => neighborhoodMatrix.filter(m => m.auditStatus === "clean").length, [neighborhoodMatrix]);
+
+  const displayedNeighborhoodMatrix = useMemo(() => {
+    let list = [...neighborhoodMatrix];
+    if (quickPreset === "needs_attention") {
+      list = list.filter(m => m.wasteWaiting > 0 || m.containerWaiting > 0 || m.complaintOpen > 0);
+    } else if (quickPreset === "no_shifts") {
+      list = list.filter(m => m.totalShifts === 0);
+    } else if (quickPreset === "top_tonnage") {
+      list = [...list].sort((a, b) => b.totalTonnage - a.totalTonnage).slice(0, 10);
+    } else if (quickPreset === "clean") {
+      list = list.filter(m => m.auditStatus === "clean");
+    }
+    return list;
+  }, [neighborhoodMatrix, quickPreset]);
 
   // --- DENETİM LOGLARI HESAPLAMALARI VE FİLTRELEME ---
   const isLogDateInPeriod = (dateVal: string | Date | null | undefined) => {
@@ -1469,18 +1492,21 @@ function ReportsAndManagement({
                     </tr>
                   </thead>
                   <tbody>
-                    {neighborhoodMatrix.length === 0 ? (
+                    {displayedNeighborhoodMatrix.length === 0 ? (
                       <tr>
                         <td colSpan={10} className="p-8 text-center text-xs text-slate-500">
                           Seçilen kriterlere uygun mahalle denetim kaydı bulunamadı.
                         </td>
                       </tr>
                     ) : (
-                      neighborhoodMatrix.map(item => (
-                        <tr key={item.name} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
+                      displayedNeighborhoodMatrix.map(item => (
+                        <tr key={item.name} onClick={() => { setSelectedNeighborhoodDetail(item); setDrawerTab("shifts"); }} className="border-t border-slate-100 hover:bg-emerald-50/60 transition cursor-pointer group" title="Bu mahallenin tüm kantar fişlerini, seferlerini ve arızalarını incelemek için tıklayın">
                           {/* Mahalle & Bölge */}
                           <td className="px-5 py-3.5">
-                            <p className="font-bold text-slate-900 text-sm">{item.name}</p>
+                            <p className="font-bold text-slate-900 text-sm group-hover:text-emerald-800 transition flex items-center gap-1.5">
+                                <span>{item.name}</span>
+                                <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-emerald-600 transition group-hover:translate-x-0.5" />
+                              </p>
                             <p className="text-[11px] text-slate-500 font-medium">{item.region}</p>
                           </td>
 
