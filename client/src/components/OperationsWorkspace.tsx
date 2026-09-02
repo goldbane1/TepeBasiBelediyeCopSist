@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
 import FleetOperations from "@/components/FleetOperations";
@@ -242,6 +243,35 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
     },
   });
 
+  const [resolvingComplaint, setResolvingComplaint] = useState<any | null>(null);
+  const [resolutionPhoto, setResolutionPhoto] = useState<string | null>(null);
+
+  const resolveComplaintMutation = trpc.operations.complaints.resolve.useMutation({
+    onSuccess: () => {
+      triggerHaptic("success");
+      toast.success("Şikayet çözüm fotoğrafı başarıyla yüklendi ve onaya gönderildi.");
+      setResolvingComplaint(null);
+      setResolutionPhoto(null);
+      refresh();
+    },
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
+  });
+
+  const approveComplaintMutation = trpc.operations.complaints.approve.useMutation({
+    onSuccess: () => {
+      triggerHaptic("success");
+      toast.success("Vatandaş şikayeti onaylandı ve kapatıldı.");
+      refresh();
+    },
+    onError: e => {
+      triggerHaptic("warning");
+      toast.error(e.message);
+    },
+  });
+
   const resolveAcknowledgeComplaint = trpc.operations.complaints.acknowledge.useMutation({
     onSuccess: () => {
       triggerHaptic("success");
@@ -333,7 +363,18 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
         resolveRepairContainer.mutate({ id: op.id, note: "Harita üzerinden doğrudan onarım tamamlandı." });
       }
     } else if (op.category === "Vatandaş şikayeti") {
-      resolveAcknowledgeComplaint.mutate({ id: op.id });
+      if (role === "yönetim") {
+        approveComplaintMutation.mutate({ id: op.id });
+      } else {
+        const fullComplaint = (complaints.data ?? []).find(c => c.id === op.id) || op.extra || {
+          id: op.id,
+          neighborhood: (op as any).neighborhood || op.title?.split("·")?.[0]?.trim() || "Mahalle Belirtilmedi",
+          region: (op as any).region || "",
+          description: op.description || op.title || "Vatandaş temizlik talebi",
+        };
+        setResolvingComplaint(fullComplaint);
+        setResolutionPhoto(null);
+      }
     }
   };
 
@@ -366,16 +407,112 @@ const TEPEBASI_NEIGHBORHOOD_COORDS: Record<string, { lat: number; lng: number }>
 
   if (view === "harita") {
     return (
-      <MapPanel
-        role={role}
-        activeVehicleType={(currentShift.data as any)?.vehicleType}
-        operations={mapOperations}
-        vehicles={vehicles.data ?? []}
-        refresh={refresh}
-        filterCategory="tümü"
-        selectedOperationId={focusOpId}
-        onResolveOperation={handleResolveFromMap}
-      />
+      <>
+        <MapPanel
+          role={role}
+          activeVehicleType={(currentShift.data as any)?.vehicleType}
+          operations={mapOperations}
+          vehicles={vehicles.data ?? []}
+          refresh={refresh}
+          filterCategory="tümü"
+          selectedOperationId={focusOpId}
+          onResolveOperation={handleResolveFromMap}
+        />
+
+        {/* Harita Üzerinden Doğrudan Şikayet Çözüm Fotoğrafı Yükleme Modalı */}
+        {resolvingComplaint && typeof document !== "undefined" && createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in duration-150">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Camera className="h-5 w-5 text-emerald-700" />
+                  Şikayet Çözüm Fotoğrafı Ekle #{resolvingComplaint.id}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setResolvingComplaint(null); setResolutionPhoto(null); }}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-1 text-xs">
+                <p className="font-bold text-slate-800">
+                  📍 {resolvingComplaint.neighborhood} {resolvingComplaint.region ? `(${resolvingComplaint.region})` : ""}
+                </p>
+                <p className="text-slate-600">{resolvingComplaint.description}</p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-4 text-center space-y-2">
+                  <p className="text-xs font-bold text-emerald-950">
+                    📸 Temizlik ve Çözüm Sonrası Fotoğraf (Zorunlu)
+                  </p>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Şikayetin giderildiğini doğrulamak için sahada yapılan müdahalenin fotoğrafını çekin veya yükleyin.
+                  </p>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    required
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (!file.type.startsWith("image/")) {
+                        toast.error("Lütfen geçerli bir resim seçin.");
+                        return;
+                      }
+                      const compressed = await compressImageFile(file, 1280, 0.75);
+                      setResolutionPhoto(compressed);
+                    }}
+                    className="bg-white text-xs"
+                  />
+                </div>
+
+                {resolutionPhoto && (
+                  <div className="relative rounded-xl overflow-hidden border border-emerald-300 max-h-48 bg-slate-900 flex items-center justify-center">
+                    <img src={resolutionPhoto} alt="Önizleme" className="max-h-48 w-full object-contain" />
+                    <Badge className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px]">
+                      Fotoğraf Hazır
+                    </Badge>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setResolvingComplaint(null); setResolutionPhoto(null); }}
+                  >
+                    İptal
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!resolutionPhoto || resolveComplaintMutation.isPending}
+                    onClick={() => {
+                      if (!resolutionPhoto) {
+                        toast.error("Lütfen çözüm fotoğrafı seçin.");
+                        return;
+                      }
+                      resolveComplaintMutation.mutate({
+                        id: resolvingComplaint.id,
+                        photo: resolutionPhoto
+                      });
+                    }}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                    {resolveComplaintMutation.isPending ? "Kaydediliyor..." : "Çözümü Onaya Gönder"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      </>
     );
   }
 
