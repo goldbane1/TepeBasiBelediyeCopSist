@@ -1549,25 +1549,6 @@ function ReportsAndManagement({
     };
   };
 
-  // Aktif sekmeye göre akıllı üst araç çubuğu PDF ve Excel dışa aktarma işleyicileri
-  const handleGlobalExportPdf = () => {
-    if (activeTab === "mesailer") exportShiftsPdf(periodShifts, activePeriodLabel);
-    else if (activeTab === "atiklar") exportWastePdf(periodWaste, activePeriodLabel);
-    else if (activeTab === "konteynerler") exportContainersPdf(periodContainers, activePeriodLabel);
-    else if (activeTab === "sikayetler") exportComplaintsPdf(periodComplaints, activePeriodLabel);
-    else if (activeTab === "loglar") exportLogsPdf(filteredLogs, users);
-    else exportNeighborhoodsPdf(displayedNeighborhoodMatrix, activePeriodLabel, totalAuditTonnage, periodShifts.length);
-  };
-
-  const handleGlobalExportCsv = () => {
-    if (activeTab === "mesailer") exportShiftsCsv(periodShifts);
-    else if (activeTab === "atiklar") exportWasteCsv(periodWaste);
-    else if (activeTab === "konteynerler") exportContainersCsv(periodContainers);
-    else if (activeTab === "sikayetler") exportComplaintsCsv(periodComplaints);
-    else if (activeTab === "loglar") exportLogsCsv(filteredLogs, users);
-    else exportNeighborhoodsCsv(displayedNeighborhoodMatrix, activePeriodLabel);
-  };
-
   return (
     <div className="space-y-5">
       {/* Üst Sekmeler (Modern Yönetici Kontrol Paneli) */}
@@ -1759,27 +1740,6 @@ function ReportsAndManagement({
                     />
                   </div>
   
-                  {/* Hızlı Dışa Aktarma Butonları (Üst Araç Çubuğu) */}
-                  <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-slate-200">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); handleGlobalExportCsv(); }}
-                      className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs active:scale-98 cursor-pointer"
-                      title="Tüm dönem verilerini Excel tablosu olarak indir"
-                    >
-                      <Download className="h-3.5 w-3.5 text-emerald-700" />
-                      <span>Excel</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); handleGlobalExportPdf(); }}
-                      className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs active:scale-98 cursor-pointer"
-                      title="Resmi belediye formatında PDF raporu yazdır veya kaydet"
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                      <span>PDF</span>
-                    </button>
-                  </div>
                 </div>
               </div>
   
@@ -2086,8 +2046,28 @@ function ReportsAndManagement({
                 ))}
               </div>
 
-              <div className="text-xs text-slate-500 font-medium shrink-0">
-                Gösterilen: <strong className="text-slate-800">{displayedNeighborhoodMatrix.length}</strong> / {neighborhoodMatrix.length} Mahalle
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-slate-500 font-medium hidden sm:inline mr-1">
+                  Gösterilen: <strong className="text-slate-800">{displayedNeighborhoodMatrix.length}</strong> / {neighborhoodMatrix.length} Mahalle
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); exportNeighborhoodsCsv(displayedNeighborhoodMatrix, activePeriodLabel); }}
+                  className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-98"
+                  title="Mahalle denetim verilerini Excel olarak indir"
+                >
+                  <Download className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); exportNeighborhoodsPdf(displayedNeighborhoodMatrix, activePeriodLabel, totalAuditTonnage, periodShifts.length); }}
+                  className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs cursor-pointer active:scale-98"
+                  title="Resmi belediye formatında Mahalle Denetim PDF raporu al"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>PDF Rapor Al</span>
+                </button>
               </div>
             </div>
             <CardContent className="p-0">
