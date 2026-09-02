@@ -818,7 +818,34 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - Sol kenar çubuğundaki kullanıcı profil kartında tıklama ile profil modalı açılma davranışı korundu; sığmama sorunu yaratan mükerrer şifre değiştir butonu kaldırılarak arayüz sadeleştirildi.
   - Profil düzenleme modalındaki sekmeler genişletilerek `Kullanıcı Bilgileri` ve `Şifre Değiştir` başlıklarının taşması engellendi.
 
+### [v2.12.0] - 2026-09-03
+- **Yönetim Paneli Kurumsal Enterprise SaaS Yenilemesi:**
+  - Sekme gezinme yapısı tek satırlı, yatayda kaydırılabilir, tam simetrik Segmented Control mimarisine dönüştürüldü.
+  - Riskli fabrika ayarlarına döndürme ("Sıfırlama") eylemi ana sekmelerden izole edilerek en sağda kırmızı onay butonu olarak konumlandırıldı.
+  - Arayüzdeki tüm amatör ve gayriciddi semboller/emojiler kaldırıldı; yerlerine kurumsal, tek renkli Lucide SVG ikonları entegre edildi.
+  - Tüm sekmelere, 4 ana KPI kartına, vardiya analizine ve tablo sütun başlıklarına Radix UI tabanlı `AdminInfoTooltip` `(i)` açıklama rozetleri eklendi.
+- **Global Tarih & Dönem Filtre Çubuğu:**
+  - Tarih filtresi yalnızca Genel Bakış'a bağlı olmaktan çıkarılarak tüm sekmelerin üzerinde çalışan **Global Üst Araç Çubuğu** haline getirildi.
+  - Kullanıcı `Mesai & Tonaj`, `Damperlik Atık`, `Konteynerler`, `Şikayetler` veya `Sistem Logları` sekmelerindeyken Genel Bakış'a dönmek zorunda kalmadan tek tıkla dönem ("Bugün", "Son 7 Gün", "Bu Ay", "Belirli Gün") değiştirebilir; tüm alt ekranlar anlık senkronize olur.
+- **Canlı "Saha Yoğunluğu" Göstergesi:**
+  - Seçili dönem filtresinden bağımsız olarak her zaman **Bugün** sahaya çıkan araç sayısını (`todayActiveShiftsCount`), kantarda tartılan bugünkü toplam net atık tonajını (`todayAuditTonnage`) ve bugün intikal etmiş açık saha işlerini (`todayTotalWaiting`) gösteren canlı zümrüt durum şeridi devreye alındı.
+- **Akıllı Hızlı Görünüm Filtreleri & Mahalle Detay Çekmecesi (Slide-Over Sheet):**
+  - Mahalle tablosunun üstüne 1-tıkla filtreleme sağlayan Linear/Stripe tarzı hızlı görünüm hapları eklendi (`Tüm Mahalleler`, `Müdahale Bekleyenler`, `Sefer Yapılmayanlar`, `En Yüksek Tonaj İlk 10`, `Temiz Mahalleler`).
+  - Filtreleme sonrası tablonun çökerek ekranı sayfa tepesine fırlatmasını önlemek için `min-h-[500px]` taban yüksekliği ve kurumsal boş durum (Empty State) tasarımı uygulandı.
+  - Mahalle satırlarına tıklandığında sağdan kayarak açılan `Sheet` detay çekmecesi eklendi. Çekmece içerisinde ilgili mahallenin kantar fişi fotoğrafları, araç plakaları, şoförleri, damperlik molozları, arızalı konteynerleri ve vatandaş şikayetleri 4 iç sekmede lightbox modal desteğiyle sunulur.
+- **Resmi Belediye A4 PDF ve UTF-8 BOM Excel (CSV) Raporlama Motoru:**
+  - 6 ana sekmenin her biri için (`Genel Bakış`, `Mesai & Tonaj`, `Damperlik Atık`, `Konteynerler`, `Şikayetler`, `Sistem Logları`) seçilen döneme özgü resmi A4 yatay PDF ve Türkçe karakter uyumlu Excel dışa aktarma sistemi geliştirildi.
+  - Konteyner tablosundaki tarih sütunu uyuşmazlığı (`c.createdAt || c.reportedAt`) giderilerek 0 arıza durumunda bile resmi tutanak basılması sağlandı.
+  - Damperlik atık, konteyner arızası ve vatandaş şikayetleri raporlarına cadde, sokak ve bina detayını içeren **"Açık Adres / Konum Detayı"** sütunu entegre edildi.
+  - Tüm resmi PDF çıktılarının altına Tepebaşı Belediyesi operasyonel hiyerarşisine tam uyumlu **3 yetkili imza alanı** yerleştirildi:
+    1. **Saha Sorumlusu** (İmza)
+    2. **Vardiya Amiri** (İmza / Kaşe)
+    3. **Temizlik İşleri Müdürü** (İmza / Mühür)
+- **Güvenlik ve İzolasyon:**
+  - Yapılan tüm geliştirmeler %100 oranında `client/src/components/ManagementOperations.tsx` içerisinde tutuldu. Şoför mesai akışı, mobil kamera optimizasyonu, veritabanı şeması ve backend tRPC yönlendiricileri kesinlikle değiştirilmedi.
+
 ---
-*Doküman Sürümü: v2.11.0 (Harita Zoom Sınırları, Açık Harita Varsayılanı, URL Temizleme & Profil İyileştirmeleri)*  
-*Son Güncelleme: 2026-09-02*
+*Doküman Sürümü: v2.12.0 (Yönetim Paneli Kurumsal SaaS Yenilemesi, Global Tarih Filtresi, Mahalle Çekmecesi, Açık Adresli PDF & 3 Yetkili Resmi İmza Standardı)*  
+*Son Güncelleme: 2026-09-03*
+
 
