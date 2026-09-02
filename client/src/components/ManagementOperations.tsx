@@ -462,7 +462,7 @@ function exportNeighborhoodsPdf(rows: any[], periodLabel: string, totalTonnage: 
         @page { size: A4 landscape; margin: 10mm 10mm; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #065f46; padding-bottom: 12px; margin-bottom: 14px; }
-        .title-group h1 { margin: 0; font-size: 17px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
+        .title-group h1 { margin: 0; font-size: 19px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
         .title-group h2 { margin: 4px 0 0; font-size: 13px; color: #334155; font-weight: 600; }
         .meta { text-align: right; font-size: 11px; color: #64748b; line-height: 1.4; }
         .summary-bar { display: flex; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; }
@@ -570,7 +570,7 @@ function generateMunicipalPdfDoc(title: string, subtitle: string, headers: strin
         @page { size: A4 landscape; margin: 10mm 10mm; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #065f46; padding-bottom: 12px; margin-bottom: 14px; }
-        .title-group h1 { margin: 0; font-size: 17px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
+        .title-group h1 { margin: 0; font-size: 19px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
         .title-group h2 { margin: 4px 0 0; font-size: 13px; color: #334155; font-weight: 600; }
         .meta { text-align: right; font-size: 11px; color: #64748b; line-height: 1.4; }
         .summary-bar { display: flex; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; }

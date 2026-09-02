@@ -261,7 +261,7 @@ Tüm operasyonel bildirim formlarında iki yönlü OpenStreetMap (Nominatim) ent
   - Tablonun sıfır sonuçta çöküp ekranı yukarı fırlatmasını önleyen `min-h-[500px]` taban yüksekliği ve kurumsal boş durum (Empty State) tasarımı sağlanmıştır.
   - Satırlara tıklandığında sağdan kayarak açılan `Sheet` detay çekmecesi eklenmiştir. Mahallenin kantar fişi fotoğrafları, araç plakaları, şoförleri, molozları, arızalı konteynerleri ve şikayetleri 4 iç sekmede lightbox modal desteğiyle incelenebilir.
 - **Açık Adresli Resmi Belediye A4 PDF ve UTF-8 BOM Excel (CSV) Raporlama Motoru:**
-  - 6 ana sekmenin her biri için seçilen döneme özgü resmi A4 yatay PDF ve Türkçe karakter uyumlu Excel dışa aktarma sistemi geliştirilmiştir.
+  - 6 ana sekmenin her biri için sol üstte büyük zümrüt yeşili 'TEMİZLİK İŞLERİ MÜDÜRLÜĞÜ' antetli başlığıyla seçilen döneme özgü resmi A4 yatay PDF ve Türkçe karakter uyumlu Excel dışa aktarma sistemi geliştirilmiştir.
   - Damperlik atık, konteyner arızası ve vatandaş şikayetleri raporlarına cadde, sokak ve bina detayını içeren **"Açık Adres / Konum Detayı"** sütunu entegre edilmiştir.
   - Tüm resmi PDF çıktılarının altına Tepebaşı Belediyesi operasyonel hiyerarşisine tam uyumlu **3 resmi imza alanı** yerleştirilmiştir:
     1. **Saha Sorumlusu** (İmza)
