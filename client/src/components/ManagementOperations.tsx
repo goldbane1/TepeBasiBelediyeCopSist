@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Printer,
   ClipboardCheck,
   Clock,
   ExternalLink,
@@ -263,7 +264,7 @@ function NeighborhoodManagement({ neighborhoods, refresh }: { neighborhoods: any
             />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 min-h-[420px] flex flex-col justify-between">
           {filtered.length === 0 ? (
             <p className="p-6 text-center text-xs text-slate-500">Kayıtlı mahalle bulunamadı.</p>
           ) : (
@@ -420,6 +421,126 @@ function exportNeighborhoodsCsv(rows: any[], periodLabel: string) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+
+function exportNeighborhoodsPdf(rows: any[], periodLabel: string, totalTonnage: number, totalShifts: number) {
+  if (!rows || !rows.length) return;
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    alert("Tarayıcınız açılır pencereyi engelledi. Lütfen adres çubuğundan izin verin.");
+    return;
+  }
+
+  const nowFormatted = new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date());
+
+  const tableRowsHtml = rows.map((r, i) => `
+    <tr style="border-bottom: 1px solid #e2e8f0; background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'}; font-size: 11px;">
+      <td style="padding: 7px 10px; font-weight: bold; color: #0f172a;">${r.name}</td>
+      <td style="padding: 7px 10px; color: #475569;">${r.region}</td>
+      <td style="padding: 7px 10px; color: #475569;">${r.lastDateText}</td>
+      <td style="padding: 7px 10px; font-weight: bold; text-align: center;">${r.totalShifts}</td>
+      <td style="padding: 7px 10px; font-weight: bold; color: #065f46; text-align: right;">${Number(r.totalTonnage).toFixed(2)} Ton</td>
+      <td style="padding: 7px 10px; text-align: right;">${r.avgTonnage} Ton</td>
+      <td style="padding: 7px 10px; text-align: center;">%${r.tonnageShare}</td>
+      <td style="padding: 7px 10px; text-align: center; color: ${r.wasteWaiting > 0 ? '#b91c1c' : '#64748b'}; font-weight: ${r.wasteWaiting > 0 ? 'bold' : 'normal'};">${r.wasteWaiting}</td>
+      <td style="padding: 7px 10px; text-align: center; color: ${r.containerWaiting > 0 ? '#b45309' : '#64748b'}; font-weight: ${r.containerWaiting > 0 ? 'bold' : 'normal'};">${r.containerWaiting}</td>
+      <td style="padding: 7px 10px; text-align: center; color: ${r.complaintOpen > 0 ? '#b91c1c' : '#64748b'}; font-weight: ${r.complaintOpen > 0 ? 'bold' : 'normal'};">${r.complaintOpen}</td>
+      <td style="padding: 7px 10px; text-align: right; font-weight: bold; color: ${r.auditStatus === 'clean' ? '#047857' : r.auditStatus === 'needs_action' ? '#b91c1c' : '#475569'};">
+        ${r.auditStatus === 'clean' ? 'Saha Temiz' : r.auditStatus === 'needs_action' ? 'Müdahale Bekliyor' : r.auditStatus === 'active_shift' ? 'Mesai Sürüyor' : 'Sefer Yok'}
+      </td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Tepebaşı Belediyesi Temizlik İşleri Operasyon Denetim Raporu</title>
+      <style>
+        @page { size: A4 landscape; margin: 10mm 10mm; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #065f46; padding-bottom: 12px; margin-bottom: 14px; }
+        .title-group h1 { margin: 0; font-size: 17px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
+        .title-group h2 { margin: 4px 0 0; font-size: 13px; color: #334155; font-weight: 600; }
+        .meta { text-align: right; font-size: 11px; color: #64748b; line-height: 1.4; }
+        .summary-bar { display: flex; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; }
+        .summary-item { flex: 1; color: #475569; }
+        .summary-item strong { display: block; font-size: 14px; color: #065f46; margin-top: 2px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #065f46; color: #ffffff; padding: 8px 10px; font-size: 11px; text-transform: uppercase; text-align: left; }
+        .footer-signatures { display: flex; justify-content: space-between; margin-top: 28px; page-break-inside: avoid; }
+        .sig-box { width: 28%; text-align: center; border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #334155; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="title-group">
+          <h1>T.C. TEPEBAŞI BELEDİYE BAŞKANLIĞI</h1>
+          <h2>Temizlik İşleri Müdürlüğü · Saha Operasyon & Denetim Raporu</h2>
+        </div>
+        <div class="meta">
+          <div><strong>Rapor Tanzim Tarihi:</strong> ${nowFormatted}</div>
+          <div><strong>İncelenen Dönem:</strong> ${periodLabel}</div>
+          <div><strong>Kayıt Adedi:</strong> ${rows.length} Mahalle</div>
+        </div>
+      </div>
+
+      <div class="summary-bar">
+        <div class="summary-item">Toplam Atık Tonajı: <strong>${totalTonnage.toFixed(2)} Ton</strong></div>
+        <div class="summary-item">Tamamlanan Araç Seferi: <strong>${totalShifts} Sefer</strong></div>
+        <div class="summary-item">İncelenen Mahalle Sayısı: <strong>${rows.length} Mahalle</strong></div>
+        <div class="summary-item">Evrak Niteliği: <strong>Resmi İdari Rapor</strong></div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mahalle</th>
+            <th>Bölge</th>
+            <th>Son Sefer</th>
+            <th style="text-align: center;">Sefer</th>
+            <th style="text-align: right;">Net Tonaj</th>
+            <th style="text-align: right;">Ortalama</th>
+            <th style="text-align: center;">İlçe Payı</th>
+            <th style="text-align: center;">Moloz</th>
+            <th style="text-align: center;">Konteyner</th>
+            <th style="text-align: center;">Şikayet</th>
+            <th style="text-align: right;">Saha Durumu</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+      </table>
+
+      <div class="footer-signatures">
+        <div class="sig-box">
+          <strong>Hazırlayan</strong><br/><br/><br/>Saha Denetim Sorumlusu
+        </div>
+        <div class="sig-box">
+          <strong>Kontrol Eden</strong><br/><br/><br/>Operasyon ve Lojistik Şefi
+        </div>
+        <div class="sig-box">
+          <strong>Tasdik Eden</strong><br/><br/><br/>Temizlik İşleri Müdürü
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+          }, 350);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
 }
 
 function ReportsAndManagement({
@@ -1486,7 +1607,7 @@ function ReportsAndManagement({
           </Card>
 
           {/* Mahalle Bazlı Kapsamlı Tonaj & Günlük Denetim Tablosu */}
-          <Card className="border-0 bg-white shadow-sm overflow-hidden">
+          <Card className="border-0 bg-white shadow-sm overflow-hidden min-h-[520px] transition-all duration-200">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1518,7 +1639,7 @@ function ReportsAndManagement({
                   <button
                     key={preset.id}
                     type="button"
-                    onClick={() => setQuickPreset(preset.id as any)}
+                    onClick={(e) => { e.preventDefault(); setQuickPreset(preset.id as any); }}
                     className={cn(
                       "px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 border",
                       quickPreset === preset.id
@@ -1853,7 +1974,7 @@ function ReportsAndManagement({
                   <div className="space-y-3">
                     {(selectedNeighborhoodDetail.shifts || []).length === 0 ? (
                       <div className="text-center py-12 text-xs text-slate-400">
-                        Bu mahalleye ait kayıtlı çöp seferi bulunmuyor.
+                        İncelenen dönem aralığında bu mahalle sınırları içerisinde kayıtlı araç seferi bulunmamaktadır.
                       </div>
                     ) : (
                       (selectedNeighborhoodDetail.shifts || []).map((s: any) => (
@@ -1921,7 +2042,7 @@ function ReportsAndManagement({
                   <div className="space-y-3">
                     {(selectedNeighborhoodDetail.waste || []).length === 0 ? (
                       <div className="text-center py-12 text-xs text-slate-400">
-                        Bu mahallede kayıtlı damperlik atık bulunmuyor.
+                        İncelenen dönem aralığında bu mahalle için sisteme intikal etmiş açık moloz/hafriyat bildirimi bulunmamaktadır.
                       </div>
                     ) : (
                       (selectedNeighborhoodDetail.waste || []).map((w: any) => (
@@ -1955,7 +2076,7 @@ function ReportsAndManagement({
                   <div className="space-y-3">
                     {(selectedNeighborhoodDetail.containers || []).length === 0 ? (
                       <div className="text-center py-12 text-xs text-slate-400">
-                        Bu mahallede arızalı konteyner kaydı bulunmuyor.
+                        İncelenen dönem aralığında bu mahallede kaynak veya revizyon gerektiren arızalı çöp konteyneri kaydı bulunmamaktadır.
                       </div>
                     ) : (
                       (selectedNeighborhoodDetail.containers || []).map((c: any) => (
@@ -1989,7 +2110,7 @@ function ReportsAndManagement({
                   <div className="space-y-3">
                     {(selectedNeighborhoodDetail.complaints || []).length === 0 ? (
                       <div className="text-center py-12 text-xs text-slate-400">
-                        Bu mahallede kayıtlı vatandaş şikayeti bulunmuyor.
+                        İncelenen dönem aralığında bu mahalle için sisteme intikal etmiş açık vatandaş temizlik talebi bulunmamaktadır.
                       </div>
                     ) : (
                       (selectedNeighborhoodDetail.complaints || []).map((cp: any) => (
