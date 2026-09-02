@@ -1,5 +1,6 @@
 import { AccessNotice, Field, type AppView } from "@/components/OperationsWorkspace";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,10 @@ import {
   Filter,
   History,
   Image as ImageIcon,
+  Info,
+  Sun,
+  Sunset,
+  Moon,
   Layers,
   MapPin,
   Pencil,
@@ -48,6 +53,48 @@ import { useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { Role } from "@/pages/Home";
+
+
+function AdminInfoTooltip({
+  title,
+  description,
+  side = "top",
+}: {
+  title?: string;
+  description: string;
+  side?: "top" | "bottom" | "left" | "right";
+}) {
+  return (
+    <Tooltip delayDuration={150}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-100 hover:bg-emerald-100 text-slate-400 hover:text-emerald-700 transition cursor-help shrink-0 shadow-2xs border border-slate-200/80 ml-1.5 focus:outline-none"
+          aria-label="Bilgi Kartı"
+          onClick={e => e.stopPropagation()}
+        >
+          <Info className="h-2.5 w-2.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side={side}
+        className="max-w-xs bg-slate-900/95 backdrop-blur-md text-white p-2.5 rounded-xl shadow-2xl border border-slate-700/80 text-xs z-50 animate-in fade-in zoom-in-95 duration-150"
+      >
+        {title && (
+          <div className="font-extrabold text-emerald-300 text-[11px] mb-1 flex items-center gap-1.5">
+            <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-black">
+              i
+            </span>
+            <span>{title}</span>
+          </div>
+        )}
+        <div className="text-[11px] text-slate-200 leading-relaxed font-medium">
+          {description}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export default function ManagementOperations({
   role,
@@ -932,35 +979,110 @@ function ReportsAndManagement({
 
   return (
     <div className="space-y-5">
-      {/* Üst Sekmeler */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 pb-3">
-        {[
-          { id: "genel", label: "📊 Genel Özet & Mahalle Analizi", count: neighborhoodMatrix.length },
-          { id: "mesailer", label: "🚛 Mesailer & Tonaj Fişleri", count: shifts.length },
-          { id: "atiklar", label: "📦 Damperlik Atıklar", count: activeWasteList.length },
-          { id: "konteynerler", label: "🏗️ Konteyner Arızaları", count: activeContainers.length },
-          { id: "sikayetler", label: "🚨 Vatandaş Şikayetleri", count: activeComplaints.length },
-          { id: "loglar", label: "📜 Sistem Denetim Logları", count: filteredLogs.length },
-          { id: "sifirla", label: "⚠️ Veri Sıfırlama", count: 0 },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={cn(
-              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-2xs",
-              activeTab === tab.id
-                ? "bg-emerald-700 text-white border-emerald-800 shadow-xs"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-            )}
-          >
-            <span>{tab.label}</span>
-            {tab.count > 0 && (
-              <span className={cn("rounded-full px-1.5 py-0.2 text-[10px]", activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600")}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Üst Sekmeler (Modern Yönetici Kontrol Paneli) */}
+      <div className="rounded-2xl bg-white p-2 shadow-sm border border-slate-200/80">
+        <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+          {/* Ana Rapor Sekmeleri (Yatayda pürüzsüz kaydırılabilir grup) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
+            {[
+              {
+                id: "genel",
+                label: "Genel Bakış",
+                icon: FileBarChart,
+                count: neighborhoodMatrix.length,
+                info: "Tepebaşı genelindeki anlık atık tonajı, çöp seferleri, vardiya analizleri ve mahalle denetim matrisi.",
+              },
+              {
+                id: "mesailer",
+                label: "Mesai & Tonaj",
+                icon: Truck,
+                count: shifts.length,
+                info: "Şoförlerin günlük vardiyaları, başlama/bitiş saatleri ve kantardan yüklenen resmi kantar fişi fotoğrafları.",
+              },
+              {
+                id: "atiklar",
+                label: "Damperlik Atık",
+                icon: Recycle,
+                count: activeWasteList.length,
+                info: "Saha ekiplerinin bildirdiği moloz, hafriyat ve kaba atıklar ile 175m GPS doğrulamalı toplama durumu.",
+              },
+              {
+                id: "konteynerler",
+                label: "Konteynerler",
+                icon: Wrench,
+                count: activeContainers.length,
+                info: "Kaldırma kolu, ayak veya gövdesi arızalı çöp konteynerleri ve kaynak ekibinin onarım süreci.",
+              },
+              {
+                id: "sikayetler",
+                label: "Şikayetler",
+                icon: AlertTriangle,
+                count: activeComplaints.length,
+                info: "Vatandaşlardan gelen çöp/temizlik şikayetleri ve şoförlerin yüklediği çözüm fotoğraflarının yönetici onay paneli.",
+              },
+              {
+                id: "loglar",
+                label: "Sistem Logları",
+                icon: History,
+                count: filteredLogs.length,
+                info: "Sistemde kimin ne zaman hangi işlemi yaptığını gösteren değiştirilemez güvenlik ve denetim kayıtları.",
+              },
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <div key={tab.id} className="relative flex items-center shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={cn(
+                      "px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 border",
+                      isActive
+                        ? "bg-emerald-700 text-white border-emerald-800 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200/60 hover:bg-slate-100 hover:text-slate-900"
+                    )}
+                  >
+                    <Icon className={cn("h-3.5 w-3.5 shrink-0", isActive ? "text-emerald-100" : "text-slate-500")} />
+                    <span>{tab.label}</span>
+                    {tab.count > 0 && (
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 py-0.2 text-[10px] font-extrabold shrink-0",
+                          isActive ? "bg-white/20 text-white" : "bg-white text-slate-700 border border-slate-200"
+                        )}
+                      >
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                  <AdminInfoTooltip title={tab.label} description={tab.info} side="bottom" />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Ayrılmış Veri Sıfırlama Butonu */}
+          <div className="shrink-0 flex items-center gap-1 pl-2 sm:border-l sm:border-slate-200 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={() => setActiveTab("sifirla")}
+              className={cn(
+                "px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border",
+                activeTab === "sifirla"
+                  ? "bg-red-600 text-white border-red-700 shadow-xs"
+                  : "bg-red-50 text-red-700 border-red-200/80 hover:bg-red-100"
+              )}
+            >
+              <Trash2 className="h-3.5 w-3.5 shrink-0" />
+              <span>Sıfırlama</span>
+            </button>
+            <AdminInfoTooltip
+              title="Veri Sıfırlama"
+              description="Test verilerini silerek fabrika ayarlarına döndürür veya demo kayıtlarını temizler."
+              side="bottom"
+            />
+          </div>
+        </div>
       </div>
 
       {/* 1. GENEL ÖZET & MAHALLE BAZLI KAPSAMLI DENETİM ANALİZİ */}
@@ -1107,89 +1229,137 @@ function ReportsAndManagement({
             )}
           </Card>
 
-          {/* KPI İstatistik Kartları */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-0 bg-white shadow-sm p-4.5 relative overflow-hidden">
+          {/* KPI İstatistik Kartları (Yönetici Paneli) */}
+          <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 1. Toplam Atık Tonajı */}
+            <Card className="border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/40 shadow-xs p-4.5 relative overflow-hidden rounded-2xl">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Toplam Atık Tonajı</p>
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+                <div className="flex items-center">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Toplam Atık Tonajı</p>
+                  <AdminInfoTooltip
+                    title="Toplam Tonaj"
+                    description="Seçilen tarih aralığında çöp ve damperli kamyonların kantarda tartılarak sisteme işlenen toplam net tonajıdır."
+                  />
+                </div>
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-100/80 text-emerald-800 shadow-2xs">
                   <Scale className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-3xl font-extrabold text-emerald-800 mt-2 font-display">
-                {totalAuditTonnage.toFixed(2)} <span className="text-base font-bold text-emerald-600">Ton</span>
+              <p className="text-3xl font-extrabold text-emerald-950 mt-2 font-display tracking-tight">
+                {totalAuditTonnage.toFixed(2)} <span className="text-base font-bold text-emerald-700">Ton</span>
               </p>
-              <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1 font-medium">
-                <span>Ortalama: <strong>{avgTonnagePerShift} Ton / Sefer</strong></span>
-              </p>
+              <div className="mt-2 flex items-center justify-between text-xs text-slate-600 bg-white/80 px-2 py-1 rounded-lg border border-emerald-200/50">
+                <span className="text-[11px] font-medium text-slate-500">Sefer Ortalaması:</span>
+                <span className="font-extrabold text-emerald-900">{avgTonnagePerShift} Ton / Sefer</span>
+              </div>
             </Card>
 
-            <Card className="border-0 bg-white shadow-sm p-4.5 relative overflow-hidden">
+            {/* 2. Çöp Seferi / Mesai */}
+            <Card className="border border-sky-100 bg-gradient-to-br from-white to-sky-50/40 shadow-xs p-4.5 relative overflow-hidden rounded-2xl">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Çöp Seferi / Mesai</p>
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-sky-50 text-sky-700">
+                <div className="flex items-center">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Çöp Seferi / Mesai</p>
+                  <AdminInfoTooltip
+                    title="Sefer Sayısı"
+                    description="Seçilen dönemde sahaya çıkan araçların tamamlanan ve şu an aktif süren vardiya mesai sayısıdır."
+                  />
+                </div>
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-sky-100/80 text-sky-800 shadow-2xs">
                   <Truck className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-3xl font-extrabold text-slate-900 mt-2 font-display">
+              <p className="text-3xl font-extrabold text-slate-900 mt-2 font-display tracking-tight">
                 {periodShifts.length} <span className="text-base font-bold text-slate-500">Sefer</span>
               </p>
-              <p className="text-xs text-slate-500 mt-1.5 font-medium">
-                <span className="text-emerald-700 font-bold">{completedShiftsCount} Tamamlandı</span> · <span className="text-sky-700 font-bold">{activeShiftsCount} Aktif Sahada</span>
-              </p>
+              <div className="mt-2 flex items-center justify-between text-xs bg-white/80 px-2 py-1 rounded-lg border border-sky-200/50">
+                <span className="text-emerald-700 font-extrabold text-[11px]">✓ {completedShiftsCount} Tamamlandı</span>
+                <span className="text-sky-700 font-extrabold text-[11px]">● {activeShiftsCount} Aktif</span>
+              </div>
             </Card>
 
-            <Card className="border-0 bg-white shadow-sm p-4.5 relative overflow-hidden">
+            {/* 3. En Çok Atık Çıkan Mahalle */}
+            <Card className="border border-amber-100 bg-gradient-to-br from-white to-amber-50/40 shadow-xs p-4.5 relative overflow-hidden rounded-2xl">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">En Çok Atık Çıkan Mahalle</p>
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50 text-amber-700">
+                <div className="flex items-center">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">En Çok Atık Çıkan</p>
+                  <AdminInfoTooltip
+                    title="En Çok Atık Çıkan Mahalle"
+                    description="Seçilen dönemde en yüksek tonajın toplandığı mahalle ve toplam ilçe atığı içindeki yüzdelik payı."
+                  />
+                </div>
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-100/80 text-amber-800 shadow-2xs">
                   <TrendingUp className="h-4 w-4" />
                 </div>
               </div>
               <p className="text-xl font-extrabold text-slate-900 mt-2 font-display truncate">
                 {topNeighborhood ? topNeighborhood.name : "Kayıt Yok"}
               </p>
-              <p className="text-xs text-amber-700 mt-1.5 font-bold">
-                {topNeighborhood ? `${topNeighborhood.totalTonnage.toFixed(2)} Ton (%${topNeighborhood.tonnageShare} Pay)` : "—"}
-              </p>
+              <div className="mt-2 flex items-center justify-between text-xs bg-white/80 px-2 py-1 rounded-lg border border-amber-200/50">
+                <span className="text-[11px] text-slate-500 font-medium">Toplam Payı:</span>
+                <span className="font-extrabold text-amber-800">
+                  {topNeighborhood ? `${topNeighborhood.totalTonnage.toFixed(2)} T (% ${topNeighborhood.tonnageShare})` : "—"}
+                </span>
+              </div>
             </Card>
 
-            <Card className="border-0 bg-white shadow-sm p-4.5 relative overflow-hidden">
+            {/* 4. Saha Denetim Durumu */}
+            <Card className="border border-purple-100 bg-gradient-to-br from-white to-purple-50/40 shadow-xs p-4.5 relative overflow-hidden rounded-2xl">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Saha Denetim Durumu</p>
-                <div className="grid h-8 w-8 place-items-center rounded-xl bg-purple-50 text-purple-700">
+                <div className="flex items-center">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Saha Denetim Durumu</p>
+                  <AdminInfoTooltip
+                    title="Bekleyen Saha İşleri"
+                    description="Şu an sahada müdahale veya kaynak bekleyen açık atık, konteyner arızası ve vatandaş şikayetleri toplamı."
+                  />
+                </div>
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-purple-100/80 text-purple-800 shadow-2xs">
                   <ClipboardCheck className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-3xl font-extrabold text-slate-900 mt-2 font-display">
+              <p className="text-3xl font-extrabold text-slate-900 mt-2 font-display tracking-tight">
                 {totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen}{" "}
                 <span className="text-base font-bold text-slate-500">Bekleyen</span>
               </p>
-              <p className="text-xs text-slate-500 mt-1.5 font-medium">
-                📦 {totalWasteWaiting} Atık · 🏗️ {totalContainersWaiting} Arıza · 🚨 {totalComplaintsOpen} Şikayet
-              </p>
+              <div className="mt-2 flex items-center justify-between text-[11px] bg-white/80 px-2 py-1 rounded-lg border border-purple-200/50 font-bold">
+                <span className="text-emerald-700">📦 {totalWasteWaiting}</span>
+                <span className="text-amber-700">🏗️ {totalContainersWaiting}</span>
+                <span className="text-red-700">🚨 {totalComplaintsOpen}</span>
+              </div>
             </Card>
           </div>
 
           {/* Vardiya Bazlı Tonaj Dağılımı */}
-          <Card className="border-0 bg-white shadow-sm">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <Card className="border border-slate-200/80 bg-white shadow-xs rounded-2xl overflow-hidden">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between bg-slate-50/50 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-emerald-700" />
-                <CardTitle className="font-display text-sm font-bold text-slate-900">
-                  Vardiya Bazlı Tonaj ve Sefer Analizi
+                <CardTitle className="font-display text-sm font-bold text-slate-900 flex items-center">
+                  <span>Vardiya Bazlı Tonaj ve Sefer Analizi</span>
+                  <AdminInfoTooltip
+                    title="Vardiya Karşılaştırması"
+                    description="Gündüz (08:00 - 16:00), Akşam (16:00 - 00:00) ve Gece (00:00 - 08:00) vardiyalarında toplanan çöp tonajlarının sefer sayısı ve yüzdelik dağılım karşılaştırması."
+                  />
                 </CardTitle>
               </div>
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200/60 shadow-2xs">
                 Seçilen Dönem: {auditPeriod === "today" ? "Bugün" : auditPeriod === "week" ? "Son 7 Gün" : auditPeriod === "month" ? "Bu Ay" : "Tüm Zamanlar"}
               </span>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4">
               <div className="grid gap-3 sm:grid-cols-3">
-                {shiftHoursAnalysis.map(slot => (
-                  <div key={slot.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-2">
+                {shiftHoursAnalysis.map((slot, idx) => (
+                  <div key={slot.id} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 space-y-2.5 transition hover:border-emerald-300">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">{slot.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        {idx === 0 ? (
+                          <Sun className="h-4 w-4 text-amber-600" />
+                        ) : idx === 1 ? (
+                          <Sunset className="h-4 w-4 text-orange-600" />
+                        ) : (
+                          <Moon className="h-4 w-4 text-indigo-600" />
+                        )}
+                        <span className="text-xs font-extrabold text-slate-800">{slot.name}</span>
+                      </div>
                       <Badge variant="outline" className={cn("text-[10px] font-bold px-2 py-0.5", slot.badgeColor)}>
                         {slot.hours}
                       </Badge>
@@ -1198,16 +1368,18 @@ function ReportsAndManagement({
                       <span className="text-2xl font-extrabold text-slate-900 font-display">
                         {slot.tonnage.toFixed(2)} <span className="text-xs font-bold text-slate-500">Ton</span>
                       </span>
-                      <span className="text-xs font-bold text-slate-600">{slot.count} Sefer</span>
+                      <span className="text-xs font-bold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200/70">
+                        {slot.count} Sefer
+                      </span>
                     </div>
-                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div className="w-full bg-slate-200/80 h-2 rounded-full overflow-hidden">
                       <div
-                        className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                        className="bg-emerald-600 h-full rounded-full transition-all duration-500"
                         style={{ width: `${slot.percentage}%` }}
                       />
                     </div>
                     <p className="text-[11px] text-slate-500 font-medium text-right">
-                      Toplam tonajın %{slot.percentage}&apos;si
+                      Toplam tonajın <strong>%{slot.percentage}</strong>&apos;si
                     </p>
                   </div>
                 ))}
@@ -1242,7 +1414,7 @@ function ReportsAndManagement({
                         title="Mahalle adına göre sırala"
                       >
                         <div className="flex items-center gap-1.5">
-                          <span>Mahalle / Bölge</span>
+                          <span>Mahalle / Bölge</span><AdminInfoTooltip title="Mahalle & Bölge" description="Mahalle adı ve belediyenin belirlediği temizlik bölgesi (Doğu, Batı, Merkez, vb.)." />
                           {sortBy === "name_asc" && <span className="text-emerald-700 font-bold">▲</span>}
                         </div>
                       </th>
@@ -1252,7 +1424,7 @@ function ReportsAndManagement({
                         title="Sefer tarihine göre sırala"
                       >
                         <div className="flex items-center gap-1.5">
-                          <span>📅 Son Sefer Tarihi</span>
+                          <span>📅 Son Sefer Tarihi</span><AdminInfoTooltip title="Son Sefer" description="Mahalleye en son giren çöp kamyonunun vardiya ve tartım tarihi." />
                           {sortBy === "date_desc" ? (
                             <span className="text-emerald-700 font-bold">▼</span>
                           ) : sortBy === "date_asc" ? (
@@ -1268,7 +1440,7 @@ function ReportsAndManagement({
                         title="Sefer sayısına göre sırala"
                       >
                         <div className="flex items-center gap-1.5">
-                          <span>Çöp Seferi</span>
+                          <span>Çöp Seferi</span><AdminInfoTooltip title="Sefer Sayısı" description="Seçilen dönemde bu mahalleye yapılan toplam araç boşaltım seferi sayısı." />
                           {sortBy === "shifts_desc" && <span className="text-emerald-700 font-bold">▼</span>}
                         </div>
                       </th>
@@ -1278,7 +1450,7 @@ function ReportsAndManagement({
                         title="Tonaj miktarına göre sırala"
                       >
                         <div className="flex items-center gap-1.5">
-                          <span>Toplam Tonaj</span>
+                          <span>Toplam Tonaj</span><AdminInfoTooltip title="Mahalle Tonajı" description="Mahalleden toplanan ve kantar fişiyle belgelenen net katı atık tonajı." />
                           {sortBy === "tonnage_desc" ? (
                             <span className="text-emerald-700 font-bold">▼</span>
                           ) : sortBy === "tonnage_asc" ? (
@@ -1288,12 +1460,12 @@ function ReportsAndManagement({
                           )}
                         </div>
                       </th>
-                      <th className="px-5 py-3.5">Sefer Ortalaması</th>
-                      <th className="px-5 py-3.5 w-36">Tonaj Payı</th>
-                      <th className="px-5 py-3.5">Damperlik Atık</th>
-                      <th className="px-5 py-3.5">Konteyner</th>
-                      <th className="px-5 py-3.5">Şikayet</th>
-                      <th className="px-5 py-3.5 text-right">Denetim Durumu</th>
+                      <th className="px-5 py-3.5"><div className="flex items-center"><span>Sefer Ortalaması</span><AdminInfoTooltip title="Ortalama Tonaj" description="Sefer başına düşen ortalama çöp ağırlığı (Tonaj / Sefer)." /></div></th>
+                      <th className="px-5 py-3.5 w-36"><div className="flex items-center"><span>Tonaj Payı</span><AdminInfoTooltip title="İlçe Payı" description="İlçeden toplanan toplam atık içindeki mahallenin yüzdelik oranı." /></div></th>
+                      <th className="px-5 py-3.5"><div className="flex items-center"><span>Damperlik Atık</span><AdminInfoTooltip title="Damperlik Atık" description="Mahallede tespit edilen ve toplanmayı bekleyen kaba hafriyat/moloz birikintileri." /></div></th>
+                      <th className="px-5 py-3.5"><div className="flex items-center"><span>Konteyner</span><AdminInfoTooltip title="Arızalı Konteyner" description="Kaynak ekibinden tamir veya yedek parça bekleyen arızalı çöp konteynerleri." /></div></th>
+                      <th className="px-5 py-3.5"><div className="flex items-center"><span>Şikayet</span><AdminInfoTooltip title="Vatandaş Şikayeti" description="Vatandaşlardan gelen ve henüz çözülmemiş açık temizlik şikayetleri." /></div></th>
+                      <th className="px-5 py-3.5 text-right"><div className="flex items-center justify-end"><span>Denetim Durumu</span><AdminInfoTooltip title="Denetim Durumu" description="Mahallenin genel saha sağlığı rozeti: Açık sorun yoksa Temiz, atık/arıza varsa Müdahale Bekliyor." /></div></th>
                     </tr>
                   </thead>
                   <tbody>
