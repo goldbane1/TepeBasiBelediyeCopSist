@@ -372,9 +372,19 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
 
 ---
 
+6. **ÇALIŞMA ALANI VE OTONOM KOMUT POLİTİKASI (ZORUNLU):**
+   - Tüm terminal komutları, dosya düzenlemeleri ve derlemeler kesinlikle ve yalnızca `C:\Users\batuh\Desktop\TepeBasiTemizlikYEni` dizininde yürütülmelidir.
+   - `node` yardımcı araçları, `tsc --noEmit`, `vitest run` ve `pnpm build` gibi analiz ve derleme komutları otonom çalıştırılabilir.
+   - `git push`, `git merge`, dosya silme veya veritabanı müdahaleleri gibi kritik operasyonlarda daima kullanıcıdan açık onay alınmalıdır.
+
+---
+
 ## 9. Değişiklik ve Güncelleme Geçmişi (Changelog & History)
 
 ### [v2.12.0] - 2026-09-03 (Son Güncelleme / Güncel Sürüm)
+- **Operasyon Haritasında Şikayet Çözüm Fotoğrafı Yükleme Standardı:**
+  - Şoförün genel Operasyon Haritası (`view === "harita"`) üzerindeki vatandaş şikayeti pinine tıkladığında karşılaştığı "çözüm fotoğrafı yüklemek zorunludur" hatası kalıcı olarak giderildi.
+  - `OperationsWorkspace.tsx` bileşenine `createPortal` ile açılan `resolvingComplaint` modalı entegre edildi; şoför kamerasıyla (`capture="environment"`) temizlik sonrası fotoğrafı çeker/yükler, `compressImageFile` ile otomatik sıkıştırılır ve `complaints.resolve` ile fotoğraf verisi zorunlu iletilerek şikayet başarıyla onaya gönderilir.
 - **Yönetim Paneli Kurumsal Enterprise SaaS Yenilemesi:**
   - Sekme gezinme yapısı tek satırlı, yatayda kaydırılabilir Segmented Control mimarisine dönüştürüldü.
   - Riskli fabrika ayarlarına döndürme ("Sıfırlama") eylemi ana sekmelerden izole edilerek sağda kırmızı onay butonu olarak konumlandırıldı.
