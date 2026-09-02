@@ -1777,34 +1777,35 @@ function ReportsAndManagement({
           </Card>
 
                     {/* Kurumsal Operasyon Nabzı (Executive Mission Banner) */}
+          {/* Kurumsal Saha Yoğunluğu (Yalnızca Bugünün Canlı Verileri) */}
           <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-4 text-white shadow-xs">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                  <span className={cn("absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping", totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "bg-amber-400" : "bg-emerald-400")} />
-                  <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "bg-amber-500" : "bg-emerald-500")} />
+                  <span className={cn("absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping", todayTotalWaiting > 0 ? "bg-amber-400" : "bg-emerald-400")} />
+                  <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", todayTotalWaiting > 0 ? "bg-amber-500" : "bg-emerald-500")} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-display font-extrabold text-sm tracking-tight text-white">
-                      Tepebaşı Saha Operasyon Yönetim Nabzı
+                      Saha Yoğunluğu
                     </h3>
-                    <Badge className={cn("text-[10px] font-extrabold px-2 py-0.2 border", totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "bg-amber-500/20 text-amber-200 border-amber-400/30" : "bg-emerald-500/20 text-emerald-200 border-emerald-400/30")}>
-                      {totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "Müdahale Bekleyen İşler Var" : "Operasyon Normal"}
+                    <Badge className={cn("text-[10px] font-extrabold px-2 py-0.2 border", todayTotalWaiting > 0 ? "bg-amber-500/20 text-amber-200 border-amber-400/30" : "bg-emerald-500/20 text-emerald-200 border-emerald-400/30")}>
+                      {todayTotalWaiting > 0 ? "Bugün Müdahale Bekleyen İşler Var" : "Bugünkü Saha Durumu Normal"}
                     </Badge>
                   </div>
                   <p className="text-xs text-slate-300/80 mt-0.5 font-medium">
-                    Seçili Dönem: <strong className="text-emerald-300 font-semibold">{activePeriodLabel}</strong> · {periodShifts.length} seferde toplam <strong className="text-emerald-300 font-semibold">{totalAuditTonnage.toFixed(2)} Ton</strong> katı atık toplandı.
+                    Bugünün Canlı Operasyon Durumu: Bugün gerçekleşen {todayShifts.length} seferde kantarda tartılan toplam <strong className="text-emerald-300 font-semibold">{todayAuditTonnage.toFixed(2)} Ton</strong> katı atık toplandı.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0 text-xs font-semibold text-slate-300 border-t md:border-t-0 border-white/10 pt-2 md:pt-0">
                 <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">
-                  Aktif Sahada: <strong className="text-sky-300">{activeShiftsCount} Araç</strong>
+                  Bugün Sahada: <strong className="text-sky-300">{todayActiveShiftsCount} Araç</strong>
                 </span>
                 <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">
-                  Bekleyen: <strong className={cn(totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "text-amber-300" : "text-emerald-300")}>{totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen} İş</strong>
+                  Bugün Bekleyen: <strong className={cn(todayTotalWaiting > 0 ? "text-amber-300" : "text-emerald-300")}>{todayTotalWaiting} İş</strong>
                 </span>
               </div>
             </div>
@@ -2017,30 +2018,8 @@ function ReportsAndManagement({
                 ))}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-slate-500 font-medium hidden sm:inline mr-1">
-                  Gösterilen: <strong className="text-slate-800">{displayedNeighborhoodMatrix.length}</strong> / {neighborhoodMatrix.length} Mahalle
-                </span>
-
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); exportNeighborhoodsCsv(displayedNeighborhoodMatrix, activePeriodLabel); }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs active:scale-98 cursor-pointer"
-                  title="Filtrelenmiş verileri Excel (CSV) olarak indir"
-                >
-                  <Download className="h-3.5 w-3.5 text-emerald-700" />
-                  <span>Excel İndir</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); exportNeighborhoodsPdf(displayedNeighborhoodMatrix, activePeriodLabel, totalAuditTonnage, periodShifts.length); }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs active:scale-98 cursor-pointer"
-                  title="Resmi belediye formatında PDF raporu oluştur ve kaydet"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>PDF Rapor Al</span>
-                </button>
+              <div className="text-xs text-slate-500 font-medium shrink-0">
+                Gösterilen: <strong className="text-slate-800">{displayedNeighborhoodMatrix.length}</strong> / {neighborhoodMatrix.length} Mahalle
               </div>
             </div>
             <CardContent className="p-0">
@@ -2532,13 +2511,38 @@ function ReportsAndManagement({
   )}
 
       {activeTab === "mesailer" && (
-        <Card className="border-0 bg-white shadow-sm overflow-hidden">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <Card className="border-0 bg-white shadow-sm overflow-hidden min-h-[500px]">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-2 border-b border-slate-100 bg-slate-50/50">
             <div>
-              <CardTitle className="font-display text-base font-bold text-slate-900">Kayıtlı Mesailer ve Tonaj Fişleri</CardTitle>
-              <p className="text-xs text-slate-500 mt-0.5">Şoför mesai kayıtları, tamamlanan tonajlar ve yüklenen tonaj fişi fotoğrafları</p>
+              <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                <Truck className="h-4 w-4 text-emerald-700" />
+                Kayıtlı Mesailer ve Tonaj Fişleri
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">Seçili döneme ait ({activePeriodLabel}) şoför mesai kayıtları, tamamlanan tonajlar ve kantar tartım fişleri</p>
             </div>
-            <Badge variant="outline" className="text-xs font-bold text-slate-700 bg-slate-50">Seçilen Dönem: {periodShifts.length} / Toplam: {shifts.length} Mesai</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-bold text-slate-700 bg-white border-slate-200">
+                Seçilen Dönem: {periodShifts.length} Mesai
+              </Badge>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportShiftsCsv(periodShifts); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-98"
+                title="Seçilen dönem mesai listesini Excel olarak indir"
+              >
+                <Download className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportShiftsPdf(periodShifts, activePeriodLabel); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs cursor-pointer active:scale-98"
+                title="Seçilen döneme ait resmi belediye formatında Mesai ve Tonaj PDF raporu al"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>PDF Rapor Al</span>
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -2634,10 +2638,38 @@ function ReportsAndManagement({
 
       {/* 3. DAMPERLİK ATIKLAR */}
       {activeTab === "atiklar" && (
-        <Card className="border-0 bg-white shadow-sm overflow-hidden">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="font-display text-base">Damperlik Atık Kayıtları</CardTitle>
-            <Badge variant="outline" className="text-xs font-bold">{activeWasteList.length} Bekleyen Kayıt</Badge>
+        <Card className="border-0 bg-white shadow-sm overflow-hidden min-h-[500px]">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-2 border-b border-slate-100 bg-slate-50/50">
+            <div>
+              <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                <Recycle className="h-4 w-4 text-emerald-700" />
+                Damperlik Atık ve Moloz Kayıtları
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">Seçili döneme ait ({activePeriodLabel}) moloz, hafriyat ve kaba atık bildirimleri (175m GPS doğrulamalı)</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-bold text-slate-700 bg-white border-slate-200">
+                Seçilen Dönem: {periodWaste.length} Atık
+              </Badge>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportWasteCsv(periodWaste); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-98"
+                title="Seçilen dönem atık listesini Excel olarak indir"
+              >
+                <Download className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportWastePdf(periodWaste, activePeriodLabel); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs cursor-pointer active:scale-98"
+                title="Seçilen döneme ait resmi Damperlik Atık PDF raporu al"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>PDF Rapor Al</span>
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -2739,10 +2771,38 @@ function ReportsAndManagement({
 
       {/* 4. KONTEYNER ARIZALARI */}
       {activeTab === "konteynerler" && (
-        <Card className="border-0 bg-white shadow-sm overflow-hidden">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="font-display text-base">Konteyner Arıza Kayıtları</CardTitle>
-            <Badge variant="outline" className="text-xs font-bold">{activeContainers.length} Bekleyen Kayıt</Badge>
+        <Card className="border-0 bg-white shadow-sm overflow-hidden min-h-[500px]">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-2 border-b border-slate-100 bg-slate-50/50">
+            <div>
+              <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-emerald-700" />
+                Konteyner Arıza ve Onarım Kayıtları
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">Seçili döneme ait ({activePeriodLabel}) kaldırma kolu veya gövdesi arızalı çöp konteynerleri takip listesi</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-bold text-slate-700 bg-white border-slate-200">
+                Seçilen Dönem: {periodContainers.length} Arıza
+              </Badge>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportContainersCsv(periodContainers); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-98"
+                title="Seçilen dönem konteyner arıza listesini Excel olarak indir"
+              >
+                <Download className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportContainersPdf(periodContainers, activePeriodLabel); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs cursor-pointer active:scale-98"
+                title="Seçilen döneme ait resmi Konteyner Arıza ve Onarım PDF raporu al"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>PDF Rapor Al</span>
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -2837,13 +2897,38 @@ function ReportsAndManagement({
 
       {/* 5. VATANDAŞ ŞİKAYETLERİ */}
       {activeTab === "sikayetler" && (
-        <Card className="border-0 bg-white shadow-sm overflow-hidden">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <Card className="border-0 bg-white shadow-sm overflow-hidden min-h-[500px]">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-2 border-b border-slate-100 bg-slate-50/50">
             <div>
-              <CardTitle className="font-display text-base font-bold text-slate-900">Vatandaş Şikayetleri ve Denetim</CardTitle>
-              <p className="text-xs text-slate-500 mt-0.5">Aktif vatandaş şikayetleri, şoför çözüm fotoğrafları ve yönetici onay akışı</p>
+              <CardTitle className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-emerald-700" />
+                Vatandaş Şikayetleri ve Çözüm Denetimi
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">Seçili döneme ait ({activePeriodLabel}) temizlik başvuruları, saha çözüm fotoğrafları ve yönetici onay paneli</p>
             </div>
-            <Badge variant="outline" className="text-xs font-bold">{activeComplaints.length} Aktif Kayıt</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-bold text-slate-700 bg-white border-slate-200">
+                Seçilen Dönem: {periodComplaints.length} Şikayet
+              </Badge>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportComplaintsCsv(periodComplaints); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-98"
+                title="Seçilen dönem vatandaş şikayet listesini Excel olarak indir"
+              >
+                <Download className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); exportComplaintsPdf(periodComplaints, activePeriodLabel); }}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs cursor-pointer active:scale-98"
+                title="Seçilen döneme ait resmi Vatandaş Şikayet ve Çözüm PDF raporu al"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>PDF Rapor Al</span>
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -3022,6 +3107,24 @@ function ReportsAndManagement({
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-emerald-700" />
                   Yenile
                 </Button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); exportLogsCsv(filteredLogs); }}
+                  className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-98"
+                  title="Sistem loglarını Excel olarak indir"
+                >
+                  <Download className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); exportLogsPdf(filteredLogs); }}
+                  className="h-8 px-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs cursor-pointer active:scale-98"
+                  title="Resmi belediye formatında Sistem Logları PDF raporu al"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>PDF Rapor Al</span>
+                </button>
               </div>
             </CardHeader>
           </Card>
