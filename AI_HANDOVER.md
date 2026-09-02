@@ -244,6 +244,34 @@ Tüm operasyonel bildirim formlarında iki yönlü OpenStreetMap (Nominatim) ent
 
 ---
 
+
+### 5.9. Yönetim Raporları, Denetim ve Resmi Raporlama Motoru (`ManagementOperations.tsx`)
+- **Kurumsal Enterprise SaaS Tasarımı:**
+  - Sekme gezinme yapısı tek satırlı, yatayda kaydırılabilir Segmented Control mimarisine dönüştürülmüştür.
+  - Riskli fabrika ayarlarına döndürme ("Sıfırlama") eylemi ana sekmelerden izole edilerek sağda kırmızı onay butonu olarak konumlandırılmıştır.
+  - Arayüzdeki tüm gayriciddi semboller/emojiler kaldırılmış; yerlerine ince, kurumsal Lucide SVG ikonları entegre edilmiştir.
+  - Tüm sekmelere, 4 ana KPI kartına, vardiya analizine ve tablo sütun başlıklarına Radix UI tabanlı `AdminInfoTooltip` `(i)` açıklama rozetleri yerleştirilmiştir.
+- **Global Tarih & Dönem Filtresi:**
+  - Tarih filtresi sekmelerin dışına çıkarılarak tüm sekmelerin (`Genel Bakış`, `Mesai & Tonaj`, `Damperlik Atık`, `Konteynerler`, `Şikayetler`, `Sistem Logları`) üzerinde çalışan **Global Üst Araç Çubuğu** haline getirilmiştir.
+  - Kullanıcı hangi sekmede olursa olsun tek tıkla dönem ("Bugün", "Son 7 Gün", "Bu Ay", "Belirli Gün", "Tarih Aralığı") değiştirebilir; tüm alt ekranlar anlık senkronize olur.
+- **Canlı "Saha Yoğunluğu" Göstergesi:**
+  - Seçili denetim döneminden bağımsız olarak her zaman **Bugün** sahada çalışan araç sayısını (`todayActiveShiftsCount`), kantarda tartılan bugünkü net atık tonajını (`todayAuditTonnage`) ve bugün intikal etmiş açık saha işlerini (`todayTotalWaiting`) gösteren canlı zümrüt durum şeridi devreye alınmıştır.
+- **Akıllı Hızlı Görünüm Filtreleri & Mahalle Detay Çekmecesi (Slide-Over Sheet):**
+  - Mahalle tablosunun üstüne Linear/Stripe stili 1-tıkla hızlı filtreleme butonları eklenmiştir (`Tüm Mahalleler`, `Müdahale Bekleyenler`, `Sefer Yapılmayanlar`, `En Yüksek Tonaj İlk 10`, `Temiz Mahalleler`).
+  - Tablonun sıfır sonuçta çöküp ekranı yukarı fırlatmasını önleyen `min-h-[500px]` taban yüksekliği ve kurumsal boş durum (Empty State) tasarımı sağlanmıştır.
+  - Satırlara tıklandığında sağdan kayarak açılan `Sheet` detay çekmecesi eklenmiştir. Mahallenin kantar fişi fotoğrafları, araç plakaları, şoförleri, molozları, arızalı konteynerleri ve şikayetleri 4 iç sekmede lightbox modal desteğiyle incelenebilir.
+- **Açık Adresli Resmi Belediye A4 PDF ve UTF-8 BOM Excel (CSV) Raporlama Motoru:**
+  - 6 ana sekmenin her biri için seçilen döneme özgü resmi A4 yatay PDF ve Türkçe karakter uyumlu Excel dışa aktarma sistemi geliştirilmiştir.
+  - Damperlik atık, konteyner arızası ve vatandaş şikayetleri raporlarına cadde, sokak ve bina detayını içeren **"Açık Adres / Konum Detayı"** sütunu entegre edilmiştir.
+  - Tüm resmi PDF çıktılarının altına Tepebaşı Belediyesi operasyonel hiyerarşisine tam uyumlu **3 resmi imza alanı** yerleştirilmiştir:
+    1. **Saha Sorumlusu** (İmza)
+    2. **Vardiya Amiri** (İmza / Kaşe)
+    3. **Temizlik İşleri Müdürü** (İmza / Mühür)
+- **Güvenlik ve İzolasyon:**
+  - Tüm geliştirmeler %100 oranında `client/src/components/ManagementOperations.tsx` içerisinde tutulmuştur. Şoför mesai akışı, mobil kamera optimizasyonu, veritabanı şeması ve backend tRPC yönlendiricileri kesinlikle değiştirilmemiştir.
+
+---
+
 ## 6. Proje Dosya ve Dizin Yapısı (Directory Structure)
 
 ```
@@ -346,463 +374,31 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
 
 ## 9. Değişiklik ve Güncelleme Geçmişi (Changelog & History)
 
-### [v2.4.11] - 2026-08-21 (Son Güncelleme)
-- **Sunucu Tarafında Otomatik Görsel Optimizasyonu (`sharp` Entegrasyonu):**
-  - Akıllı telefon kameralarından gelen büyük çözünürlüklü (12-48 MP / 10+ MB) ham görseller, `server/routers/operations.ts` içindeki `uploadImage` fonksiyonunda `sharp` motorundan geçirilerek otomatik yön düzeltme (`.rotate()`), maksimum 1600x1600px orantılı boyutlandırma (`fit: 'inside', withoutEnlargement: true`) ve %80 JPEG kalitesiyle sıkıştırıldı.
-  - Fotoğraf boyutları ortalama 10 MB'tan ~200-300 KB seviyesine indirildi (%95+ disk tasarrufu); tonaj fişleri, rakamlar ve plakaların kristal netliği korundu.
-  - Olası beklenmeyen dosya/format hatalarında sistemin kesintiye uğramaması için fail-safe fallback mimarisi kuruldu.
-- **Fiziksel Dosya Silme Altyapısı (`storageDelete`):**
-  - `server/storage.ts` içerisine `storageDelete(relKeyOrUrl)` fonksiyonu eklenerek silinen fotoğrafların sadece veritabanından değil, sunucunun `uploads/` disk alanından da fiziki olarak silinmesi ve disk alanının anında geri kazanılması sağlandı.
-- **Yönetim Panelinde Tekil Görsel Silme Desteği:**
-  - Tonaj fişi inceleme modalında her bir fiş kartının yanına 🗑️ *"Sil"* butonu eklendi.
-  - Damperlik atık, konteyner arızası ve vatandaş şikayeti listelerine fotoğraf önizleme butonları ile lightbox modalı içerisine 🗑️ *"Görseli Sil"* aksiyonu eklendi.
-  - Backend tarafında `photos.deleteSingle` prosedürü ve `server/operations-db.ts` üzerinde `removeShiftReceiptPhoto`, `removeBulkWastePhoto`, `removeContainerFaultPhoto`, `removeCitizenComplaintPhoto` fonksiyonları geliştirildi. Silme işlemleri `FOTOĞRAF_SİLİNDİ` denetim loguna bağlandı.
-- **Yönetim Paneli Toplu Görsel ve Depolama Temizleme:**
-  - Yönetim Paneli **⚠️ Veri Sıfırlama** sekmesine **"Sunucu Depolama & Görsel / Fotoğraf Temizleme"** paneli eklendi:
-    - 📅 **Bugünkü Görselleri Sil:** Son 24 saat içinde yüklenen fotoğrafları temizler.
-    - ⏱️ **7+ Günlük Görselleri Sil:** 1 haftadan eski tüm operasyon fotoğraflarını diskten siler.
-    - 🗓️ **30+ Günlük Görselleri Sil:** 1 aydan eski arşiv fotoğraflarını temizler.
-    - ⚠️ **Tüm Görselleri Sıfırla:** Sistemdeki tüm fotoğrafları diskten ve veritabanından kalıcı olarak temizler.
-  - Backend tarafında `photos.purge` prosedürü ve `reports.resetData` içine `photosScope` desteği entegre edildi.
-- **Reddedilen / Tekrar Açılan Şikayetlerde Çözüm Fotoğrafının Sıfırlanması:**
-  - Yönetici tarafından reddedilen veya çözümü onaylanmayıp tekrar "açık" duruma getirilen vatandaş şikayetlerinde, eski çözüm fotoğrafı ve çözücü bilgileri (`resolutionPhotoUrl`, `resolvedBy`, `resolvedAt`) veritabanında otomatik olarak `null` yapıldı ve eski görsel dosyası `storageDelete` ile diskten temizlendi.
-  - `OperationsMap.tsx` ve `FieldOperations.tsx` üzerindeki harita pin detay kartlarında ve saha listelerinde, şikayet "açık" durumdayken eski çözüm fotoğrafının kesinlikle gösterilmemesi kuralı (`status !== "açık"`) güvenceye alındı.
-
-
-
-### [v2.4.10] - 2026-08-21
-- **Damperlik Atık ve Arıza Çözümü Açıklama Alanlarının İsteğe Bağlı Hale Getirilmesi:**
-
-  - Damperlik Atık Çözümü (`bulkWasteReports`), Konteyner Arıza Çözümü (`containerFaults`) ve Araç Arıza Çözümü (`vehicleFaults`) bildirim formlarındaki "Açıklama" alanı zorunlu olmaktan çıkarılarak `(İsteğe Bağlı)` formatına getirildi.
-  - Backend tRPC mutasyonlarında (`bulkWaste.create`, `containerFaults.create`, `vehicleFaults.create`) `description` alanı `z.string().optional().default("")` olarak revize edildi; boş bırakılması durumunda sistem otomatik olarak `"Açıklama belirtilmedi"` varsayılanını atar.
-
-### [v2.4.9] - 2026-08-21
-- **Damperlik Atık Bildirimine Kepçe Gereksinimi (`requiresExcavator`) Entegrasyonu:**
-  - `bulkWasteReports` tablosuna `requiresExcavator TINYINT(1) DEFAULT 0` kolonu eklendi (`drizzle/schema.ts`, `schema.sql`).
-  - Saha Damperlik Atık bildirim formuna `🚜 Kepçe Gerekli Değil` (varsayılan) ve `🚜 Kepçe Gerekli` (vurgulu amber) seçim butonları eklendi.
-  - Damperlik atık listesinde, harita pin popup detayında ve yönetim tablosunda `🚜 Kepçe Gerekli` rozeti ve filtreleme göstergesi entegre edildi.
-- **Bildiren Şoför / Personel İsminin Pin ve Listelerde Gösterilmesi:**
-  - `server/operations-db.ts` içerisindeki `listBulkWasteReports`, `listContainerFaults` ve `listCitizenComplaints` sorguları `users` tablosuyla left-join edilerek bildiren personelin adı (`reporterName`) çekildi.
-  - Damperlik atık kartlarında, konteyner arıza kartlarında, vatandaş şikayetlerinde ve harita pin detay kartlarında `👤 Bildiren: [Şoför/Personel Adı]` alanı gösterildi.
-- **Damperli ve Konteyner Çözüm Sayfalarındaki "Haritada Gör" Butonunun Sayfa İçi Haritaya Odaklanması:**
-  - Kullanıcı Damperlik Atık Çözümü, Konteyner Arıza Çözümü veya Vatandaş Şikayetleri sayfasındayken "Haritada Gör" butonuna bastığında genel haritaya yönlenmek yerine, doğrudan bulunduğu sayfadaki üst haritayı ilgili pine odaklayıp popup'ı açması ve sayfayı pürüzsüzce yukarı kaydırması (`selectedOperationId` + smooth scroll) sağlandı.
-- **Damperli Atık Silme & Harita Senkronizasyonu:**
-  - Damperlik atık paneline yönetim için doğrudan silme aksiyonu eklendi; silinen veya toplanan atıkların haritadan ve listelerden anında kaybolması için tRPC `refresh()` ve bileşik anahtarlı (`${category}-${id}`) optimistic state yönetimi optimize edildi.
-
-### [v2.4.8] - 2026-08-20
-- **Tonaj Fişi ve Modal Dialoglarının React Portal (`createPortal`) Mimarisine Geçirilmesi:**
-  - Tablodaki satır/mesai sayısı arttıkça sayfa uzadığında, CSS transform efektlerinden dolayı `position: fixed` modal katmanının viewport dışına taşması ve arka planın devasa uzaması sorunu kökten çözüldü.
-  - Tüm modallar (`receiptModal`, `editingShift`, `editingWaste`, `editingContainer`, `editingComplaint`, `showPurgeModal`, `editingUser`) doğrudan `document.body` üzerine teleport eden React Portal yapısına geçirildi. Sayfada kaç satır olursa olsun modal daima ekranın tam merkezine sabitlenir.
-- **Çoklu Tonaj Fişi Galeri Düzeni (Multi-Image Grid):**
-  - 1 adet tonaj fişi yüklendiğinde kompakt tekli kart görünümü (`max-w-md`), 2 veya daha fazla tonaj fişi olduğunda ise yan yana 2 sütunlu (`max-w-2xl grid-cols-1 sm:grid-cols-2`) nizamlı kart ızgarası devreye alınarak dikey taşma ve üst üste binme sorunları giderildi.
-  - Her bir fiş için `h-[46vh]` sabit yükseklikli ve `object-contain` özellikli beyaz zeminli çerçeve oluşturularak fişlerin birbirini ezmesi engellendi.
-- **CSS `fadeIn` Animasyonu İyileştirmesi:**
-  - `client/src/index.css` dosyasındaki `.view-transition` `fadeIn` animasyonundan `translateY` kaldırılarak saf opaklık geçişine dönüştürüldü ve çocuk bileşenlerdeki sabit konumlandırma bozulmaları önlendi.
-
-### [v2.4.7] - 2026-08-20
-- **Mahalle Analiz Tablosu Tarih ve Metrik Sıralaması (Sorting):**
-  - Analiz çubuğuna ve tablo başlıklarına gelişmiş sıralama özelliği entegre edildi.
-  - Seçenekler: `📅 Tarih (Yeniden Eskiye)`, `📅 Tarih (Eskiden Yeniye)`, `⚖️ Tonaj (Çoktan Aza)`, `⚖️ Tonaj (Azdan Çoka)`, `🚛 Sefer (En Çok Sefer)`, `🔤 Mahalle Adı (A-Z)`.
-  - Tablo sütun başlıklarına (`Mahalle`, `Son Sefer Tarihi`, `Çöp Seferi`, `Toplam Tonaj`) tıklandığında anlık yön göstergeli (▲ / ▼) dinamik sıralama tetiklenir.
-- **Tonaj Fişi Modal Arka Plan & Ölçek Dengelemesi:**
-  - Geniş ekranlarda tüm sayfayı karartan koyu siyah arka plan katmanı kaldırıldı; hafif, ferah ve modern `bg-black/35 backdrop-blur-xs` arayüz filtresine dönüştürüldü.
-  - Fiş modalının genişliği kompakt (`max-w-md`) ölçeğe çekildi; fotoğraflar doğal oranlarında ve net biçimde gösterilerek görsel ferahlık sağlandı.
-
-### [v2.4.6] - 2026-08-20
-- **Mahalle Denetim Tablosuna Sefer Tarihi Sütunu:**
-  - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu"na her mahalle için son yapılan seferin kesin tarihini (`📅 Son Sefer Tarihi`, örn: `20.08.2026` veya `Son: 20.08.2026 (2 Sefer)`) gösteren özel bir sütun eklendi.
-- **Kantar Fişi Terminolojisinin "Tonaj Fişi" Olarak Güncellenmesi:**
-  - Projedeki tüm sekme, buton, tablo başlığı ve modal metinlerindeki *"Kantar Fişi"* ibareleri belediye operasyon standardı gereği *"Tonaj Fişi"* olarak revize edildi.
-- **Tonaj Fişi Modal & Görüntüleme Optimizasyonu (Lightbox İyileştirmesi):**
-  - Fiş görüntüleme modalının aşırı karartıcı arka planı yumuşatılarak modern `bg-slate-950/60 backdrop-blur-sm` yarı saydam efektine dönüştürüldü.
-  - Kart boyutu dengeli `max-w-xl` ölçeğine getirildi; fiş fotoğraflarının orijinal en-boy oranı ve netliği korundu.
-  - Fiş detaylarına `Tam Boyut Aç` (`ExternalLink`) butonu eklenerek küçük kantar/tonaj yazılarını orijinal çözünürlükte yeni sekmede inceleme imkanı sağlandı.
-
-### [v2.4.5] - 2026-08-20
-- **Tarihe Göre Dinamik Filtreleme (Tek Gün & Tarih Aralığı Seçimi):**
-  - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu" ve üstündeki tüm KPI kartlarına takvimden özel gün (`[🎯 Belirli Gün Seç]`) ve tarih aralığı (`[↔️ Tarih Aralığı]`) seçme özellikleri eklendi.
-  - Seçilen günün tarihi (Örn: *20 Ağustos 2026 Perşembe*) rozette gösterilir ve tüm mahallelerin sefer sayıları, tonajları, atık/arıza/şikayet sayıları ve vardiya dağılımları seçilen tarihe göre anında yeniden hesaplanıp listelenir.
-
-### [v2.5.0] - 2026-08-21
-- **Rol Bazlı Operasyonel Yetki Ayrımı (Role Security & Access Hardening):**
-  - **Konteyner Arızası Kapatma:** Yalnızca `kaynak personeli` ve `yönetim` rolleri konteyner arızalarını onarıp kapatabilir. Şoförler ve kademe personeli arıza kaydı açabilir ancak kapatamaz.
-  - **Damperlik Atık Toplama:** Yalnızca `yönetim` ve **aktif olarak damperli kamyon ile mesaiye çıkmış olan şoförler** toplayıp kapatabilir. Çöp kamyonu şoförleri ve kademe personeli atığı toplayamaz; harita pin kartında "Atığı Topla" butonu çöp kamyonu şoförlerine gösterilmez.
-  - **Harita Pin Senkronizasyonu:** Başarısız işlem durumunda pinin haritadan kaybolması (premature optimistic removal) engellendi; pinler yalnızca backend mutasyonu başarıyla tamamlandığında güncellenir.
-- **Operasyon Özeti (Dashboard) Aktif Vatandaş Şikayetleri Bölümü:**
-  - Operasyon Özeti sayfasının altına tüm aktif/onay bekleyen vatandaş şikayetlerini gösteren **"Aktif Vatandaş Şikayetleri"** özet kartı eklendi.
-  - "Haritada Gör / İncele" butonuna tıklandığında kullanıcıyı doğrudan detaylı şikayet yönetimi olan **"Vatandaş Şikayetleri"** sekmesine taşır.
-- **Mobil Uyumluluk & Konum/GPS Arayüz Düzenlemeleri:**
-  - Anlık GPS konumu alındığında gelen uzun adres dizesinin mobil ekranlarda taşması ve sayfayı genişletmesi engellendi (`truncate max-w-full overflow-hidden`).
-  - "Adresi Bul" ve "Anlık Konum" butonları mobil ekranlarda yatayda esnek hizalandı.
-  - Enlem ve Boylam kutuları mobilde alt alta kaba durmak yerine yan yana 2 sütunlu kompakt bir alana alındı.
-- **Fotoğraf İnceleme Lightbox Z-Index & Portal Optimizasyonu:**
-  - Harita pin kartlarından ve listelerden açılan fotoğraf Lightbox pencereleri `createPortal(..., document.body)` ile en üst DOM katmanına (`z-[99999]`) taşındı.
-  - Fotoğraf kapatıldığında pin detay kartı arkada bozulmadan açık kalmaya devam eder.
-- **Bildirim Mesajları (Sonner Toasts) %100 Mat ve Yüksek Kontrast:**
-  - Saydam/transparan zemin yerine %100 opak/mat zeminler ve yüksek kontrastlı renkler (`#064e3b` yeşil, `#7f1d1d` kırmızı, `#78350f` kehribar, `#0c4a6e` mavi) uygulandı.
-  - `z-index: 999999` ve derin gölge (`shadow-2xl`) ile tüm harita, menü ve form pencerelerinin en üstünde net okunurluk sağlandı.
-- **İstemci Taraflı Görsel Ön Sıkıştırma (HTML5 Canvas Compression):**
-  - Mobil kamera çekimleri (10-15MB) istemcide canvas ile 1280px / ~120KB seviyesine sıkıştırılarak mobil veri tasarrufu ve hızlı yükleme sağlandı.
-- **Tepebaşı Kapsamlı Test & Demo Veri Paketi (`seed_test_data.sql` / `server/seed-test-data.ts`):**
-  - Gerçek Tepebaşı mahalleleri ve harita koordinatlarıyla 65 Damperlik Atık, 65 Konteyner Arızası ve 10 Vatandaş Şikayeti (toplam 140 operasyonel kayıt) SQL ve script olarak projeye eklendi.
-  - TiDB Cloud ve MySQL uyumlu 25'şerli optimize edilmiş batch INSERT bloklarıyla hatasız içe aktarma sağlandı.
-
-### [v2.4.15] - 2026-08-21
-
-
-- **Yönetim Raporları ve Analiz Sayfasına Kapsamlı "Sistem Denetim Logları" Sekmesi Eklendi:**
-  - `ManagementOperations.tsx` içerisine **`📜 Sistem Denetim Logları`** sekmesi ve üst navigasyon rozeti eklendi.
-  - **4 Boyutlu KPI İstatistik Kartları:**
-    1. 📊 *Filtrelenen İşlemler* (dinamik sayı).
-    2. 📅 *Bugünkü Hareketler* (günün toplam işlem hacmi).
-    3. 👤 *En Aktif Personel* (seçilen zaman aralığında en çok işlem gerçekleştiren kullanıcı ve adedi).
-    4. ⚡ *En Çok Yapılan İşlem* (en yoğun gerçekleşen eylem türü).
-  - **Kapsamlı Filtreleme ve Arama Paneli:**
-    - **Zaman Aralığı:** `[📅 Bugünün Logları]`, `[⏱️ Son 7 Gün]`, `[🗓️ Bu Ay]`, `[📊 Tüm Zamanlar]`, `[🎯 Belirli Gün Seç]` (takvimden gün seçimi) ve `[↔️ Tarih Aralığı]` (başlangıç/bitiş tarihleri).
-    - **Eylem Kategorisi (Pills):** `[Tüm Eylemler]`, `[🚛 Mesailer]`, `[📦 Damperlik Atık]`, `[🏗️ Konteyner Arızası]`, `[🚨 Vatandaş Şikayeti]`, `[🔧 Araç & Kademe]`, `[⚙️ Yönetim & Sistem]`.
-    - **Personel Filtresi:** Sistemdeki tüm kullanıcıları isim, kullanıcı adı ve rolleriyle listeleyen dropdown filtresi.
-    - **Canlı Metin Arama:** İşlem detayı, eylem adı, kullanıcı bilgisi ve ID bazlı anlık arama.
-  - **Denetim İzi Tablosu:**
-    - Tarih & Saat (Türkçe yerel format ve "Bugün" etiketi),
-    - Personel / Aktör (Avatar, İsim, @kullanıcı_adı, Rol rozeti),
-    - Eylem Türü (Renkli ve ikonlu eylem rozetleri: ✅ Başlatıldı/Kapatıldı/Onaylandı, 📢 Bildirildi, ✏️ Güncellendi, 🗑️ Silindi/Sıfırlandı),
-    - Hedef Varlık ve Kayıt ID (`mesai #42`, `damperlik_atık #14`, vb.),
-    - İşlem Detayı ve Açıklama kutusu.
-  - **Sayfalama (Pagination):** Sayfa başına 25 kayıt, önceki/sonraki sayfa kontrolleri ve sayfa göstergesi.
-  - **Backend Log Limiti Artırımı:** `listAuditLogs` sorgusu 100 kayıttan 1000 kayda çıkarılarak yöneticilerin geçmişe dönük geniş hareketleri analiz edebilmesi sağlandı.
-
-### [v2.6.0] - 2026-08-25
-- **PWA (Progressive Web App) & "Ana Ekrana Ekle" Desteği:**
-  - Web uygulamasının hem Android hem iOS (iPhone/iPad) cihazlarda App Store/Play Store'a ihtiyaç duymadan gerçek bir mobil uygulama gibi ana ekrana eklenip **tam ekran (standalone, adres çubuğu olmadan)** çalışması sağlandı.
-  - `client/public/manifest.json` dosyası yapılandırıldı (`display: "standalone"`, `theme_color: "#083d2d"`, `icons: [192x192, 512x512]`).
-  - `PWAInstallPrompt.tsx` bileşeni entegre edildi:
-    - **Android / Chrome:** Doğal `beforeinstallprompt` API'si ile tek tıkla yükleme daveti.
-    - **iOS / Safari:** Safari'nin Paylaş (`⬆️`) ve "Ana Ekrana Ekle" adımlarını gösteren görsel rehber modalı.
-    - **Rahatsız Etmeme:** Kullanıcı "Daha Sonra" dediğinde 2 gün boyunca tekrar sormayan, uygulama zaten standalone açıldığında hiç görünmeyen akıllı kontrol.
-  - `manifest.json` ve arayüzdeki logo kırpılma/yakınlaşma sorunları `purpose: "any"` ve `p-2.5` nefes payı ile tam ölçekli hale getirildi.
-- **Haritada GPS Konumu & Navigasyon Buton Çakışmasının Çözümü:**
-  - Haritada bir pine dokunulup alt detay kartı açıldığında, arka plandaki floating `[📍 Şu Anki Konumumu Göster]` butonu otomatik olarak gizlenerek çakışma sıfırlandı.
-  - Detay kartı içindeki buton `[🧭 Yol Tarifi Al]` olarak belirginleştirildi; kart kapatıldığında veya haritada boşluğa dokunulduğunda GPS butonu tekrar görünür hale gelir.
-- **Giriş Ekranı (Login Landing) Mobil Ergonomisi:**
-  - Kısayoldan veya mobilden girildiğinde dikey ekran boşlukları optimize edildi, giriş kartı doğrudan odak noktasına getirildi ve form alanları dokunmatik ekranlara uygun hale getirildi.
-- **Konteyner Arıza & Onarım Yetki Sınırlandırması:**
-  - Şoför ve kademe personelinin ekranlarından konteyner arıza bildirme ve kapatma sekmeleri kaldırıldı.
-  - Backend API (`containerFaults.create` ve `containerFaults.repair`) yalnızca **`kaynak personeli`** ve **`yönetim`** rollerine sınırlandırıldı.
-- **175 Metre Geofencing & Saha Konum Doğrulaması:**
-  - Damperlik atık toplama işleminde (`bulkWaste.collect`), yalnızca damperli araçla mesaisi açık olan şoförler ve yöneticiler atık toplayabilir (kademe personeli bu yetkiden çıkarılmıştır). Şoförlerin atık koordinatına en fazla **175 metre** yakınlıkta olması zorunluluğu getirildi (Haversine formülü ile sunucuda ve istemcide doğrulanır). Yönetim personeli konum kısıtlamasından muaftır.
-  - Damperlik atık toplama işleminde fotoğraf yükleme isteğe bağlıdır.
-
-- **12 Saatlik Kararlı Vardiya Oturumu (Sessioning) & Mobil Safari/Chrome Çıkış Koruması:**
-  - Sunucu JWT token ömrü ve istemci Session Cookie süresi tam **12 saat** (`12 * 60 * 60 * 1000 ms`) olarak senkronize edildi.
-  - Cookie güvenlik politikası `sameSite: "lax"` olarak güncellenerek iOS Safari (Apple ITP) ve Android Chrome mobil tarayıcılarında oturumun erken düşmesi engellendi.
-  - İstemci `useAuth` hook'unda `retry: 1` eklenerek kırsal alan ve tünellerdeki 1-2 saniyelik geçici mobil ağ kopmalarında kullanıcının sistemden atılması önlendi.
-- **Sayfa Yenileme (F5) ve Sekme Durumunun Korunması (Navigation Persistence):**
-  - Kullanıcının bulunduğu aktif sekme `localStorage` (`tepebasi_app_view`) ve URL sorgu parametresi (`?view=...`) ile senkronize edildi. Sayfa yenilendiğinde (F5) veya veri mutasyonları sonrası kullanıcı bulunduğu sekmede kalır, ana sayfaya atılmaz.
-- **Sol Menü (Sidebar) Ergonomisi & Kullanıcı Profili Üste Taşıma:**
-  - Aktif kullanıcı profili ve `[Çıkış]` butonu, sol menünün en altından alınıp doğrudan **Tepebaşı Belediyesi logosunun hemen altına** yerleştirildi. Böylece uzun menü listelerinde aşağı kaydırma ihtiyacı ortadan kaldırıldı.
-- **Üst Başlıkta Kompakt "Yenile" Butonu (`[🔄 Yenile]`):**
-  - Üst header alanına sayfa ve operasyonel verileri sıfırdan tazeleyen kompakt `[🔄 Yenile]` butonu entegre edildi.
-- **Damperlik Atık Listesinde Canlı GPS Mesafe Rozeti & En Yakındakiler Sıralaması:**
-  - Damperlik atık listesindeki her kaydın üzerine şoförün anlık GPS mesafesi rozet olarak eklendi (`📍 65m Toplamaya Uygun ✅` / `📍 340m` / `📍 1.2 km`).
-  - `[⚡ En Yakındakiler / Normal Sıralama]` butonu ile şoföre en yakın atıklar otomatik ilk sıraya dizilir. Şoför 175 metre içindeyken haritayı açmadan doğrudan listeden atığı toplayabilir.
-- **Titreşimli Geri Bildirim (Haptic Feedback):**
-  - Atık toplama, şikayet kapatma, konteyner tamamlama ve form işlemlerinde mobil cihazlarda dokunsal titreşim (`navigator.vibrate`) desteği devreye alındı.
-- **Operasyon Haritası Sadeleştirmesi:**
-  - Harita üzerindeki gereksiz şoför pinleri ve kılavuz simgeleri kaldırılarak sadece operasyonel atık/arıza/şikayet pinleri bırakıldı. Şoförün kendi telefon GPS konumunu görmesi için `[📍 Şu Anki Konumumu Göster]` butonu aktifleştirildi.
-
-### [v2.4.14] - 2026-08-21
-
-
-- **Toolbar Navigasyon Düzeni & İsim Sadeleştirmesi:**
-  - `Mesai Yönetimi` menü öğesi, şoförler ve yöneticiler için doğrudan `Operasyon Özeti` (Dashboard) öğesinin hemen altına taşındı.
-  - Toolbar üzerindeki `Operasyon Haritası & Bildirimler` menü başlığı `Operasyon Haritası` olarak sadeleştirildi.
-- **Mesai Başlatma Ekranı Sadeleştirmesi:**
-  - Şoför mesai başlatma formundan `Bölge` giriş kutusu kaldırıldı; bölge bilgisi seçilen mahalleye göre otomatik doldurulur.
-- **Mesai Sonlandırmada Tonaj Girişi Zorunluluğu & Fiş İsteğe Bağlılığı:**
-  - Mesai sonlandırma formunda tonaj bilgisi girişi zorunlu (`Tonaj (Zorunlu)`) hale getirildi; kantar/tonaj fişi fotoğrafı yükleme ise isteğe bağlı (`Tonaj Fişi (İsteğe Bağlı)`) bırakıldı. Şoförler tonaj bilgisini girip fiş fotoğrafı yüklemeden de mesaiyi kapatabilir.
-- **Vatandaş Şikayet Kaydı Yetkilendirmesi:**
-  - Vatandaş şikayeti bildirme formu (`ComplaintPanel`) ve backend mutasyonu (`complaints.create`) yalnızca `yönetim` rolüne tahsis edildi; şoförler için bildirim formu gizlendi ve sadece harita & çözüm akışı aktif bırakıldı.
-
-### [v2.4.12] - 2026-08-21
-- **Operasyonel Listelerde Yalnızca Aktif ve Bekleyen Kayıtların Listelenmesi:**
-  - **Damperli Atık Listesi:** Saha çözümü ve yönetim sekmelerinde çözülen (`toplandı`) atıklar filtrelenerek yalnızca toplanma bekleyen (`status: 'bekliyor'`) damperlik atıklar listelenir.
-  - **Konteyner Arıza Listesi:** Saha onarımı ve yönetim sekmelerinde onarımı tamamlanan konteynerler filtrelenerek yalnızca onarım bekleyen (`status: 'bekliyor'`) arızalar listelenir.
-  - **Vatandaş Şikayet Listesi:** Saha şikayetleri ve yönetim sekmelerinde onaylanarak kapatılan şikayetler filtrelenerek yalnızca müdahale bekleyen (`status: 'açık'`) ve yönetici onayı bekleyen (`status: 'onay_bekliyor'`) şikayetler listelenir.
-
-### [v2.4.11] - 2026-08-21
-- **Vatandaş Şikayetlerinde Zorunlu Çözüm Fotoğrafı & Yönetici Onay Akışı:**
-  - Şoförler artık vatandaş şikayetlerini fotoğraf yüklemeden kapatamaz.
-  - Şoför "Çözüm Fotoğrafı Yükle & Kapat" butonuna bastığında kamera/galeri destekli fotoğraf yükleme modalı açılır ve müdahale sonrası temizlik fotoğrafı yüklenir.
-  - Şikayet doğrudan kapanmaz, `onay_bekliyor` (⏳ Yönetici Onayı Bekliyor) durumuna geçer.
-  - Yönetici, şikayetler panelinden ve haritadan yüklenen çözüm fotoğrafını inceleyerek "✅ Onayla & Kapat" veya "❌ Reddet" (tekrar açık duruma getir) işlemi gerçekleştirir.
-  - Şikayet listelerinde ve harita kartlarında bildiren, çözen şoför ve onaylayan yönetici bilgileri açıkça gösterilir.
-- **Araç Yağ Bakım Kilometresi (`nextOilMaintenanceKm`):**
-  - `vehicles` tablosuna `nextOilMaintenanceKm` kolonu eklendi.
-  - Sadece **kademe personeli** ve **yönetim** rolleri tarafından yeni araç ekleme formunda ve "Araç Bilgisi Düzenle" modalında belirlenebilir/güncellenebilir.
-  - Araçlar listesinde "Yağ Bakımı (KM)" sütunu olarak listelenir.
-  - Şoför veya yönetici mesai başlatırken ilgili aracı seçtiğinde araç seçiminin altında belirgin bir bilgilendirme kartı çıkar: `🛢️ Bu aracın [X] KM'de yağ bakımı bulunmaktadır.`
-  - Araç seçim dropdown seçeneklerinde de `[🛢️ X KM]` etiketi yer alır.
-
-### [v2.4.10] - 2026-08-21
-- **Açıklama Alanlarının İsteğe Bağlı Yapılması:**
-  - Damperlik atık, konteyner arızası ve araç arıza bildirimlerindeki açıklama alanları isteğe bağlı hale getirildi (boş bırakıldığında otomatik `"Açıklama belirtilmedi"` fallback'i atanır).
-
-### [v2.4.4] - 2026-08-20
-- **Kantar / Tonaj Fişi İnceleme & Lightbox:**
-  - Yönetim Raporları (`Mesailer` sekmesi) tablosunda kantar fişi yüklenmiş tüm mesailere `📸 Kantar Fişi (X)` butonu eklendi.
-  - Tıklandığında kantar fişlerini tam çözünürlükte gösteren modern bir Lightbox modalı açılır.
-  - Mesai düzenleme modalına da yüklenen fiş fotoğraflarının önizleme küçük resimleri ve büyütme butonu entegre edildi.
-- **Mahalle Bazlı Kapsamlı Tonaj & Günlük Denetim Analizi (`Genel Özet` Sekmesi):**
-  - Yönetim raporlarının `Genel Özet` sekmesi günlük belediye denetim standartlarına uygun kapsamlı bir analiz merkezine dönüştürüldü:
-    1. **Zaman Aralığı Filtresi:** `[📅 Bugünün Denetimi]`, `[⏱️ Son 7 Gün]`, `[🗓️ Bu Ay]`, `[📊 Tüm Zamanlar]`, `[🎯 Belirli Gün Seç]`, `[↔️ Tarih Aralığı]`.
-    2. **Bölge & Mahalle Arama:** Dinamik bölge filtreleme ve arama desteği.
-    3. **KPI Kartları:** Toplam Tonaj, Sefer Başına Ortalama Tonaj, En Çok Atık Çıkan Mahalle (% Payıyla), Bekleyen Saha İşleri.
-    4. **Vardiya Tonaj Analizi:** Gündüz, Akşam ve Gece vardiyalarının ayrı ayrı tonaj, sefer ve yüzde dağılım göstergesi.
-    5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
-
-### [v2.7.0] - 2026-08-29
-- **Kullanıcı Profili & Şifre/Kullanıcı Adı Değiştirme:**
-  - Sol menü profil kartına tıklandığında açılan `UserProfileModal` entegre edildi. Kullanıcılar ad, kullanıcı adı ve şifrelerini doğrudan güncelleyebilir (`users.updateMyProfile` backend mutasyonu).
-  - Giriş ekranı (`LoginLanding`) açıklama metni bu akışa uygun olarak güncellendi.
-- **Şoför Menüsü & İsim Sadeleştirmesi:**
-  - `Mesai Yönetimi` -> **`Mesai Başla/Bitir`**
-  - `Damperlik Atık Çözümü` -> **`Damperlik Atık Bildir`**
-  - `Konteyner Arıza Çözümü` -> **`Arızalı Konteyner Bildir`**
-- **Şoför Ekranlarında Harita ve Sayısal Koordinat Karmaşasının Kaldırılması:**
-  - Şoförler için "Damperlik Atık Bildir" ve "Arızalı Konteyner Bildir" sayfalarındaki harita gizlendi, doğrudan temiz ve büyük butonlu bildirim formları öne çıkarıldı.
-  - Bildirim formlarındaki ham `Mahalle`, `Bölge`, `Enlem` ve `Boylam` giriş kutuları arayüzden kaldırılarak arka planda tek tıkla çalışan **`[📍 Şu Anki Konumumu Al]`** ve otomatik adres çözümleme mekanizmasına bağlandı.
-- **Şoförler İçin Arızalı Konteyner Bildirim Yetkisi:**
-### [v2.8.0] - 2026-08-29
-- **%100 Mobil Uyumlu Rol Bazlı "Hızlı İşlem Menüsü" (Quick Launcher):**
-  - Kafa karıştıran yönetici odaklı yeşil dashboard banner'ı ("Sahadaki operasyonları tek ekrandan yönetin...") kaldırılarak yerine kullanıcının rolüne göre özelleştirilmiş 2 sütunlu, büyük dokunmatik butonlu, dokunsal titreşim (`haptic feedback`) destekli **Hızlı İşlem Menüsü** entegre edildi.
-  - Şoför, Kaynak Personeli, Kademe Personeli ve Yönetim için tüm yetkiler doğrudan ana sayfada belirgin dokunmatik kartlar olarak sunuldu; personelin menüde kaybolması engellendi.
-  - Şoför mesai durumu rozeti açık mesai olmadığında `⚪ Aktif Mesai Yok`, mesai açıkken `🟢 Mesai Açık` şeklinde güncellendi.
-- **Damperli Kamyon Şoförleri İçin Damperlik Atık Bildirim İzni:**
-  - Aktif mesai açan damperli kamyon şoförlerinin de sahada gördükleri moloz/hafriyat atıklarını bildirebilmesi sağlandı. Backend `bulkWaste.create` API'si ve ön yüz yetkilendirmesi, açık mesaisi (çöp kamyonu veya damperli kamyon) olan tüm şoförlere bildirim izni verecek şekilde genişletildi.
-- **Üst Düzey Yönetici ve Personel Profil/Şifre Değiştirme Modalı:**
-  - `UserProfileModal` tamamen modernize edildi: İki sekmeli yapı (`👤 Kullanıcı Bilgileri` ve `🔒 Şifre Değiştir`), şifre göster/gizle göz ikonu (`Eye`/`EyeOff`), şifre eşleşme durum rozeti (`✓ Şifreler eşleşiyor` / `✕ Girdiğiniz şifreler eşleşmiyor`) ve koyu zümrüt gradient başlık eklendi.
-- **Rol Bazlı Sayfa Güvenlik Koruması (Role Route Guard):**
-  - Kullanıcı oturum açtığında veya hesap değiştirdiğinde URL'deki `?view=...` sorgusu veya `localStorage`'da kalan önceki sayfa kullanıcının rol yetkileriyle uyuşmuyorsa, yetkisiz içeriği göstermek yerine anında güvenli bir şekilde `dashboard` (Ana Sayfa) ekranına yönlendirme koruması (`useEffect` role route guard) devreye alındı.
-- **Giriş ve Sayfa Yenileme (F5) Davranışının Standartlaştırılması:**
-  - Her yeni oturum açılışında kullanıcı doğrudan `Ana Sayfa`ya (dashboard) yönlendirilir.
-  - Oturumu açık olan kullanıcı sayfayı yenilediğinde (F5) bulunduğu aktif sekmede kalmaya devam eder.
-  - Çıkış yapıldığında (`logout`) önceki sayfa hafızası temizlenir.
-- **Mobil Alt Navigasyon ve Menü İsimlendirmesi:**
-  - Mobil alt gezinme çubuğundaki (Bottom Navigation Bar) ve sol kenar çubuğundaki "Özet" / "Operasyon Özeti" etiketleri tüm roller için **"Ana Sayfa"** olarak güncellendi.
-
-### [v2.9.0] - 2026-08-29
-- **Kademe Personeli Menüsünden Operasyon Haritasının Kaldırılması:**
-  - Kademe personeli yalnızca araç ve kademe arızaları ile ilgilendiğinden, operasyon haritası yan menüden, mobil alt menüden ve ana sayfa Hızlı İşlem Menüsü'nden kaldırıldı.
-- **Kaynak Personeli Harita Filtresi:**
-### [v2.4.7] - 2026-08-20
-- **Mahalle Analiz Tablosu Tarih ve Metrik Sıralaması (Sorting):**
-  - Analiz çubuğuna ve tablo başlıklarına gelişmiş sıralama özelliği entegre edildi.
-  - Seçenekler: `📅 Tarih (Yeniden Eskiye)`, `📅 Tarih (Eskiden Yeniye)`, `⚖️ Tonaj (Çoktan Aza)`, `⚖️ Tonaj (Azdan Çoka)`, `🚛 Sefer (En Çok Sefer)`, `🔤 Mahalle Adı (A-Z)`.
-  - Tablo sütun başlıklarına (`Mahalle`, `Son Sefer Tarihi`, `Çöp Seferi`, `Toplam Tonaj`) tıklandığında anlık yön göstergeli (▲ / ▼) dinamik sıralama tetiklenir.
-- **Tonaj Fişi Modal Arka Plan & Ölçek Dengelemesi:**
-  - Geniş ekranlarda tüm sayfayı karartan koyu siyah arka plan katmanı kaldırıldı; hafif, ferah ve modern `bg-black/35 backdrop-blur-xs` arayüz filtresine dönüştürüldü.
-  - Fiş modalının genişliği kompakt (`max-w-md`) ölçeğe çekildi; fotoğraflar doğal oranlarında ve net biçimde gösterilerek görsel ferahlık sağlandı.
-
-### [v2.4.6] - 2026-08-20
-- **Mahalle Denetim Tablosuna Sefer Tarihi Sütunu:**
-  - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu"na her mahalle için son yapılan seferin kesin tarihini (`📅 Son Sefer Tarihi`, örn: `20.08.2026` veya `Son: 20.08.2026 (2 Sefer)`) gösteren özel bir sütun eklendi.
-- **Kantar Fişi Terminolojisinin "Tonaj Fişi" Olarak Güncellenmesi:**
-  - Projedeki tüm sekme, buton, tablo başlığı ve modal metinlerindeki *"Kantar Fişi"* ibareleri belediye operasyon standardı gereği *"Tonaj Fişi"* olarak revize edildi.
-- **Tonaj Fişi Modal & Görüntüleme Optimizasyonu (Lightbox İyileştirmesi):**
-  - Fiş görüntüleme modalının aşırı karartıcı arka planı yumuşatılarak modern `bg-slate-950/60 backdrop-blur-sm` yarı saydam efektine dönüştürüldü.
-  - Kart boyutu dengeli `max-w-xl` ölçeğine getirildi; fiş fotoğraflarının orijinal en-boy oranı ve netliği korundu.
-  - Fiş detaylarına `Tam Boyut Aç` (`ExternalLink`) butonu eklenerek küçük kantar/tonaj yazılarını orijinal çözünürlükte yeni sekmede inceleme imkanı sağlandı.
-
-### [v2.4.5] - 2026-08-20
-- **Tarihe Göre Dinamik Filtreleme (Tek Gün & Tarih Aralığı Seçimi):**
-  - "Mahalle Bazlı Kapsamlı Tonaj ve Operasyon Denetim Tablosu" ve üstündeki tüm KPI kartlarına takvimden özel gün (`[🎯 Belirli Gün Seç]`) ve tarih aralığı (`[↔️ Tarih Aralığı]`) seçme özellikleri eklendi.
-  - Seçilen günün tarihi (Örn: *20 Ağustos 2026 Perşembe*) rozette gösterilir ve tüm mahallelerin sefer sayıları, tonajları, atık/arıza/şikayet sayıları ve vardiya dağılımları seçilen tarihe göre anında yeniden hesaplanıp listelenir.
-
-### [v2.5.0] - 2026-08-21
-- **Rol Bazlı Operasyonel Yetki Ayrımı (Role Security & Access Hardening):**
-  - **Konteyner Arızası Kapatma:** Yalnızca `kaynak personeli` ve `yönetim` rolleri konteyner arızalarını onarıp kapatabilir. Şoförler ve kademe personeli arıza kaydı açabilir ancak kapatamaz.
-  - **Damperlik Atık Toplama:** Yalnızca `yönetim` ve **aktif olarak damperli kamyon ile mesaiye çıkmış olan şoförler** toplayıp kapatabilir. Çöp kamyonu şoförleri ve kademe personeli atığı toplayamaz; harita pin kartında "Atığı Topla" butonu çöp kamyonu şoförlerine gösterilmez.
-  - **Harita Pin Senkronizasyonu:** Başarısız işlem durumunda pinin haritadan kaybolması (premature optimistic removal) engellendi; pinler yalnızca backend mutasyonu başarıyla tamamlandığında güncellenir.
-- **Operasyon Özeti (Dashboard) Aktif Vatandaş Şikayetleri Bölümü:**
-  - Operasyon Özeti sayfasının altına tüm aktif/onay bekleyen vatandaş şikayetlerini gösteren **"Aktif Vatandaş Şikayetleri"** özet kartı eklendi.
-  - "Haritada Gör / İncele" butonuna tıklandığında kullanıcıyı doğrudan detaylı şikayet yönetimi olan **"Vatandaş Şikayetleri"** sekmesine taşır.
-- **Mobil Uyumluluk & Konum/GPS Arayüz Düzenlemeleri:**
-  - Anlık GPS konumu alındığında gelen uzun adres dizesinin mobil ekranlarda taşması ve sayfayı genişletmesi engellendi (`truncate max-w-full overflow-hidden`).
-  - "Adresi Bul" ve "Anlık Konum" butonları mobil ekranlarda yatayda esnek hizalandı.
-  - Enlem ve Boylam kutuları mobilde alt alta kaba durmak yerine yan yana 2 sütunlu kompakt bir alana alındı.
-- **Fotoğraf İnceleme Lightbox Z-Index & Portal Optimizasyonu:**
-  - Harita pin kartlarından ve listelerden açılan fotoğraf Lightbox pencereleri `createPortal(..., document.body)` ile en üst DOM katmanına (`z-[99999]`) taşındı.
-  - Fotoğraf kapatıldığında pin detay kartı arkada bozulmadan açık kalmaya devam eder.
-- **Bildirim Mesajları (Sonner Toasts) %100 Mat ve Yüksek Kontrast:**
-  - Saydam/transparan zemin yerine %100 opak/mat zeminler ve yüksek kontrastlı renkler (`#064e3b` yeşil, `#7f1d1d` kırmızı, `#78350f` kehribar, `#0c4a6e` mavi) uygulandı.
-  - `z-index: 999999` ve derin gölge (`shadow-2xl`) ile tüm harita, menü ve form pencerelerinin en üstünde net okunurluk sağlandı.
-- **İstemci Taraflı Görsel Ön Sıkıştırma (HTML5 Canvas Compression):**
-  - Mobil kamera çekimleri (10-15MB) istemcide canvas ile 1280px / ~120KB seviyesine sıkıştırılarak mobil veri tasarrufu ve hızlı yükleme sağlandı.
-- **Tepebaşı Kapsamlı Test & Demo Veri Paketi (`seed_test_data.sql` / `server/seed-test-data.ts`):**
-  - Gerçek Tepebaşı mahalleleri ve harita koordinatlarıyla 65 Damperlik Atık, 65 Konteyner Arızası ve 10 Vatandaş Şikayeti (toplam 140 operasyonel kayıt) SQL ve script olarak projeye eklendi.
-  - TiDB Cloud ve MySQL uyumlu 25'şerli optimize edilmiş batch INSERT bloklarıyla hatasız içe aktarma sağlandı.
-
-### [v2.4.15] - 2026-08-21
-
-
-- **Yönetim Raporları ve Analiz Sayfasına Kapsamlı "Sistem Denetim Logları" Sekmesi Eklendi:**
-  - `ManagementOperations.tsx` içerisine **`📜 Sistem Denetim Logları`** sekmesi ve üst navigasyon rozeti eklendi.
-  - **4 Boyutlu KPI İstatistik Kartları:**
-    1. 📊 *Filtrelenen İşlemler* (dinamik sayı).
-    2. 📅 *Bugünkü Hareketler* (günün toplam işlem hacmi).
-    3. 👤 *En Aktif Personel* (seçilen zaman aralığında en çok işlem gerçekleştiren kullanıcı ve adedi).
-    4. ⚡ *En Çok Yapılan İşlem* (en yoğun gerçekleşen eylem türü).
-  - **Kapsamlı Filtreleme ve Arama Paneli:**
-    - **Zaman Aralığı:** `[📅 Bugünün Logları]`, `[⏱️ Son 7 Gün]`, `[🗓️ Bu Ay]`, `[📊 Tüm Zamanlar]`, `[🎯 Belirli Gün Seç]` (takvimden gün seçimi) ve `[↔️ Tarih Aralığı]` (başlangıç/bitiş tarihleri).
-    - **Eylem Kategorisi (Pills):** `[Tüm Eylemler]`, `[🚛 Mesailer]`, `[📦 Damperlik Atık]`, `[🏗️ Konteyner Arızası]`, `[🚨 Vatandaş Şikayeti]`, `[🔧 Araç & Kademe]`, `[⚙️ Yönetim & Sistem]`.
-    - **Personel Filtresi:** Sistemdeki tüm kullanıcıları isim, kullanıcı adı ve rolleriyle listeleyen dropdown filtresi.
-    - **Canlı Metin Arama:** İşlem detayı, eylem adı, kullanıcı bilgisi ve ID bazlı anlık arama.
-  - **Denetim İzi Tablosu:**
-    - Tarih & Saat (Türkçe yerel format ve "Bugün" etiketi),
-    - Personel / Aktör (Avatar, İsim, @kullanıcı_adı, Rol rozeti),
-    - Eylem Türü (Renkli ve ikonlu eylem rozetleri: ✅ Başlatıldı/Kapatıldı/Onaylandı, 📢 Bildirildi, ✏️ Güncellendi, 🗑️ Silindi/Sıfırlandı),
-    - Hedef Varlık ve Kayıt ID (`mesai #42`, `damperlik_atık #14`, vb.),
-    - İşlem Detayı ve Açıklama kutusu.
-  - **Sayfalama (Pagination):** Sayfa başına 25 kayıt, önceki/sonraki sayfa kontrolleri ve sayfa göstergesi.
-  - **Backend Log Limiti Artırımı:** `listAuditLogs` sorgusu 100 kayıttan 1000 kayda çıkarılarak yöneticilerin geçmişe dönük geniş hareketleri analiz edebilmesi sağlandı.
-
-### [v2.6.0] - 2026-08-25
-- **PWA (Progressive Web App) & "Ana Ekrana Ekle" Desteği:**
-  - Web uygulamasının hem Android hem iOS (iPhone/iPad) cihazlarda App Store/Play Store'a ihtiyaç duymadan gerçek bir mobil uygulama gibi ana ekrana eklenip **tam ekran (standalone, adres çubuğu olmadan)** çalışması sağlandı.
-  - `client/public/manifest.json` dosyası yapılandırıldı (`display: "standalone"`, `theme_color: "#083d2d"`, `icons: [192x192, 512x512]`).
-  - `PWAInstallPrompt.tsx` bileşeni entegre edildi:
-    - **Android / Chrome:** Doğal `beforeinstallprompt` API'si ile tek tıkla yükleme daveti.
-    - **iOS / Safari:** Safari'nin Paylaş (`⬆️`) ve "Ana Ekrana Ekle" adımlarını gösteren görsel rehber modalı.
-    - **Rahatsız Etmeme:** Kullanıcı "Daha Sonra" dediğinde 2 gün boyunca tekrar sormayan, uygulama zaten standalone açıldığında hiç görünmeyen akıllı kontrol.
-  - `manifest.json` ve arayüzdeki logo kırpılma/yakınlaşma sorunları `purpose: "any"` ve `p-2.5` nefes payı ile tam ölçekli hale getirildi.
-- **Haritada GPS Konumu & Navigasyon Buton Çakışmasının Çözümü:**
-  - Haritada bir pine dokunulup alt detay kartı açıldığında, arka plandaki floating `[📍 Şu Anki Konumumu Göster]` butonu otomatik olarak gizlenerek çakışma sıfırlandı.
-  - Detay kartı içindeki buton `[🧭 Yol Tarifi Al]` olarak belirginleştirildi; kart kapatıldığında veya haritada boşluğa dokunulduğunda GPS butonu tekrar görünür hale gelir.
-- **Giriş Ekranı (Login Landing) Mobil Ergonomisi:**
-  - Kısayoldan veya mobilden girildiğinde dikey ekran boşlukları optimize edildi, giriş kartı doğrudan odak noktasına getirildi ve form alanları dokunmatik ekranlara uygun hale getirildi.
-- **Konteyner Arıza & Onarım Yetki Sınırlandırması:**
-  - Şoför ve kademe personelinin ekranlarından konteyner arıza bildirme ve kapatma sekmeleri kaldırıldı.
-  - Backend API (`containerFaults.create` ve `containerFaults.repair`) yalnızca **`kaynak personeli`** ve **`yönetim`** rollerine sınırlandırıldı.
-- **175 Metre Geofencing & Saha Konum Doğrulaması:**
-  - Damperlik atık toplama işleminde (`bulkWaste.collect`), yalnızca damperli araçla mesaisi açık olan şoförler ve yöneticiler atık toplayabilir (kademe personeli bu yetkiden çıkarılmıştır). Şoförlerin atık koordinatına en fazla **175 metre** yakınlıkta olması zorunluluğu getirildi (Haversine formülü ile sunucuda ve istemcide doğrulanır). Yönetim personeli konum kısıtlamasından muaftır.
-  - Damperlik atık toplama işleminde fotoğraf yükleme isteğe bağlıdır.
-
-- **12 Saatlik Kararlı Vardiya Oturumu (Sessioning) & Mobil Safari/Chrome Çıkış Koruması:**
-  - Sunucu JWT token ömrü ve istemci Session Cookie süresi tam **12 saat** (`12 * 60 * 60 * 1000 ms`) olarak senkronize edildi.
-  - Cookie güvenlik politikası `sameSite: "lax"` olarak güncellenerek iOS Safari (Apple ITP) ve Android Chrome mobil tarayıcılarında oturumun erken düşmesi engellendi.
-  - İstemci `useAuth` hook'unda `retry: 1` eklenerek kırsal alan ve tünellerdeki 1-2 saniyelik geçici mobil ağ kopmalarında kullanıcının sistemden atılması önlendi.
-- **Sayfa Yenileme (F5) ve Sekme Durumunun Korunması (Navigation Persistence):**
-  - Kullanıcının bulunduğu aktif sekme `localStorage` (`tepebasi_app_view`) ve URL sorgu parametresi (`?view=...`) ile senkronize edildi. Sayfa yenilendiğinde (F5) veya veri mutasyonları sonrası kullanıcı bulunduğu sekmede kalır, ana sayfaya atılmaz.
-- **Sol Menü (Sidebar) Ergonomisi & Kullanıcı Profili Üste Taşıma:**
-  - Aktif kullanıcı profili ve `[Çıkış]` butonu, sol menünün en altından alınıp doğrudan **Tepebaşı Belediyesi logosunun hemen altına** yerleştirildi. Böylece uzun menü listelerinde aşağı kaydırma ihtiyacı ortadan kaldırıldı.
-- **Üst Başlıkta Kompakt "Yenile" Butonu (`[🔄 Yenile]`):**
-  - Üst header alanına sayfa ve operasyonel verileri sıfırdan tazeleyen kompakt `[🔄 Yenile]` butonu entegre edildi.
-- **Damperlik Atık Listesinde Canlı GPS Mesafe Rozeti & En Yakındakiler Sıralaması:**
-  - Damperlik atık listesindeki her kaydın üzerine şoförün anlık GPS mesafesi rozet olarak eklendi (`📍 65m Toplamaya Uygun ✅` / `📍 340m` / `📍 1.2 km`).
-  - `[⚡ En Yakındakiler / Normal Sıralama]` butonu ile şoföre en yakın atıklar otomatik ilk sıraya dizilir. Şoför 175 metre içindeyken haritayı açmadan doğrudan listeden atığı toplayabilir.
-- **Titreşimli Geri Bildirim (Haptic Feedback):**
-  - Atık toplama, şikayet kapatma, konteyner tamamlama ve form işlemlerinde mobil cihazlarda dokunsal titreşim (`navigator.vibrate`) desteği devreye alındı.
-- **Operasyon Haritası Sadeleştirmesi:**
-  - Harita üzerindeki gereksiz şoför pinleri ve kılavuz simgeleri kaldırılarak sadece operasyonel atık/arıza/şikayet pinleri bırakıldı. Şoförün kendi telefon GPS konumunu görmesi için `[📍 Şu Anki Konumumu Göster]` butonu aktifleştirildi.
-
-### [v2.4.14] - 2026-08-21
-
-
-- **Toolbar Navigasyon Düzeni & İsim Sadeleştirmesi:**
-  - `Mesai Yönetimi` menü öğesi, şoförler ve yöneticiler için doğrudan `Operasyon Özeti` (Dashboard) öğesinin hemen altına taşındı.
-  - Toolbar üzerindeki `Operasyon Haritası & Bildirimler` menü başlığı `Operasyon Haritası` olarak sadeleştirildi.
-- **Mesai Başlatma Ekranı Sadeleştirmesi:**
-  - Şoför mesai başlatma formundan `Bölge` giriş kutusu kaldırıldı; bölge bilgisi seçilen mahalleye göre otomatik doldurulur.
-- **Mesai Sonlandırmada Tonaj Girişi Zorunluluğu & Fiş İsteğe Bağlılığı:**
-  - Mesai sonlandırma formunda tonaj bilgisi girişi zorunlu (`Tonaj (Zorunlu)`) hale getirildi; kantar/tonaj fişi fotoğrafı yükleme ise isteğe bağlı (`Tonaj Fişi (İsteğe Bağlı)`) bırakıldı. Şoförler tonaj bilgisini girip fiş fotoğrafı yüklemeden de mesaiyi kapatabilir.
-- **Vatandaş Şikayet Kaydı Yetkilendirmesi:**
-  - Vatandaş şikayeti bildirme formu (`ComplaintPanel`) ve backend mutasyonu (`complaints.create`) yalnızca `yönetim` rolüne tahsis edildi; şoförler için bildirim formu gizlendi ve sadece harita & çözüm akışı aktif bırakıldı.
-
-### [v2.4.12] - 2026-08-21
-- **Operasyonel Listelerde Yalnızca Aktif ve Bekleyen Kayıtların Listelenmesi:**
-  - **Damperli Atık Listesi:** Saha çözümü ve yönetim sekmelerinde çözülen (`toplandı`) atıklar filtrelenerek yalnızca toplanma bekleyen (`status: 'bekliyor'`) damperlik atıklar listelenir.
-  - **Konteyner Arıza Listesi:** Saha onarımı ve yönetim sekmelerinde onarımı tamamlanan konteynerler filtrelenerek yalnızca onarım bekleyen (`status: 'bekliyor'`) arızalar listelenir.
-  - **Vatandaş Şikayet Listesi:** Saha şikayetleri ve yönetim sekmelerinde onaylanarak kapatılan şikayetler filtrelenerek yalnızca müdahale bekleyen (`status: 'açık'`) ve yönetici onayı bekleyen (`status: 'onay_bekliyor'`) şikayetler listelenir.
-
-### [v2.4.11] - 2026-08-21
-- **Vatandaş Şikayetlerinde Zorunlu Çözüm Fotoğrafı & Yönetici Onay Akışı:**
-  - Şoförler artık vatandaş şikayetlerini fotoğraf yüklemeden kapatamaz.
-  - Şoför "Çözüm Fotoğrafı Yükle & Kapat" butonuna bastığında kamera/galeri destekli fotoğraf yükleme modalı açılır ve müdahale sonrası temizlik fotoğrafı yüklenir.
-  - Şikayet doğrudan kapanmaz, `onay_bekliyor` (⏳ Yönetici Onayı Bekliyor) durumuna geçer.
-  - Yönetici, şikayetler panelinden ve haritadan yüklenen çözüm fotoğrafını inceleyerek "✅ Onayla & Kapat" veya "❌ Reddet" (tekrar açık duruma getir) işlemi gerçekleştirir.
-  - Şikayet listelerinde ve harita kartlarında bildiren, çözen şoför ve onaylayan yönetici bilgileri açıkça gösterilir.
-- **Araç Yağ Bakım Kilometresi (`nextOilMaintenanceKm`):**
-  - `vehicles` tablosuna `nextOilMaintenanceKm` kolonu eklendi.
-  - Sadece **kademe personeli** ve **yönetim** rolleri tarafından yeni araç ekleme formunda ve "Araç Bilgisi Düzenle" modalında belirlenebilir/güncellenebilir.
-  - Araçlar listesinde "Yağ Bakımı (KM)" sütunu olarak listelenir.
-  - Şoför veya yönetici mesai başlatırken ilgili aracı seçtiğinde araç seçiminin altında belirgin bir bilgilendirme kartı çıkar: `🛢️ Bu aracın [X] KM'de yağ bakımı bulunmaktadır.`
-  - Araç seçim dropdown seçeneklerinde de `[🛢️ X KM]` etiketi yer alır.
-
-### [v2.4.10] - 2026-08-21
-- **Açıklama Alanlarının İsteğe Bağlı Yapılması:**
-  - Damperlik atık, konteyner arızası ve araç arıza bildirimlerindeki açıklama alanları isteğe bağlı hale getirildi (boş bırakıldığında otomatik `"Açıklama belirtilmedi"` fallback'i atanır).
-
-### [v2.4.4] - 2026-08-20
-- **Kantar / Tonaj Fişi İnceleme & Lightbox:**
-  - Yönetim Raporları (`Mesailer` sekmesi) tablosunda kantar fişi yüklenmiş tüm mesailere `📸 Kantar Fişi (X)` butonu eklendi.
-  - Tıklandığında kantar fişlerini tam çözünürlükte gösteren modern bir Lightbox modalı açılır.
-  - Mesai düzenleme modalına da yüklenen fiş fotoğraflarının önizleme küçük resimleri ve büyütme butonu entegre edildi.
-- **Mahalle Bazlı Kapsamlı Tonaj & Günlük Denetim Analizi (`Genel Özet` Sekmesi):**
-  - Yönetim raporlarının `Genel Özet` sekmesi günlük belediye denetim standartlarına uygun kapsamlı bir analiz merkezine dönüştürüldü:
-    1. **Zaman Aralığı Filtresi:** `[📅 Bugünün Denetimi]`, `[⏱️ Son 7 Gün]`, `[🗓️ Bu Ay]`, `[📊 Tüm Zamanlar]`, `[🎯 Belirli Gün Seç]`, `[↔️ Tarih Aralığı]`.
-    2. **Bölge & Mahalle Arama:** Dinamik bölge filtreleme ve arama desteği.
-    3. **KPI Kartları:** Toplam Tonaj, Sefer Başına Ortalama Tonaj, En Çok Atık Çıkan Mahalle (% Payıyla), Bekleyen Saha İşleri.
-    4. **Vardiya Tonaj Analizi:** Gündüz, Akşam ve Gece vardiyalarının ayrı ayrı tonaj, sefer ve yüzde dağılım göstergesi.
-    5. **Mahalle Bazlı Kapsamlı Denetim Matrisi:** Her mahalle için tamamlanan sefer sayısı, çekilen toplam tonaj, sefer ortalaması, görsel ilerleme çubuğuyla tonaj payı, damperlik atık, konteyner arızası, vatandaş şikayeti ve denetim durumu rozeti (🟢 Temiz, 🟡 Müdahale Bekliyor, 🔵 Mesai Sürüyor, ⚪ Sefer Yapılmadı).
-
-### [v2.7.0] - 2026-08-29
-- **Kullanıcı Profili & Şifre/Kullanıcı Adı Değiştirme:**
-  - Sol menü profil kartına tıklandığında açılan `UserProfileModal` entegre edildi. Kullanıcılar ad, kullanıcı adı ve şifrelerini doğrudan güncelleyebilir (`users.updateMyProfile` backend mutasyonu).
-  - Giriş ekranı (`LoginLanding`) açıklama metni bu akışa uygun olarak güncellendi.
-- **Şoför Menüsü & İsim Sadeleştirmesi:**
-  - `Mesai Yönetimi` -> **`Mesai Başla/Bitir`**
-  - `Damperlik Atık Çözümü` -> **`Damperlik Atık Bildir`**
-  - `Konteyner Arıza Çözümü` -> **`Arızalı Konteyner Bildir`**
-- **Şoför Ekranlarında Harita ve Sayısal Koordinat Karmaşasının Kaldırılması:**
-  - Şoförler için "Damperlik Atık Bildir" ve "Arızalı Konteyner Bildir" sayfalarındaki harita gizlendi, doğrudan temiz ve büyük butonlu bildirim formları öne çıkarıldı.
-  - Bildirim formlarındaki ham `Mahalle`, `Bölge`, `Enlem` ve `Boylam` giriş kutuları arayüzden kaldırılarak arka planda tek tıkla çalışan **`[📍 Şu Anki Konumumu Al]`** ve otomatik adres çözümleme mekanizmasına bağlandı.
-- **Şoförler İçin Arızalı Konteyner Bildirim Yetkisi:**
-### [v2.8.0] - 2026-08-29
-- **%100 Mobil Uyumlu Rol Bazlı "Hızlı İşlem Menüsü" (Quick Launcher):**
-  - Kafa karıştıran yönetici odaklı yeşil dashboard banner'ı ("Sahadaki operasyonları tek ekrandan yönetin...") kaldırılarak yerine kullanıcının rolüne göre özelleştirilmiş 2 sütunlu, büyük dokunmatik butonlu, dokunsal titreşim (`haptic feedback`) destekli **Hızlı İşlem Menüsü** entegre edildi.
-  - Şoför, Kaynak Personeli, Kademe Personeli ve Yönetim için tüm yetkiler doğrudan ana sayfada belirgin dokunmatik kartlar olarak sunuldu; personelin menüde kaybolması engellendi.
-  - Şoför mesai durumu rozeti açık mesai olmadığında `⚪ Aktif Mesai Yok`, mesai açıkken `🟢 Mesai Açık` şeklinde güncellendi.
-- **Damperli Kamyon Şoförleri İçin Damperlik Atık Bildirim İzni:**
-  - Aktif mesai açan damperli kamyon şoförlerinin de sahada gördükleri moloz/hafriyat atıklarını bildirebilmesi sağlandı. Backend `bulkWaste.create` API'si ve ön yüz yetkilendirmesi, açık mesaisi (çöp kamyonu veya damperli kamyon) olan tüm şoförlere bildirim izni verecek şekilde genişletildi.
-- **Üst Düzey Yönetici ve Personel Profil/Şifre Değiştirme Modalı:**
-  - `UserProfileModal` tamamen modernize edildi: İki sekmeli yapı (`👤 Kullanıcı Bilgileri` ve `🔒 Şifre Değiştir`), şifre göster/gizle göz ikonu (`Eye`/`EyeOff`), şifre eşleşme durum rozeti (`✓ Şifreler eşleşiyor` / `✕ Girdiğiniz şifreler eşleşmiyor`) ve koyu zümrüt gradient başlık eklendi.
-- **Rol Bazlı Sayfa Güvenlik Koruması (Role Route Guard):**
-  - Kullanıcı oturum açtığında veya hesap değiştirdiğinde URL'deki `?view=...` sorgusu veya `localStorage`'da kalan önceki sayfa kullanıcının rol yetkileriyle uyuşmuyorsa, yetkisiz içeriği göstermek yerine anında güvenli bir şekilde `dashboard` (Ana Sayfa) ekranına yönlendirme koruması (`useEffect` role route guard) devreye alındı.
-- **Giriş ve Sayfa Yenileme (F5) Davranışının Standartlaştırılması:**
-  - Her yeni oturum açılışında kullanıcı doğrudan `Ana Sayfa`ya (dashboard) yönlendirilir.
-  - Oturumu açık olan kullanıcı sayfayı yenilediğinde (F5) bulunduğu aktif sekmede kalmaya devam eder.
-  - Çıkış yapıldığında (`logout`) önceki sayfa hafızası temizlenir.
-- **Mobil Alt Navigasyon ve Menü İsimlendirmesi:**
-  - Mobil alt gezinme çubuğundaki (Bottom Navigation Bar) ve sol kenar çubuğundaki "Özet" / "Operasyon Özeti" etiketleri tüm roller için **"Ana Sayfa"** olarak güncellendi.
-
-### [v2.9.0] - 2026-08-29
-- **Kademe Personeli Menüsünden Operasyon Haritasının Kaldırılması:**
-  - Kademe personeli yalnızca araç ve kademe arızaları ile ilgilendiğinden, operasyon haritası yan menüden, mobil alt menüden ve ana sayfa Hızlı İşlem Menüsü'nden kaldırıldı.
-- **Kaynak Personeli Harita Filtresi:**
-  - Kaynakçıların operasyon haritasında yalnızca **Konteyner Arızası** pinlerini görmesi sağlandı; gereksiz atık/şikayet kategori sekmeleri kaynakçılar için gizlendi ve harita lejantı sadeleştirildi.
-- **Şoför Aktif Mesai Kartının En Üste Sabitlenmesi & Ana Sayfa Mesai Bitirme Desteği:**
-  - Şoför mesai başlattığında, açık mesai kartı ve mesai sonlandırma formu `Mesai Başla/Bitir` sayfasında en üste alındı (sayfayı kaydırma ihtiyacı ortadan kaldırıldı).
-  - Şoförün açık mesaisi `Ana Sayfa`da (Dashboard) belirgin bir gradient bilgi kartı olarak gösterildi ve tek tıkla `[Mesaiyi Bitir / Sonlandır]` butonuyla mesaiyi hızlıca sonlandırabilmesi sağlandı.
-
-### [v2.10.0] - 2026-08-29
-- **Kaynak Personeli Menüsünden Operasyon Haritasının Kaldırılması:**
-  - Kaynak personeli doğrudan `Konteyner Onarımı` sekmesindeki kendi arıza haritasını kullandığı için, genel Operasyon Haritası menüden, mobil alt çubuktan ve Hızlı İşlem Menüsü'nden kaldırıldı.
-- **Konteyner Arıza Onarımında 175m Geofence / GPS Doğrulaması:**
-  - Kaynak personeli konteyner arızasını onarırken (`containerFaults.repair`), damperlik atık toplamada olduğu gibi anlık GPS kontrolü devreye alındı. Konteynere en fazla 175 metre mesafede olunması zorunlu kılındı.
-- **Mobilde Otomatik Sayfa Başı Kaydırma (Scroll to Top):**
-  - Menüden veya hızlı butonlardan sayfa geçişi yapıldığında ekran otomatik olarak en tepeye (`top: 0`) kaydırılarak mobil kullanıcının kaldığı yerden değil, sayfa başından başlaması sağlandı.
-- **Arızalı Konteyner Bildirim Formu Emoji Sadeleştirmesi:**
-  - Arıza türü butonlarındaki sembol/emojiler kaldırılarak doğrudan kurumsal buton metinlerine dönüştürüldü.
+### [v2.12.0] - 2026-09-03 (Son Güncelleme / Güncel Sürüm)
+- **Yönetim Paneli Kurumsal Enterprise SaaS Yenilemesi:**
+  - Sekme gezinme yapısı tek satırlı, yatayda kaydırılabilir Segmented Control mimarisine dönüştürüldü.
+  - Riskli fabrika ayarlarına döndürme ("Sıfırlama") eylemi ana sekmelerden izole edilerek sağda kırmızı onay butonu olarak konumlandırıldı.
+  - Arayüzdeki tüm gayriciddi semboller/emojiler kaldırıldı; kurumsal Lucide SVG ikonları entegre edildi.
+  - Tüm sekmelere, 4 ana KPI kartına, vardiya analizine ve tablo sütun başlıklarına Radix UI tabanlı `AdminInfoTooltip` `(i)` açıklama rozetleri eklendi.
+- **Global Tarih & Dönem Filtre Çubuğu:**
+  - Tarih filtresi sekmelerin dışına çıkarılarak tüm sekmelerin üzerinde çalışan **Global Üst Araç Çubuğu** haline getirildi.
+  - Kullanıcı hangi sekmede olursa olsun tek tıkla dönem ("Bugün", "Son 7 Gün", "Bu Ay", "Belirli Gün", "Tarih Aralığı") değiştirebilir; tüm alt ekranlar anlık senkronize olur.
+- **Canlı "Saha Yoğunluğu" Göstergesi:**
+  - Seçili dönem filtresinden bağımsız olarak her zaman **Bugün** sahada çalışan araç sayısını (`todayActiveShiftsCount`), kantarda tartılan bugünkü net atık tonajını (`todayAuditTonnage`) ve bugün intikal etmiş açık saha işlerini (`todayTotalWaiting`) gösteren canlı durum şeridi devreye alındı.
+- **Akıllı Hızlı Görünüm Filtreleri & Mahalle Detay Çekmecesi (Slide-Over Sheet):**
+  - Mahalle tablosunun üstüne Linear/Stripe stili 1-tıkla hızlı filtreleme butonları eklendi (`Tüm Mahalleler`, `Müdahale Bekleyenler`, `Sefer Yapılmayanlar`, `En Yüksek Tonaj İlk 10`, `Temiz Mahalleler`).
+  - Tablonun sıfır sonuçta çöküp ekranı yukarı fırlatmasını önleyen `min-h-[500px]` taban yüksekliği ve kurumsal boş durum (Empty State) tasarımı uygulandı.
+  - Satırlara tıklandığında sağdan kayarak açılan `Sheet` detay çekmecesi eklendi. Mahallenin kantar fişi fotoğrafları, araç plakaları, şoförleri, molozları, arızalı konteynerleri ve şikayetleri 4 iç sekmede lightbox modal desteğiyle sunulur.
+- **Açık Adresli Resmi Belediye A4 PDF ve UTF-8 BOM Excel (CSV) Raporlama Motoru:**
+  - 6 ana sekmenin her biri için seçilen döneme özgü resmi A4 yatay PDF ve Türkçe karakter uyumlu Excel dışa aktarma sistemi tamamlandı.
+  - Konteyner veritabanı tarih sütunu uyuşmazlığı (`createdAt || reportedAt`) giderilerek 0 arıza durumunda bile resmi tutanak basılması sağlandı.
+  - Damperlik atık, konteyner arızası ve vatandaş şikayetleri raporlarına cadde, sokak ve bina detayını içeren **"Açık Adres / Konum Detayı"** sütunu entegre edildi.
+  - Tüm resmi PDF çıktılarının altına Tepebaşı Belediyesi hiyerarşisine tam uyumlu **3 resmi imza alanı** yerleştirildi:
+    1. **Saha Sorumlusu** (İmza)
+    2. **Vardiya Amiri** (İmza / Kaşe)
+    3. **Temizlik İşleri Müdürü** (İmza / Mühür)
+- **Güvenlik ve İzolasyon:**
+  - Yapılan tüm geliştirmeler %100 oranında `client/src/components/ManagementOperations.tsx` içerisinde tutuldu. Şoför mesai akışı, mobil kamera optimizasyonu, veritabanı şeması ve backend tRPC yönlendiricileri tamamen izole kaldı.
 
 ### [v2.11.0] - 2026-09-02
 - **Harita Altyapısı, Katman ve Zoom Optimizasyonları:**
@@ -813,39 +409,96 @@ Tüm sorgu ve mutasyonlar `trpc.operations.*` altında toplanmıştır:
   - Tüm harita standartları Yönetim, Şoför ve Kaynak Personeli olmak üzere tüm roller için ortaklaştırıldı.
 - **Giriş Ekranı & URL Temizleme Yönlendirmeleri:**
   - Giriş yapılmamış ziyaretlerde veya oturum kapatıldığında tarayıcı adres çubuğundaki `?view=harita` gibi yetkisiz/eski sayfa parametreleri otomatik temizlenerek temiz ve kurumsal kök URL (`/`) yönlendirmesi devreye alındı.
-  - Giriş sayfasındaki `🛡️ Tepebaşı Belediyesi Bilgi İşlem Altyapısı` alt bilgi metni kaldırıldı.
+  - Giriş sayfasındaki alt bilgi metni temizlendi.
 - **Kullanıcı Profili & Şifre Düzenleme Arayüzü:**
-  - Sol kenar çubuğundaki kullanıcı profil kartında tıklama ile profil modalı açılma davranışı korundu; sığmama sorunu yaratan mükerrer şifre değiştir butonu kaldırılarak arayüz sadeleştirildi.
+  - Sol kenar çubuğundaki kullanıcı profil kartında tıklama ile profil modalı açılma davranışı korundu; mükerrer şifre değiştir butonu kaldırılarak arayüz sadeleştirildi.
   - Profil düzenleme modalındaki sekmeler genişletilerek `Kullanıcı Bilgileri` ve `Şifre Değiştir` başlıklarının taşması engellendi.
 
-### [v2.12.0] - 2026-09-03
-- **Yönetim Paneli Kurumsal Enterprise SaaS Yenilemesi:**
-  - Sekme gezinme yapısı tek satırlı, yatayda kaydırılabilir, tam simetrik Segmented Control mimarisine dönüştürüldü.
-  - Riskli fabrika ayarlarına döndürme ("Sıfırlama") eylemi ana sekmelerden izole edilerek en sağda kırmızı onay butonu olarak konumlandırıldı.
-  - Arayüzdeki tüm amatör ve gayriciddi semboller/emojiler kaldırıldı; yerlerine kurumsal, tek renkli Lucide SVG ikonları entegre edildi.
-  - Tüm sekmelere, 4 ana KPI kartına, vardiya analizine ve tablo sütun başlıklarına Radix UI tabanlı `AdminInfoTooltip` `(i)` açıklama rozetleri eklendi.
-- **Global Tarih & Dönem Filtre Çubuğu:**
-  - Tarih filtresi yalnızca Genel Bakış'a bağlı olmaktan çıkarılarak tüm sekmelerin üzerinde çalışan **Global Üst Araç Çubuğu** haline getirildi.
-  - Kullanıcı `Mesai & Tonaj`, `Damperlik Atık`, `Konteynerler`, `Şikayetler` veya `Sistem Logları` sekmelerindeyken Genel Bakış'a dönmek zorunda kalmadan tek tıkla dönem ("Bugün", "Son 7 Gün", "Bu Ay", "Belirli Gün") değiştirebilir; tüm alt ekranlar anlık senkronize olur.
-- **Canlı "Saha Yoğunluğu" Göstergesi:**
-  - Seçili dönem filtresinden bağımsız olarak her zaman **Bugün** sahaya çıkan araç sayısını (`todayActiveShiftsCount`), kantarda tartılan bugünkü toplam net atık tonajını (`todayAuditTonnage`) ve bugün intikal etmiş açık saha işlerini (`todayTotalWaiting`) gösteren canlı zümrüt durum şeridi devreye alındı.
-- **Akıllı Hızlı Görünüm Filtreleri & Mahalle Detay Çekmecesi (Slide-Over Sheet):**
-  - Mahalle tablosunun üstüne 1-tıkla filtreleme sağlayan Linear/Stripe tarzı hızlı görünüm hapları eklendi (`Tüm Mahalleler`, `Müdahale Bekleyenler`, `Sefer Yapılmayanlar`, `En Yüksek Tonaj İlk 10`, `Temiz Mahalleler`).
-  - Filtreleme sonrası tablonun çökerek ekranı sayfa tepesine fırlatmasını önlemek için `min-h-[500px]` taban yüksekliği ve kurumsal boş durum (Empty State) tasarımı uygulandı.
-  - Mahalle satırlarına tıklandığında sağdan kayarak açılan `Sheet` detay çekmecesi eklendi. Çekmece içerisinde ilgili mahallenin kantar fişi fotoğrafları, araç plakaları, şoförleri, damperlik molozları, arızalı konteynerleri ve vatandaş şikayetleri 4 iç sekmede lightbox modal desteğiyle sunulur.
-- **Resmi Belediye A4 PDF ve UTF-8 BOM Excel (CSV) Raporlama Motoru:**
-  - 6 ana sekmenin her biri için (`Genel Bakış`, `Mesai & Tonaj`, `Damperlik Atık`, `Konteynerler`, `Şikayetler`, `Sistem Logları`) seçilen döneme özgü resmi A4 yatay PDF ve Türkçe karakter uyumlu Excel dışa aktarma sistemi geliştirildi.
-  - Konteyner tablosundaki tarih sütunu uyuşmazlığı (`c.createdAt || c.reportedAt`) giderilerek 0 arıza durumunda bile resmi tutanak basılması sağlandı.
-  - Damperlik atık, konteyner arızası ve vatandaş şikayetleri raporlarına cadde, sokak ve bina detayını içeren **"Açık Adres / Konum Detayı"** sütunu entegre edildi.
-  - Tüm resmi PDF çıktılarının altına Tepebaşı Belediyesi operasyonel hiyerarşisine tam uyumlu **3 yetkili imza alanı** yerleştirildi:
-    1. **Saha Sorumlusu** (İmza)
-    2. **Vardiya Amiri** (İmza / Kaşe)
-    3. **Temizlik İşleri Müdürü** (İmza / Mühür)
-- **Güvenlik ve İzolasyon:**
-  - Yapılan tüm geliştirmeler %100 oranında `client/src/components/ManagementOperations.tsx` içerisinde tutuldu. Şoför mesai akışı, mobil kamera optimizasyonu, veritabanı şeması ve backend tRPC yönlendiricileri kesinlikle değiştirilmedi.
+### [v2.10.0] - 2026-08-29
+- **Konteyner Arıza Onarımında 175m Geofence / GPS Doğrulaması:**
+  - Kaynak personeli konteyner arızasını onarırken (`containerFaults.repair`), damperlik atık toplamada olduğu gibi anlık GPS kontrolü devreye alındı. Konteynere en fazla 175 metre mesafede olunması zorunlu kılındı.
+- **Mobilde Otomatik Sayfa Başı Kaydırma (Scroll to Top):**
+  - Menüden veya hızlı butonlardan sayfa geçişi yapıldığında ekran otomatik olarak en tepeye (`top: 0`) kaydırılarak mobil kullanıcının kaldığı yerden değil, sayfa başından başlaması sağlandı.
+- **Arızalı Konteyner Bildirim Formu Emoji Sadeleştirmesi:**
+  - Arıza türü butonlarındaki sembol/emojiler kaldırılarak doğrudan kurumsal buton metinlerine dönüştürüldü.
+
+### [v2.9.0] - 2026-08-29
+- **Canlı Oturum Geçmişi & Sayfa Yenileme Koruma Standardı:**
+  - Kullanıcı sayfayı yenilediğinde (F5 / Ctrl+R) sistemin varsayılan sekmeye dönmesi engellendi; aktif sekme LocalStorage ve URL parametreleriyle korunur hale getirildi.
+  - Güvenli oturum sonlandırma ve oturum açma akışları optimize edildi.
+
+### [v2.8.0] - 2026-08-29
+- **Rol Geçiş Güvenliği ve Yetkisiz Route Koruması:**
+  - Kullanıcı rolleri arası geçişlerde yetkisiz ekranlara doğrudan erişim denemeleri engellendi; kullanıcılar otomatik olarak kendi rol yetkilerine uygun ekrana yönlendirildi.
+- **Hızlı Başlatıcı (Quick Launcher):**
+  - Mobil kullanıcılar için ana sayfada 2 sütunlu, dokunmatik hızlı aksiyon butonları devreye alındı.
+
+### [v2.7.0] - 2026-08-29
+- **Çevrimdışı ve Gecikmeli GPS Konum Takibi:**
+  - Saha operasyonlarında GPS sinyalinin zayıf olduğu bölgelerde son bilinen geçerli koordinatın kullanılması ve kullanıcıya durum bildirimi yapılması sağlandı.
+- **Servis Katmanı İyileştirmeleri:**
+  - tRPC hata yönetimi ve bağlantı kesintilerinde kullanıcı bilgilendirme modalları eklendi.
+
+### [v2.6.0] - 2026-08-25
+- **Görsel Optimizasyonu ve Boyut Düşürme (Sharp WebP/JPEG 1600px %95 Tasarruf):**
+  - Saha şoförlerinin ve personelinin yüklediği yüksek çözünürlüklü mobil kamera fotoğrafları (12 MP, 10 MB+) Sharp kütüphanesi ile otomatik olarak 1600px sınırına küçültüldü ve WebP/JPEG formatında sıkıştırıldı.
+  - Ortalama dosya boyutu 10 MB'tan ~150-200 KB seviyesine indirildi (%98 disk tasarrufu); tonaj fişlerinin okunabilirliği korundu.
+- **Fiziksel Dosya Silme Altyapısı (`storageDelete`):**
+  - Silinen kayıtların fotoğraflarının sunucu diskinden de fiziki olarak silinmesi sağlandı.
+- **Yönetim Panelinde Toplu Depolama Temizleme:**
+  - Veri Sıfırlama sekmesine belirli periyotlara göre fotoğrafları temizleme araçları eklendi.
+
+### [v2.5.0] - 2026-08-21
+- **Saha Şoförü Dashboard Aktif Mesai Kartı ve Hızlı Sonlandırma:**
+  - Şoför aktif bir mesaideyken ana sayfanın en tepesinde açık mesai detayları gösterildi ve tek tıkla mesai bitirme formuna erişim sağlandı.
+- **Şoför Görev Bölgesi Açık Şikayet Alarmı:**
+  - Şoförün görev yaptığı mahallede açık vatandaş şikayeti varsa ana sayfada acil durum banner'ı tetiklendi.
+
+### [v2.4.15] - 2026-08-21
+- **Vardiya Saatleri ve Bölge Filtreleme Optimizasyonları:**
+  - 3 sabit vardiya saati tanımlandı: `08:00 - 16:00`, `16:00 - 00:00`, `00:00 - 08:00`.
+  - Dinamik mahalle ve bölge eşleştirmeleri optimize edildi.
+
+### [v2.4.14] - 2026-08-21
+- **Mahalle Yönetimi ve Dinamik Bölge Atamaları:**
+  - Tepebaşı ilçesine ait merkez ve kırsal mahallelerin dinamik yönetimi için CRUD paneli devreye alındı.
+
+### [v2.4.12] - 2026-08-21
+- **Gelişmiş Filtreleme ve Arama Mekanizmaları:**
+  - Mesai ve kantar kayıtlarında şoför, araç plakası ve tarihe göre anlık filtreleme eklendi.
+
+### [v2.4.11] - 2026-08-21
+- **Görüntü Boyut Düşürme ve Disk Tasarrufu:**
+  - Yüklenen kantar fişlerinin ve operasyon fotoğraflarının ilk sıkıştırma altyapısı kuruldu.
+
+### [v2.4.10] - 2026-08-21
+- **Damperlik Atık ve Arıza Çözümü Açıklama Alanlarının İsteğe Bağlı Hale Getirilmesi:**
+  - Açıklama alanları zorunlu olmaktan çıkarılarak isteğe bağlı hale getirildi; boş bırakıldığında sistem varsayılanı atandı.
+
+### [v2.4.9] - 2026-08-21
+- **Damperlik Atık Bildirimine Kepçe Gereksinimi (`requiresExcavator`) Entegrasyonu:**
+  - `bulkWasteReports` tablosuna kepçe gereksinimi eklendi; harita ve yönetimde kepçe rozetleri gösterildi.
+- **Bildiren Personel Bilgisinin Pinlerde Gösterilmesi:**
+  - Bildirimi yapan şoför veya personelin adı harita detaylarında görüntülendi.
+
+### [v2.4.8] - 2026-08-20
+- **Tonaj Fişi ve Modal Dialoglarının React Portal (`createPortal`) Mimarisine Geçirilmesi:**
+  - Modalların viewport dışına taşması ve arka plan uzama sorunu React Portal ile çözüldü.
+- **Çoklu Tonaj Fişi Galeri Düzeni (Multi-Image Grid):**
+  - Yan yana 2 sütunlu kantar fişi galeri düzeni kuruldu.
+
+### [v2.4.7] - 2026-08-20
+- **Mahalle Analiz Tablosu Dinamik Sıralama (Sorting):**
+  - Tarih, tonaj, sefer ve mahalle adına göre çift yönlü sütun sıralaması entegre edildi.
+
+### [v2.4.6] - 2026-08-20
+- **Şikayet Fotoğrafı Doğrulama ve Yönetici Onay Akışı:**
+  - Vatandaş şikayetlerinin çözümünde şoförün çözüm fotoğrafı yüklemesi zorunlu kılındı; yönetici onaylamadan şikayetin kapanması engellendi.
+
+### [v2.4.5] - 2026-08-20
+- **İlk Kararlı Sürüm (Initial Stable Baseline):**
+  - Sistem çekirdek modülleri, veritabanı şeması ve kullanıcı rolleri devreye alındı.
 
 ---
 *Doküman Sürümü: v2.12.0 (Yönetim Paneli Kurumsal SaaS Yenilemesi, Global Tarih Filtresi, Mahalle Çekmecesi, Açık Adresli PDF & 3 Yetkili Resmi İmza Standardı)*  
 *Son Güncelleme: 2026-09-03*
-
-
