@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Download,
   ClipboardCheck,
   Clock,
   ExternalLink,
@@ -381,6 +382,46 @@ function parseTonnageReceipts(raw?: string | null): string[] {
 // -----------------------------------------------------------------------------
 // 2. YÖNETİM RAPORLARI, ANALİZ SIFIRLAMA & TAM CRUD DÜZENLEME
 // -----------------------------------------------------------------------------
+
+function exportNeighborhoodsCsv(rows: any[], periodLabel: string) {
+  if (!rows || !rows.length) return;
+  const separator = ";";
+  const columns = [
+    { key: "name", label: "Mahalle" },
+    { key: "region", label: "Bölge" },
+    { key: "lastDateText", label: "Son Sefer Tarihi" },
+    { key: "totalShifts", label: "Toplam Sefer" },
+    { key: "totalTonnage", label: "Toplam Tonaj (Ton)" },
+    { key: "avgTonnage", label: "Sefer Ortalaması (Ton)" },
+    { key: "tonnageShare", label: "İlçe Tonaj Payı (%)" },
+    { key: "wasteWaiting", label: "Bekleyen Damperlik Atık" },
+    { key: "containerWaiting", label: "Bekleyen Konteyner Arızası" },
+    { key: "complaintOpen", label: "Açık Vatandaş Şikayeti" },
+    { key: "auditStatus", label: "Saha Durumu" },
+  ];
+
+  const header = columns.map(c => `"${c.label}"`).join(separator);
+  const dataRows = rows.map(r => {
+    return columns.map(c => {
+      let val = r[c.key] ?? "";
+      if (c.key === "totalTonnage" && typeof val === "number") val = val.toFixed(2);
+      if (typeof val === "string") val = val.replace(/"/g, '""');
+      return `"${val}"`;
+    }).join(separator);
+  });
+
+  const csvContent = "\uFEFF" + [header, ...dataRows].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  const dateStr = new Date().toISOString().split("T")[0];
+  link.setAttribute("download", `Tepebasi_Mahalle_Denetim_Raporu_${dateStr}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function ReportsAndManagement({
   shifts,
   wasteList = [],
@@ -1124,12 +1165,12 @@ function ReportsAndManagement({
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {[
-                    { id: "today", label: "📅 Bugün" },
-                    { id: "week", label: "⏱️ Son 7 Gün" },
-                    { id: "month", label: "🗓️ Bu Ay" },
-                    { id: "all", label: "📊 Tüm Zamanlar" },
-                    { id: "single_date", label: "🎯 Belirli Gün Seç" },
-                    { id: "custom_range", label: "↔️ Tarih Aralığı" },
+                    { id: "today", label: "Bugün" },
+                    { id: "week", label: "Son 7 Gün" },
+                    { id: "month", label: "Bu Ay" },
+                    { id: "all", label: "Tüm Zamanlar" },
+                    { id: "single_date", label: "Belirli Gün" },
+                    { id: "custom_range", label: "Tarih Aralığı" },
                   ].map(period => (
                     <Button
                       key={period.id}
@@ -1158,12 +1199,12 @@ function ReportsAndManagement({
                     onChange={e => setSortBy(e.target.value as any)}
                     className="input-native text-xs h-8 font-semibold text-slate-800"
                   >
-                    <option value="date_desc">📅 Tarih (Yeniden Eskiye)</option>
-                    <option value="date_asc">📅 Tarih (Eskiden Yeniye)</option>
-                    <option value="tonnage_desc">⚖️ Tonaj (Çoktan Aza)</option>
-                    <option value="tonnage_asc">⚖️ Tonaj (Azdan Çoka)</option>
-                    <option value="shifts_desc">🚛 Sefer (En Çok Sefer)</option>
-                    <option value="name_asc">🔤 Mahalle Adı (A-Z)</option>
+                    <option value="date_desc">Tarih (Yeniden Eskiye)</option>
+                    <option value="date_asc">Tarih (Eskiden Yeniye)</option>
+                    <option value="tonnage_desc">Tonaj (Çoktan Aza)</option>
+                    <option value="tonnage_asc">Tonaj (Azdan Çoka)</option>
+                    <option value="shifts_desc">Sefer (En Çok Sefer)</option>
+                    <option value="name_asc">Mahalle Adı (A-Z)</option>
                   </select>
                 </div>
 
@@ -1251,6 +1292,40 @@ function ReportsAndManagement({
               </div>
             )}
           </Card>
+
+                    {/* Kurumsal Operasyon Nabzı (Executive Mission Banner) */}
+          <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-4 text-white shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                  <span className={cn("absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping", totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "bg-amber-400" : "bg-emerald-400")} />
+                  <span className={cn("relative inline-flex h-2.5 w-2.5 rounded-full", totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "bg-amber-500" : "bg-emerald-500")} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-extrabold text-sm tracking-tight text-white">
+                      Tepebaşı Saha Operasyon Yönetim Nabzı
+                    </h3>
+                    <Badge className={cn("text-[10px] font-extrabold px-2 py-0.2 border", totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "bg-amber-500/20 text-amber-200 border-amber-400/30" : "bg-emerald-500/20 text-emerald-200 border-emerald-400/30")}>
+                      {totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "Müdahale Bekleyen İşler Var" : "Operasyon Normal"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-300/80 mt-0.5 font-medium">
+                    Seçili Dönem: <strong className="text-emerald-300 font-semibold">{activePeriodLabel}</strong> · {periodShifts.length} seferde toplam <strong className="text-emerald-300 font-semibold">{totalAuditTonnage.toFixed(2)} Ton</strong> katı atık toplandı.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 text-xs font-semibold text-slate-300 border-t md:border-t-0 border-white/10 pt-2 md:pt-0">
+                <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">
+                  Aktif Sahada: <strong className="text-sky-300">{activeShiftsCount} Araç</strong>
+                </span>
+                <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">
+                  Bekleyen: <strong className={cn(totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen > 0 ? "text-amber-300" : "text-emerald-300")}>{totalWasteWaiting + totalContainersWaiting + totalComplaintsOpen} İş</strong>
+                </span>
+              </div>
+            </div>
+          </div>
 
           {/* KPI İstatistik Kartları (Yönetici Paneli) */}
           <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
@@ -1484,7 +1559,7 @@ function ReportsAndManagement({
                         title="Sefer tarihine göre sırala"
                       >
                         <div className="flex items-center gap-1.5">
-                          <span>📅 Son Sefer Tarihi</span><AdminInfoTooltip title="Son Sefer" description="Mahalleye en son giren çöp kamyonunun vardiya ve tartım tarihi." />
+                          <span>Son Sefer Tarihi</span><AdminInfoTooltip title="Son Sefer" description="Mahalleye en son giren çöp kamyonunun vardiya ve tartım tarihi." />
                           {sortBy === "date_desc" ? (
                             <span className="text-emerald-700 font-bold">▼</span>
                           ) : sortBy === "date_asc" ? (
@@ -1958,7 +2033,7 @@ function ReportsAndManagement({
               <CardTitle className="font-display text-base font-bold text-slate-900">Kayıtlı Mesailer ve Tonaj Fişleri</CardTitle>
               <p className="text-xs text-slate-500 mt-0.5">Şoför mesai kayıtları, tamamlanan tonajlar ve yüklenen tonaj fişi fotoğrafları</p>
             </div>
-            <Badge variant="outline" className="text-xs font-bold text-slate-700 bg-slate-50">{shifts.length} Mesai</Badge>
+            <Badge variant="outline" className="text-xs font-bold text-slate-700 bg-slate-50">Seçilen Dönem: {periodShifts.length} / Toplam: {shifts.length} Mesai</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -1975,7 +2050,7 @@ function ReportsAndManagement({
                   </tr>
                 </thead>
                 <tbody>
-                  {shifts.map(shift => {
+                  {periodShifts.map(shift => {
                     const receipts = parseTonnageReceipts(shift.tonnageReceiptUrl);
                     return (
                       <tr key={shift.id} className="border-t border-slate-100 hover:bg-slate-50/50 transition">
