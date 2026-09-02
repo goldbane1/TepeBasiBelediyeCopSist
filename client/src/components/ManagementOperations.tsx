@@ -477,8 +477,8 @@ function exportNeighborhoodsPdf(rows: any[], periodLabel: string, totalTonnage: 
     <body>
       <div class="header">
         <div class="title-group">
-          <h1>T.C. TEPEBAŞI BELEDİYE BAŞKANLIĞI</h1>
-          <h2>Temizlik İşleri Müdürlüğü · Saha Operasyon & Denetim Raporu</h2>
+          <h1>TEPEBAŞI BELEDİYESİ TEMİZLİK İŞLERİ MÜDÜRLÜĞÜ</h1>
+          <h2>Saha Operasyon & Denetim Raporu</h2>
         </div>
         <div class="meta">
           <div><strong>Rapor Tanzim Tarihi:</strong> ${nowFormatted}</div>
@@ -582,8 +582,8 @@ function generateMunicipalPdfDoc(title: string, subtitle: string, headers: strin
     <body>
       <div class="header">
         <div class="title-group">
-          <h1>T.C. TEPEBAŞI BELEDİYE BAŞKANLIĞI</h1>
-          <h2>Temizlik İşleri Müdürlüğü · ${subtitle}</h2>
+          <h1>TEPEBAŞI BELEDİYESİ TEMİZLİK İŞLERİ MÜDÜRLÜĞÜ</h1>
+          <h2>${subtitle}</h2>
         </div>
         <div class="meta">
           <div><strong>Rapor Tanzim Tarihi:</strong> ${nowFormatted}</div>
