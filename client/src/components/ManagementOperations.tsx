@@ -543,6 +543,321 @@ function exportNeighborhoodsPdf(rows: any[], periodLabel: string, totalTonnage: 
   printWindow.document.close();
 }
 
+
+// ==========================================
+// RESMİ BELEDİYE KURUMSAL PDF RAPOR MOTORU
+// ==========================================
+function generateMunicipalPdfDoc(title: string, subtitle: string, headers: string[], rowsHtml: string, metaSummary: string) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    alert("Tarayıcınız açılır pencereyi engelledi. Lütfen adres çubuğundan izin verin.");
+    return;
+  }
+  const nowFormatted = new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" }).format(new Date());
+
+  const thHtml = headers.map(h => `<th style="background:#065f46;color:#ffffff;padding:8px 10px;font-size:11px;text-transform:uppercase;text-align:left;">${h}</th>`).join("");
+
+  const docHtml = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+      <meta charset="UTF-8" />
+      <title>${title}</title>
+      <style>
+        @page { size: A4 landscape; margin: 10mm 10mm; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5px solid #065f46; padding-bottom: 12px; margin-bottom: 14px; }
+        .title-group h1 { margin: 0; font-size: 17px; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800; }
+        .title-group h2 { margin: 4px 0 0; font-size: 13px; color: #334155; font-weight: 600; }
+        .meta { text-align: right; font-size: 11px; color: #64748b; line-height: 1.4; }
+        .summary-bar { display: flex; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .footer-signatures { display: flex; justify-content: space-between; margin-top: 28px; page-break-inside: avoid; }
+        .sig-box { width: 28%; text-align: center; border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 11px; color: #334155; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="title-group">
+          <h1>T.C. TEPEBAŞI BELEDİYE BAŞKANLIĞI</h1>
+          <h2>Temizlik İşleri Müdürlüğü · ${subtitle}</h2>
+        </div>
+        <div class="meta">
+          <div><strong>Rapor Tanzim Tarihi:</strong> ${nowFormatted}</div>
+          <div><strong>Evrak Niteliği:</strong> Resmi İdari Denetim Nüshası</div>
+        </div>
+      </div>
+      ${metaSummary}
+      <table>
+        <thead><tr>${thHtml}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="footer-signatures">
+        <div class="sig-box"><strong>Hazırlayan</strong><br/><br/><br/>Saha Denetim Sorumlusu</div>
+        <div class="sig-box"><strong>Kontrol Eden</strong><br/><br/><br/>Operasyon ve Lojistik Şefi</div>
+        <div class="sig-box"><strong>Tasdik Eden</strong><br/><br/><br/>Temizlik İşleri Müdürü</div>
+      </div>
+      <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 350); };</script>
+    </body>
+    </html>
+  `;
+  printWindow.document.open();
+  printWindow.document.write(docHtml);
+  printWindow.document.close();
+}
+
+// 1. Mesai ve Kantar Raporu PDF & CSV
+function exportShiftsPdf(shiftsList: any[], periodLabel: string) {
+  if (!shiftsList || !shiftsList.length) return;
+  const headers = ["ID", "Tarih", "Şoför", "Mahalle", "Vardiya", "Araç Plaka", "Km (Baş-Bit)", "Net Tonaj", "Durum"];
+  let totalTon = 0;
+  const rows = shiftsList.map((s, i) => {
+    const tonVal = Number(String(s.tonnage ?? "0").replace(",", "."));
+    totalTon += isNaN(tonVal) ? 0 : tonVal;
+    return `
+      <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+        <td style="padding:7px 10px;font-weight:bold;">#${s.id}</td>
+        <td style="padding:7px 10px;">${new Date(s.startedAt).toLocaleDateString("tr-TR")}</td>
+        <td style="padding:7px 10px;font-weight:600;">${s.driverName || "Şoför #" + s.driverId}</td>
+        <td style="padding:7px 10px;">${s.neighborhood}</td>
+        <td style="padding:7px 10px;">${s.shiftHours || "08:00 - 16:00"}</td>
+        <td style="padding:7px 10px;font-weight:bold;">${s.vehiclePlate || "#" + s.vehicleId}</td>
+        <td style="padding:7px 10px;">${s.startKm ?? "—"} → ${s.endKm ?? "—"} km</td>
+        <td style="padding:7px 10px;font-weight:bold;color:#065f46;text-align:right;">${s.tonnage ? Number(s.tonnage).toFixed(2) + " Ton" : "—"}</td>
+        <td style="padding:7px 10px;text-align:right;">${s.status === "tamamlandı" ? "✓ Tamamlandı" : "● Sahada"}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const summary = `
+    <div class="summary-bar">
+      <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
+      <div style="flex:1;">Toplam Sefer: <strong>${shiftsList.length} Sefer</strong></div>
+      <div style="flex:1;">Toplam Tartılan Atık: <strong>${totalTon.toFixed(2)} Ton</strong></div>
+    </div>
+  `;
+  generateMunicipalPdfDoc("Mesai ve Kantar Tartım Raporu", "Mesai ve Resmi Kantar Tartım Denetim Raporu", headers, rows, summary);
+}
+
+function exportShiftsCsv(shiftsList: any[]) {
+  if (!shiftsList || !shiftsList.length) return;
+  const cols = ["ID", "Tarih", "Şoför", "Mahalle", "Vardiya", "Araç", "Başlangıç Km", "Bitiş Km", "Net Tonaj (Ton)", "Durum"];
+  const header = cols.map(c => `"${c}"`).join(";");
+  const data = shiftsList.map(s => [
+    s.id,
+    new Date(s.startedAt).toLocaleDateString("tr-TR"),
+    s.driverName || "Şoför #" + s.driverId,
+    s.neighborhood,
+    s.shiftHours || "08:00 - 16:00",
+    s.vehiclePlate || "#" + s.vehicleId,
+    s.startKm ?? "",
+    s.endKm ?? "",
+    s.tonnage ?? "",
+    s.status
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const csv = "\uFEFF" + [header, ...data].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Tepebasi_Mesailer_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+}
+
+// 2. Damperlik Atık Raporu PDF & CSV
+function exportWastePdf(wasteList: any[], periodLabel: string) {
+  if (!wasteList || !wasteList.length) return;
+  const headers = ["ID", "Tarih", "Mahalle", "Adres / Konum", "Açıklama", "Bildiren", "Toplanma Tarihi", "Durum"];
+  const rows = wasteList.map((w, i) => `
+    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+      <td style="padding:7px 10px;font-weight:bold;">#${w.id}</td>
+      <td style="padding:7px 10px;">${new Date(w.createdAt).toLocaleDateString("tr-TR")}</td>
+      <td style="padding:7px 10px;font-weight:600;">${w.neighborhood}</td>
+      <td style="padding:7px 10px;">${w.addressText || "—"}</td>
+      <td style="padding:7px 10px;">${w.description || "Damperlik Atık"}</td>
+      <td style="padding:7px 10px;">${w.createdByName || "Saha Ekibi"}</td>
+      <td style="padding:7px 10px;">${w.collectedAt ? new Date(w.collectedAt).toLocaleDateString("tr-TR") : "—"}</td>
+      <td style="padding:7px 10px;font-weight:bold;color:${w.status === "toplandı" ? "#047857" : "#b91c1c"};text-align:right;">
+        ${w.status === "toplandı" ? "✓ Toplandı" : "Müdahale Bekliyor"}
+      </td>
+    </tr>
+  `).join("");
+  const summary = `
+    <div class="summary-bar">
+      <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
+      <div style="flex:1;">Toplam Atık Bildirimi: <strong>${wasteList.length} Adet</strong></div>
+      <div style="flex:1;">Bekleyen Müdahale: <strong>${wasteList.filter(w => w.status === "bekliyor").length} Adet</strong></div>
+    </div>
+  `;
+  generateMunicipalPdfDoc("Damperlik Atık ve Moloz Raporu", "Damperlik Atık ve Moloz Takip Denetim Raporu", headers, rows, summary);
+}
+
+function exportWasteCsv(wasteList: any[]) {
+  if (!wasteList || !wasteList.length) return;
+  const cols = ["ID", "Tarih", "Mahalle", "Adres", "Açıklama", "Bildiren", "Toplanma Tarihi", "Durum"];
+  const header = cols.map(c => `"${c}"`).join(";");
+  const data = wasteList.map(w => [
+    w.id,
+    new Date(w.createdAt).toLocaleDateString("tr-TR"),
+    w.neighborhood,
+    w.addressText || "",
+    w.description || "",
+    w.createdByName || "",
+    w.collectedAt ? new Date(w.collectedAt).toLocaleDateString("tr-TR") : "",
+    w.status
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const csv = "\uFEFF" + [header, ...data].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Tepebasi_Damperlik_Atiklar_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+}
+
+// 3. Konteyner Arıza Raporu PDF & CSV
+function exportContainersPdf(containersList: any[], periodLabel: string) {
+  if (!containersList || !containersList.length) return;
+  const headers = ["ID", "Tarih", "Mahalle", "Adres / Konum", "Arıza Türü", "Bildiren", "Onarım Tarihi", "Durum"];
+  const rows = containersList.map((c, i) => `
+    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+      <td style="padding:7px 10px;font-weight:bold;">#${c.id}</td>
+      <td style="padding:7px 10px;">${new Date(c.reportedAt).toLocaleDateString("tr-TR")}</td>
+      <td style="padding:7px 10px;font-weight:600;">${c.neighborhood}</td>
+      <td style="padding:7px 10px;">${c.addressText || "—"}</td>
+      <td style="padding:7px 10px;font-weight:600;">${c.faultType || "Arıza"}</td>
+      <td style="padding:7px 10px;">${c.reportedByName || "Saha Ekibi"}</td>
+      <td style="padding:7px 10px;">${c.repairedAt ? new Date(c.repairedAt).toLocaleDateString("tr-TR") : "—"}</td>
+      <td style="padding:7px 10px;font-weight:bold;color:${c.status === "onarıldı" ? "#047857" : "#b45309"};text-align:right;">
+        ${c.status === "onarıldı" ? "✓ Onarıldı" : "Kaynak Bekliyor"}
+      </td>
+    </tr>
+  `).join("");
+  const summary = `
+    <div class="summary-bar">
+      <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
+      <div style="flex:1;">Toplam Arıza: <strong>${containersList.length} Adet</strong></div>
+      <div style="flex:1;">Onarım Bekleyen: <strong>${containersList.filter(c => c.status === "bekliyor").length} Adet</strong></div>
+    </div>
+  `;
+  generateMunicipalPdfDoc("Konteyner Onarım Raporu", "Konteyner Arıza ve Atölye Onarım Denetim Raporu", headers, rows, summary);
+}
+
+function exportContainersCsv(containersList: any[]) {
+  if (!containersList || !containersList.length) return;
+  const cols = ["ID", "Tarih", "Mahalle", "Adres", "Arıza Tipi", "Bildiren", "Onarım Tarihi", "Durum"];
+  const header = cols.map(c => `"${c}"`).join(";");
+  const data = containersList.map(c => [
+    c.id,
+    new Date(c.reportedAt).toLocaleDateString("tr-TR"),
+    c.neighborhood,
+    c.addressText || "",
+    c.faultType || "",
+    c.reportedByName || "",
+    c.repairedAt ? new Date(c.repairedAt).toLocaleDateString("tr-TR") : "",
+    c.status
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const csv = "\uFEFF" + [header, ...data].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Tepebasi_Konteynerler_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+}
+
+// 4. Şikayetler Raporu PDF & CSV
+function exportComplaintsPdf(complaintsList: any[], periodLabel: string) {
+  if (!complaintsList || !complaintsList.length) return;
+  const headers = ["ID", "Tarih", "Mahalle", "Adres", "Vatandaş Adı", "Şikayet Konusu", "Çözüm Tarihi", "Durum"];
+  const rows = complaintsList.map((cp, i) => `
+    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+      <td style="padding:7px 10px;font-weight:bold;">#${cp.id}</td>
+      <td style="padding:7px 10px;">${new Date(cp.createdAt).toLocaleDateString("tr-TR")}</td>
+      <td style="padding:7px 10px;font-weight:600;">${cp.neighborhood}</td>
+      <td style="padding:7px 10px;">${cp.addressText || "—"}</td>
+      <td style="padding:7px 10px;">${cp.citizenName || "Vatandaş"}</td>
+      <td style="padding:7px 10px;">${cp.description || "Temizlik Talebi"}</td>
+      <td style="padding:7px 10px;">${cp.resolvedAt ? new Date(cp.resolvedAt).toLocaleDateString("tr-TR") : "—"}</td>
+      <td style="padding:7px 10px;font-weight:bold;color:${cp.status === "çözüldü" ? "#047857" : "#b91c1c"};text-align:right;">
+        ${cp.status === "çözüldü" ? "✓ Çözüldü" : "Açık Şikayet"}
+      </td>
+    </tr>
+  `).join("");
+  const summary = `
+    <div class="summary-bar">
+      <div style="flex:1;">İncelenen Dönem: <strong>${periodLabel}</strong></div>
+      <div style="flex:1;">Toplam Başvuru: <strong>${complaintsList.length} Adet</strong></div>
+      <div style="flex:1;">Açık Bekleyen: <strong>${complaintsList.filter(c => c.status === "açık").length} Adet</strong></div>
+    </div>
+  `;
+  generateMunicipalPdfDoc("Vatandaş Şikayet Raporu", "Vatandaş Temizlik Talepleri ve Çözüm Takip Raporu", headers, rows, summary);
+}
+
+function exportComplaintsCsv(complaintsList: any[]) {
+  if (!complaintsList || !complaintsList.length) return;
+  const cols = ["ID", "Tarih", "Mahalle", "Adres", "Vatandaş", "Şikayet Detayı", "Çözüm Tarihi", "Durum"];
+  const header = cols.map(c => `"${c}"`).join(";");
+  const data = complaintsList.map(cp => [
+    cp.id,
+    new Date(cp.createdAt).toLocaleDateString("tr-TR"),
+    cp.neighborhood,
+    cp.addressText || "",
+    cp.citizenName || "",
+    cp.description || "",
+    cp.resolvedAt ? new Date(cp.resolvedAt).toLocaleDateString("tr-TR") : "",
+    cp.status
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const csv = "\uFEFF" + [header, ...data].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Tepebasi_Sikayetler_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+}
+
+// 5. Sistem Logları Raporu PDF & CSV
+function exportLogsPdf(logsList: any[]) {
+  if (!logsList || !logsList.length) return;
+  const headers = ["ID", "Zaman Damgası", "Kullanıcı", "Rol", "İşlem Türü", "Açıklama / Detay", "IP Adresi"];
+  const rows = logsList.map((l, i) => `
+    <tr style="border-bottom:1px solid #e2e8f0;background:${i % 2 === 0 ? '#fff' : '#f8fafc'};font-size:11px;">
+      <td style="padding:7px 10px;font-weight:bold;">#${l.id}</td>
+      <td style="padding:7px 10px;">${new Date(l.createdAt).toLocaleString("tr-TR")}</td>
+      <td style="padding:7px 10px;font-weight:600;">${l.userName || "Kullanıcı #" + l.userId}</td>
+      <td style="padding:7px 10px;">${l.userRole || "Kullanıcı"}</td>
+      <td style="padding:7px 10px;font-weight:bold;">${l.action}</td>
+      <td style="padding:7px 10px;">${l.details || "—"}</td>
+      <td style="padding:7px 10px;color:#64748b;">${l.ipAddress || "—"}</td>
+    </tr>
+  `).join("");
+  const summary = `
+    <div class="summary-bar">
+      <div style="flex:1;">Toplam Denetim Kaydı: <strong>${logsList.length} Log</strong></div>
+      <div style="flex:1;">Güvenlik Standardı: <strong>Değiştirilemez Zaman Damgalı</strong></div>
+    </div>
+  `;
+  generateMunicipalPdfDoc("Sistem Denetim Logları", "Sistem Güvenlik ve Denetim Logları Raporu", headers, rows, summary);
+}
+
+function exportLogsCsv(logsList: any[]) {
+  if (!logsList || !logsList.length) return;
+  const cols = ["ID", "Zaman", "Kullanıcı", "Rol", "İşlem", "Detay", "IP"];
+  const header = cols.map(c => `"${c}"`).join(";");
+  const data = logsList.map(l => [
+    l.id,
+    new Date(l.createdAt).toLocaleString("tr-TR"),
+    l.userName || "Kullanıcı #" + l.userId,
+    l.userRole || "",
+    l.action,
+    l.details || "",
+    l.ipAddress || ""
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  const csv = "\uFEFF" + [header, ...data].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Tepebasi_Sistem_Loglari_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+}
+
 function ReportsAndManagement({
   shifts,
   wasteList = [],
@@ -795,6 +1110,31 @@ function ReportsAndManagement({
   }, [complaints, auditPeriod, selectedDate, startDate, endDate]);
 
   // Genel Toplamlar
+  
+  // BUGÜN İÇİN SABİT SAHA YOĞUNLUĞU İSTATİSTİKLERİ (Seçilen filtreden bağımsız canlı nabız)
+  const todayDateStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const isCreatedToday = (d: any) => {
+    if (!d) return false;
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return false;
+    const s = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    return s === todayDateStr;
+  };
+
+  const todayShifts = useMemo(() => shifts.filter(s => isCreatedToday(s.startedAt)), [shifts, todayDateStr]);
+  const todayAuditTonnage = useMemo(() => {
+    return todayShifts.reduce((sum, s) => sum + Number(String(s.tonnage ?? "0").replace(",", ".")), 0);
+  }, [todayShifts]);
+  const todayActiveShiftsCount = useMemo(() => todayShifts.filter(s => s.status === "açık").length, [todayShifts]);
+  const todayWasteWaiting = useMemo(() => wasteList.filter(w => isCreatedToday(w.createdAt) && w.status === "bekliyor").length, [wasteList, todayDateStr]);
+  const todayContainersWaiting = useMemo(() => containers.filter(c => isCreatedToday(c.reportedAt) && c.status === "bekliyor").length, [containers, todayDateStr]);
+  const todayComplaintsOpen = useMemo(() => complaints.filter(c => isCreatedToday(c.createdAt) && c.status === "açık").length, [complaints, todayDateStr]);
+  const todayTotalWaiting = todayWasteWaiting + todayContainersWaiting + todayComplaintsOpen;
+
   const totalAuditTonnage = useMemo(() => {
     return periodShifts.reduce((sum, s) => sum + Number(String(s.tonnage ?? "0").replace(",", ".")), 0);
   }, [periodShifts]);
